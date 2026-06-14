@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔥 FIRE Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header>
+    <h1>🔥 <span>FIRE</span> Dashboard</h1>
+    <div class="header-right">
+      <!-- Real / Nominal toggle -->
+      <div class="mode-toggle" role="group" aria-label="Calculation mode">
+        <button id="btn-real" data-mode="real">Real Terms</button>
+        <button id="btn-nominal" data-mode="nominal" class="active">Nominal</button>
+      </div>
+      <!-- Export / Import -->
+      <button class="io-btn" id="btn-export">⬇ Export</button>
+      <button class="io-btn" id="btn-import">⬆ Import</button>
+      <input type="file" id="file-input" accept=".json" style="display:none" />
+    </div>
+  </header>
+
+  <!-- ── Main Grid ──────────────────────────────────────── -->
+  <main>
+
+    <!-- LEFT: Control Center -->
+    <aside>
+      <div class="panel">
+        <p class="panel-title">Control Center</p>
+
+        <!-- Portfolio -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Current Portfolio (€)</span>
+          </div>
+          <input type="number" id="input-portfolio" min="0" step="1000" value="50000" />
+        </div>
+
+        <!-- Income -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Yearly Net Income (€)</span>
+          </div>
+          <input type="number" id="input-income" min="0" step="1000" value="60000" />
+        </div>
+
+        <!-- Spending -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Yearly Spending (€)</span>
+          </div>
+          <input type="number" id="input-spending" min="0" step="1000" value="30000" />
+        </div>
+
+        <!-- Divider -->
+        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
+
+        <!-- Return Rate -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Expected Annual Return</span>
+            <span class="control-value" id="val-return">7%</span>
+          </div>
+          <input type="range" id="slider-return" min="0" max="15" step="0.5" value="7" />
+          <div class="macro-btns">
+            <button class="macro-btn" data-slider="slider-return" data-val="4">Conservative 4%</button>
+            <button class="macro-btn active-macro" data-slider="slider-return" data-val="7">Moderate 7%</button>
+            <button class="macro-btn" data-slider="slider-return" data-val="10">Optimistic 10%</button>
+          </div>
+        </div>
+
+        <!-- Inflation -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Expected Inflation</span>
+            <span class="control-value" id="val-inflation">2%</span>
+          </div>
+          <input type="range" id="slider-inflation" min="0" max="10" step="0.5" value="2" />
+          <div class="macro-btns">
+            <button class="macro-btn" data-slider="slider-inflation" data-val="1">Low 1%</button>
+            <button class="macro-btn active-macro" data-slider="slider-inflation" data-val="2">Target 2%</button>
+            <button class="macro-btn" data-slider="slider-inflation" data-val="4">High 4%</button>
+          </div>
+        </div>
+
+        <!-- Withdrawal Rate -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Safe Withdrawal Rate</span>
+            <span class="control-value" id="val-withdrawal">4%</span>
+          </div>
+          <input type="range" id="slider-withdrawal" min="1" max="10" step="0.5" value="4" />
+          <div class="macro-btns">
+            <button class="macro-btn" data-slider="slider-withdrawal" data-val="3">Cautious 3%</button>
+            <button class="macro-btn active-macro" data-slider="slider-withdrawal" data-val="4">Common 4%</button>
+            <button class="macro-btn" data-slider="slider-withdrawal" data-val="5">Aggressive 5%</button>
+          </div>
+        </div>
+
+      </div><!-- /panel -->
+    </aside>
+
+    <!-- RIGHT: Dashboard Viewport -->
+    <section class="dashboard">
+
+      <!-- Notice banner (shown when savings ≤ 0) -->
+      <div id="notice-banner">
+        ⚠️ With current income and spending, retirement is unattainable. Increase income or reduce spending to generate positive savings.
+      </div>
+
+      <!-- KPI Row -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">FI Number</div>
+          <div class="kpi-value" id="kpi-fi-number">€750,000</div>
+          <div class="kpi-sub" id="kpi-fi-sub">Covers €30,000/yr · €2,500/mo</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Years to FIRE</div>
+          <div class="kpi-value" id="kpi-years">—</div>
+          <div class="kpi-sub" id="kpi-years-sub">Savings rate: —</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-panel">
+        <p class="panel-title">Portfolio Growth Projection</p>
+        <canvas id="fi-chart"></canvas>
+      </div>
+
+      <!-- Milestones -->
+      <div class="milestones-panel">
+        <p class="panel-title">Milestones</p>
+        <ul class="milestone-list" id="milestone-list">
+          <li class="milestone-item" data-milestone="100k">
+            <div class="milestone-check">✓</div>
+            <span class="milestone-icon">🏁</span>
+            <span class="milestone-name">First €100k</span>
+            <span class="milestone-threshold" id="ms-100k-val">€100,000</span>
+          </li>
+          <li class="milestone-item" data-milestone="25pct">
+            <div class="milestone-check">✓</div>
+            <span class="milestone-icon">🌱</span>
+            <span class="milestone-name">Quarter FI (25%)</span>
+            <span class="milestone-threshold" id="ms-25pct-val">—</span>
+          </li>
+          <li class="milestone-item" data-milestone="50pct">
+            <div class="milestone-check">✓</div>
+            <span class="milestone-icon">⚖️</span>
+            <span class="milestone-name">Half FI (50%)</span>
+            <span class="milestone-threshold" id="ms-50pct-val">—</span>
+          </li>
+          <li class="milestone-item" data-milestone="75pct">
+            <div class="milestone-check">✓</div>
+            <span class="milestone-icon">🛟</span>
+            <span class="milestone-name">Lean FI (75%)</span>
+            <span class="milestone-threshold" id="ms-75pct-val">—</span>
+          </li>
+          <li class="milestone-item" data-milestone="100pct">
+            <div class="milestone-check">✓</div>
+            <span class="milestone-icon">🔥</span>
+            <span class="milestone-name">Full FIRE! (100%)</span>
+            <span class="milestone-threshold" id="ms-100pct-val">—</span>
+          </li>
+        </ul>
+      </div>
+
+    </section><!-- /dashboard -->
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
