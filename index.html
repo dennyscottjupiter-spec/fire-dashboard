@@ -11,14 +11,13 @@
 
   <!-- ── Header ─────────────────────────────────────────── -->
   <header>
-    <h1>🔥 <span>FIRE</span> Dashboard</h1>
+    <h1>🔥 <span class="brand">FIRE</span> Dashboard</h1>
     <div class="header-right">
       <!-- Real / Nominal toggle -->
       <div class="mode-toggle" role="group" aria-label="Calculation mode">
         <button id="btn-real" data-mode="real">Real Terms</button>
         <button id="btn-nominal" data-mode="nominal" class="active">Nominal</button>
       </div>
-      <!-- Export / Import -->
       <button class="io-btn" id="btn-export">⬇ Export</button>
       <button class="io-btn" id="btn-import">⬆ Import</button>
       <input type="file" id="file-input" accept=".json" style="display:none" />
@@ -31,45 +30,65 @@
     <!-- LEFT: Control Center -->
     <aside>
       <div class="panel">
-        <p class="panel-title">Control Center</p>
+        <p class="panel-title has-tip" tabindex="0"
+           data-tip="Your inputs live here. Change any value and the whole dashboard recalculates instantly — no button needed.">
+          🎛️ Control Center
+        </p>
 
         <!-- Portfolio -->
         <div class="control-group">
           <div class="control-label">
-            <span>Current Portfolio (€)</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="What your investments are worth today. This is your starting pot — the money already working for you.">
+              💰 Current Portfolio (€)
+            </span>
           </div>
-          <input type="number" id="input-portfolio" min="0" step="1000" value="50000" />
+          <input type="text" inputmode="numeric" id="input-portfolio"
+                 class="euro-input" value="50000" placeholder="e.g. 50,000" autocomplete="off" />
         </div>
 
         <!-- Income -->
         <div class="control-group">
           <div class="control-label">
-            <span>Yearly Net Income (€)</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="Money you take home per year, after all taxes. The gross you see on your contract minus what the taxman keeps.">
+              💵 Yearly Net Income (€)
+            </span>
           </div>
-          <input type="number" id="input-income" min="0" step="1000" value="60000" />
+          <input type="text" inputmode="numeric" id="input-income"
+                 class="euro-input" value="60000" placeholder="e.g. 60,000" autocomplete="off" />
         </div>
 
         <!-- Spending -->
         <div class="control-group">
           <div class="control-label">
-            <span>Yearly Spending (€)</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="Everything you spend in a year: rent, food, travel, fun. The gap between income and spending is what you invest.">
+              🛒 Yearly Spending (€)
+            </span>
           </div>
-          <input type="number" id="input-spending" min="0" step="1000" value="30000" />
+          <input type="text" inputmode="numeric" id="input-spending"
+                 class="euro-input" value="30000" placeholder="e.g. 30,000" autocomplete="off" />
         </div>
 
-        <!-- Divider -->
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
         <!-- Return Rate -->
         <div class="control-group">
           <div class="control-label">
-            <span>Expected Annual Return</span>
-            <span class="control-value" id="val-return">7%</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="How much your investments grow per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
+              📈 Expected Annual Return
+            </span>
+            <span class="rate-display">
+              <input type="text" inputmode="decimal" class="value-box" id="val-return" value="7" />
+              <span class="pct-sign">%</span>
+            </span>
           </div>
           <input type="range" id="slider-return" min="0" max="15" step="0.5" value="7" />
           <div class="macro-btns">
             <button class="macro-btn" data-slider="slider-return" data-val="4">Conservative 4%</button>
-            <button class="macro-btn active-macro" data-slider="slider-return" data-val="7">Moderate 7%</button>
+            <button class="macro-btn" data-slider="slider-return" data-val="7">Moderate 7%</button>
             <button class="macro-btn" data-slider="slider-return" data-val="10">Optimistic 10%</button>
           </div>
         </div>
@@ -77,13 +96,19 @@
         <!-- Inflation -->
         <div class="control-group">
           <div class="control-label">
-            <span>Expected Inflation</span>
-            <span class="control-value" id="val-inflation">2%</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="How fast prices rise each year, silently eroding the value of your money. ~2% is the central-bank target in most developed countries.">
+              📉 Expected Inflation
+            </span>
+            <span class="rate-display">
+              <input type="text" inputmode="decimal" class="value-box" id="val-inflation" value="2" />
+              <span class="pct-sign">%</span>
+            </span>
           </div>
           <input type="range" id="slider-inflation" min="0" max="10" step="0.5" value="2" />
           <div class="macro-btns">
             <button class="macro-btn" data-slider="slider-inflation" data-val="1">Low 1%</button>
-            <button class="macro-btn active-macro" data-slider="slider-inflation" data-val="2">Target 2%</button>
+            <button class="macro-btn" data-slider="slider-inflation" data-val="2">Target 2%</button>
             <button class="macro-btn" data-slider="slider-inflation" data-val="4">High 4%</button>
           </div>
         </div>
@@ -91,13 +116,19 @@
         <!-- Withdrawal Rate -->
         <div class="control-group">
           <div class="control-label">
-            <span>Safe Withdrawal Rate</span>
-            <span class="control-value" id="val-withdrawal">4%</span>
+            <span class="has-tip" tabindex="0"
+                  data-tip="The % of your pot you can safely withdraw each year in retirement, without running out of money. 4% is the classic 'Trinity Study' rule of thumb.">
+              🏦 Safe Withdrawal Rate
+            </span>
+            <span class="rate-display">
+              <input type="text" inputmode="decimal" class="value-box" id="val-withdrawal" value="4" />
+              <span class="pct-sign">%</span>
+            </span>
           </div>
           <input type="range" id="slider-withdrawal" min="1" max="10" step="0.5" value="4" />
           <div class="macro-btns">
             <button class="macro-btn" data-slider="slider-withdrawal" data-val="3">Cautious 3%</button>
-            <button class="macro-btn active-macro" data-slider="slider-withdrawal" data-val="4">Common 4%</button>
+            <button class="macro-btn" data-slider="slider-withdrawal" data-val="4">Common 4%</button>
             <button class="macro-btn" data-slider="slider-withdrawal" data-val="5">Aggressive 5%</button>
           </div>
         </div>
@@ -108,7 +139,7 @@
     <!-- RIGHT: Dashboard Viewport -->
     <section class="dashboard">
 
-      <!-- Notice banner (shown when savings ≤ 0) -->
+      <!-- Notice banner -->
       <div id="notice-banner">
         ⚠️ With current income and spending, retirement is unattainable. Increase income or reduce spending to generate positive savings.
       </div>
@@ -116,12 +147,18 @@
       <!-- KPI Row -->
       <div class="kpi-row">
         <div class="kpi-card">
-          <div class="kpi-label">FI Number</div>
+          <div class="kpi-label has-tip" tabindex="0"
+               data-tip="Your target nest egg. Once your pot reaches this number, investment returns alone can fund your lifestyle — you don't need to work anymore.">
+            🎯 FI Number
+          </div>
           <div class="kpi-value" id="kpi-fi-number">€750,000</div>
           <div class="kpi-sub" id="kpi-fi-sub">Covers €30,000/yr · €2,500/mo</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Years to FIRE</div>
+          <div class="kpi-label has-tip tip-right" tabindex="0"
+               data-tip="How many years until your pot reaches the FI Number at your current savings pace and expected return. Also shows your savings rate (SR) — a key FIRE metric.">
+            ⏳ Years to FIRE
+          </div>
           <div class="kpi-value" id="kpi-years">—</div>
           <div class="kpi-sub" id="kpi-years-sub">Savings rate: —</div>
         </div>
@@ -129,13 +166,19 @@
 
       <!-- Chart -->
       <div class="chart-panel">
-        <p class="panel-title">Portfolio Growth Projection</p>
+        <p class="panel-title has-tip" tabindex="0"
+           data-tip="Blue line = your portfolio growing over time. Dashed line = the FI target you need to hit. When the blue crosses the dashed, you're financially independent.">
+          📊 Portfolio Growth Projection
+        </p>
         <canvas id="fi-chart"></canvas>
       </div>
 
       <!-- Milestones -->
       <div class="milestones-panel">
-        <p class="panel-title">Milestones</p>
+        <p class="panel-title has-tip" tabindex="0"
+           data-tip="Progress checkpoints on your journey to FI. Each one lights up green as soon as your current portfolio crosses that threshold.">
+          🏆 Milestones
+        </p>
         <ul class="milestone-list" id="milestone-list">
           <li class="milestone-item" data-milestone="100k">
             <div class="milestone-check">✓</div>
@@ -170,7 +213,7 @@
         </ul>
       </div>
 
-    </section><!-- /dashboard -->
+    </section>
   </main>
 </div>
 
