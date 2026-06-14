@@ -1,0 +1,363 @@
+/* ============================================================
+   FIRE Dashboard — VS Code Dark Theme
+   ============================================================ */
+
+:root {
+  --bg:      #1e1e1e;
+  --panel:   #252526;
+  --track:   #3c3c3c;
+  --text:    #ffffff;
+  --muted:   #aaaaaa;
+  --accent:  #007acc;
+  --success: #4ec9b0;
+  --warn:    #f14c4c;
+  --border:  rgba(255,255,255,0.08);
+  --radius:  8px;
+  --gap:     20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── App Shell ───────────────────────────────────────────── */
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+header h1 span { color: var(--accent); }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Mode Toggle ─────────────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: var(--track);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 0;
+}
+.mode-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 5px 14px;
+  border-radius: 18px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.mode-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Export/Import Buttons ───────────────────────────────── */
+.io-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.io-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Main Grid ───────────────────────────────────────────── */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--gap);
+  padding: var(--gap) 24px 24px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; }
+}
+
+/* ── Panels ──────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+/* ── Control Groups ──────────────────────────────────────── */
+.control-group {
+  margin-bottom: 22px;
+}
+.control-group:last-child { margin-bottom: 0; }
+
+.control-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.control-label span:first-child {
+  font-size: 13px;
+  color: var(--muted);
+}
+.control-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Number Inputs ───────────────────────────────────────── */
+input[type="number"] {
+  width: 100%;
+  background: var(--track);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type="number"]:focus {
+  border-color: var(--accent);
+}
+
+/* ── Sliders ─────────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+  outline: none;
+  cursor: pointer;
+  margin: 6px 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--accent);
+  transition: transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--panel);
+}
+
+/* ── Macro Buttons ───────────────────────────────────────── */
+.macro-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.macro-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--track);
+  color: var(--muted);
+  padding: 4px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+.macro-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.macro-btn.active-macro {
+  background: rgba(0,122,204,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Dashboard Right Column ──────────────────────────────── */
+.dashboard { display: flex; flex-direction: column; gap: var(--gap); }
+
+/* ── KPI Row ─────────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+@media (max-width: 500px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.kpi-card .kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.kpi-card .kpi-value {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.kpi-card .kpi-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* warning state */
+.kpi-value.warn { color: var(--warn); }
+
+/* ── Notice banner ───────────────────────────────────────── */
+#notice-banner {
+  background: rgba(241,76,76,0.12);
+  border: 1px solid rgba(241,76,76,0.35);
+  border-radius: var(--radius);
+  color: var(--warn);
+  padding: 10px 14px;
+  font-size: 13px;
+  display: none;
+}
+#notice-banner.visible { display: block; }
+
+/* ── Chart Panel ─────────────────────────────────────────── */
+.chart-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.chart-panel canvas {
+  max-height: 300px;
+}
+
+/* ── Milestones ──────────────────────────────────────────── */
+.milestones-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.milestone-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.milestone-item.achieved {
+  border-color: var(--success);
+  background: rgba(78,201,176,0.06);
+}
+.milestone-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--track);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.milestone-item.achieved .milestone-check {
+  border-color: var(--success);
+  background: var(--success);
+  color: #1e1e1e;
+  font-weight: 700;
+}
+.milestone-icon { font-size: 16px; }
+.milestone-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+}
+.milestone-item.achieved .milestone-name { color: var(--success); }
+.milestone-threshold {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
