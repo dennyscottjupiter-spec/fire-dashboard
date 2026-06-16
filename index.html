@@ -15,11 +15,24 @@
     <div class="header-right">
       <!-- Real / Nominal toggle -->
       <div class="mode-toggle" role="group" aria-label="Calculation mode">
-        <button id="btn-real" data-mode="real">Real Terms</button>
-        <button id="btn-nominal" data-mode="nominal" class="active">Nominal</button>
+        <button id="btn-real" data-mode="real"
+                class="has-tip tip-right" tabindex="0"
+                data-tip="Real Terms: strips out inflation so all values are in today's purchasing power. Contributions are also deflated. The curve is lower but more honest.">
+          Real Terms
+        </button>
+        <button id="btn-nominal" data-mode="nominal" class="active has-tip tip-right" tabindex="0"
+                data-tip="Nominal: shows raw future euro amounts including inflation. Bigger numbers, but a 2026 euro is worth less than a 2046 euro.">
+          Nominal
+        </button>
       </div>
-      <button class="io-btn" id="btn-export">⬇ Export</button>
-      <button class="io-btn" id="btn-import">⬆ Import</button>
+      <button class="io-btn has-tip tip-right" id="btn-export" tabindex="0"
+              data-tip="Download your current settings as a JSON file. Share it or reload it later with Import.">
+        ⬇ Export
+      </button>
+      <button class="io-btn has-tip tip-right" id="btn-import" tabindex="0"
+              data-tip="Load a previously exported JSON file to restore your saved settings.">
+        ⬆ Import
+      </button>
       <input type="file" id="file-input" accept=".json" style="display:none" />
     </div>
   </header>

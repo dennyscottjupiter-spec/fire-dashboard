@@ -95,6 +95,7 @@ header h1 .brand { color: var(--accent); }
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
   letter-spacing: 0.2px;
+  position: relative; /* needed for .has-tip tooltip positioning */
 }
 .mode-toggle button.active {
   background: var(--accent);
@@ -105,18 +106,32 @@ header h1 .brand { color: var(--accent); }
 
 /* ── IO Buttons ──────────────────────────────────────────── */
 .io-btn {
-  background: transparent;
-  border: 1px solid var(--border-hi);
-  color: var(--muted);
   padding: 5px 13px;
   border-radius: var(--radius);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 500;
-  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+  font-weight: 600;
   white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  position: relative;
 }
-.io-btn:hover {
+/* Export — accent-tinted so it reads as the primary action */
+#btn-export {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+#btn-export:hover {
+  background: rgba(14,165,233,0.28);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+/* Import — neutral elevated, clearly a pair with Export */
+#btn-import {
+  background: var(--panel-alt);
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+}
+#btn-import:hover {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-dim);
@@ -173,7 +188,9 @@ span.has-tip {
   min-width: 210px;
   max-width: 260px;
   width: max-content;
-  background: #0d1a26;
+  background: rgba(13, 26, 38, 0.65);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--accent);
   border-radius: 7px;
   color: #c8e6f7;
@@ -191,7 +208,7 @@ span.has-tip {
   font-variant-numeric: normal;
   text-transform: none;
   letter-spacing: 0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
 }
 
 /* Arrow pointing UP (between element and card below) */
