@@ -1,22 +1,26 @@
 /* ============================================================
-   FIRE Dashboard v1.1 — app.js
-   State → Math Engine → Chart.js → Milestones → Export/Import
+   FIRE Dashboard v1.2 — app.js
+   State → DOM → Chart.js → Milestones → Export/Import
+   Pure math lives in engine.js (parseNum, runProjection, etc.)
    ============================================================ */
 
 'use strict';
 
 /* ── 1. State ─────────────────────────────────────────────── */
 const state = {
-  portfolio:  50000,
-  income:     60000,
-  spending:   30000,
-  returnRate: 7,      // %
-  inflation:  2,      // %
-  withdrawal: 4,      // %
-  mode:       'nominal'
+  portfolio:    50000,
+  income:       60000,
+  spending:     30000,
+  returnRate:   7,        // %
+  inflation:    2,        // %
+  withdrawal:   4,        // %
+  mode:         'nominal',
+  taxMode:      'none',   // 'none' | 'box3' | 'custom'
+  taxCustomPct: 0,        // % for custom tax mode
+  currentAge:   30,       // for FIRE-year + Coast FI
 };
 
-/* ── 2. Formatters & helpers ──────────────────────────────── */
+/* ── 2. Formatters ────────────────────────────────────────── */
 
 // €10,000 format (en-IE = English + Euro, comma grouping, € prefix)
 const eur = new Intl.NumberFormat('en-IE', {
@@ -27,48 +31,6 @@ const eur = new Intl.NumberFormat('en-IE', {
 
 // Plain comma-grouped number for inputs (no € symbol)
 const numFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-
-// Strip formatting, parse to integer (handles "50,000" → 50000)
-function parseNum(str) {
-  const n = parseInt(String(str).replace(/[^\d]/g, ''), 10);
-  return isNaN(n) ? 0 : n;
-}
-
-/* ── 3. Math Engine ───────────────────────────────────────── */
-function runProjection(s) {
-  const r    = s.returnRate / 100;
-  const infl = s.inflation  / 100;
-  const wr   = s.withdrawal / 100;
-  const savings     = s.income - s.spending;
-  const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
-  const fiTarget    = wr > 0 ? s.spending / wr : Infinity;
-  const unattainable = savings <= 0 && s.portfolio < fiTarget;
-
-  const MAX_YEARS = 50;
-  const data = [];
-  let P  = s.portfolio;
-  let FI = fiTarget;
-  let yearsToFI = null;
-
-  data.push({ year: 0, portfolio: P, fi: FI });
-  if (P >= fiTarget) yearsToFI = 0;
-
-  for (let t = 1; t <= MAX_YEARS; t++) {
-    if (s.mode === 'real') {
-      const realReturn = (1 + r) / (1 + infl) - 1;
-      P = P * (1 + realReturn) + savings;
-      // FI stays fixed in real-terms mode
-    } else {
-      P  = P  * (1 + r) + savings;
-      FI = FI * (1 + infl);
-    }
-
-    data.push({ year: t, portfolio: P, fi: FI });
-    if (yearsToFI === null && P >= FI) yearsToFI = t;
-  }
-
-  return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data };
-}
 
 /* ── 4. DOM refs ──────────────────────────────────────────── */
 const $ = id => document.getElementById(id);

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FIRE Engine — Tests</title>
+  <style>
+    body { font-family: ui-monospace, "SF Mono", monospace; background: #1a1a1b; color: #f0f0f0; padding: 28px; font-size: 13px; line-height: 1.6; }
+    h1   { color: #0ea5e9; margin-bottom: 4px; font-size: 18px; }
+    p    { color: #8a8a8a; margin: 0 0 20px; font-size: 12px; }
+    h2   { color: #8a8a8a; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0 6px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 14px; }
+    .pass { color: #22d3a0; }
+    .fail { color: #f43f5e; }
+    #summary { margin-top: 24px; font-size: 14px; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1>🔬 FIRE Engine — Test Suite</h1>
+<p>Open this file in a browser. All tests run in-page against engine.js.</p>
+<pre id="out"></pre>
+<div id="summary"></div>
+<script src="engine.js"></script>
+<script>
+'use strict';
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+
+function assert(label, ok, got, expected) {
+  if (ok) {
+    pass++;
+    out.innerHTML += `<span class="pass">✅</span>  ${label}\n`;
+  } else {
+    fail++;
+    out.innerHTML += `<span class="fail">❌</span>  ${label}\n       got      : ${got}\n       expected : ${expected}\n`;
+  }
+}
+function group(name) { out.innerHTML += `\n<b style="color:#8a8a8a">${name}</b>\n`; }
+function near(a, b, eps = 0.01) { return Math.abs(a - b) <= eps; }
+
+// ── parseNum ──────────────────────────────────────────────
+group('parseNum');
+assert('parseNum("50,000")',    parseNum('50,000')    === 50000, parseNum('50,000'),    50000);
+assert('parseNum("1,234,567")',parseNum('1,234,567') === 1234567, parseNum('1,234,567'), 1234567);
+assert('parseNum("")',         parseNum('')          === 0,     parseNum(''),          0);
+assert('parseNum("abc")',      parseNum('abc')       === 0,     parseNum('abc'),       0);
+assert('parseNum("100")',      parseNum('100')       === 100,   parseNum('100'),       100);
+
+// ── box3Tax ───────────────────────────────────────────────
+group('box3Tax');
+assert('no tax below allowance',    box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
+const expected3 = 0.36 * 0.0604 * (100000 - 57000);
+assert('tax above allowance (t=0)', near(box3Tax(100000, 0, 0.02, false), expected3), box3Tax(100000, 0, 0.02, false).toFixed(4), expected3.toFixed(4));
+// Real mode deflates allowance — tax base is slightly larger
+const box3Real = box3Tax(100000, 5, 0.02, true);
+const box3Nom  = box3Tax(100000, 5, 0.02, false);
+assert('real-mode allowance deflates → larger tax than nominal', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
+
+// ── runProjection — basic nominal ─────────────────────────
+group('runProjection — nominal, no tax');
+const s1 = { portfolio: 50000, income: 60000, spending: 30000, returnRate: 7, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none' };
+const r1 = runProjection(s1);
+assert('FI target = spending / (wr/100)',  near(r1.fiTarget, 750000),   r1.fiTarget,   750000);
+assert('savings = income − spending',      r1.savings === 30000,         r1.savings,    30000);
+assert('savingsRate = 50%',               near(r1.savingsRate, 50),     r1.savingsRate, 50);
+assert('yearsToFI is finite and > 0',     r1.yearsToFI > 0,            r1.yearsToFI,  '>0');
+assert('data length = 51 (yr 0–50)',      r1.data.length === 51,        r1.data.length, 51);
+
+// ── runProjection — already FI ────────────────────────────
+group('runProjection — already FI');
+const r2 = runProjection({ ...s1, portfolio: 800000 });
+assert('yearsToFI === 0 when already FI', r2.yearsToFI === 0, r2.yearsToFI, 0);
+
+// ── runProjection — unattainable ──────────────────────────
+group('runProjection — unattainable (spending > income)');
+const r3 = runProjection({ ...s1, income: 20000 });
+assert('unattainable flag is true',  r3.unattainable === true, r3.unattainable, true);
+assert('yearsToFI is null',          r3.yearsToFI === null,    r3.yearsToFI,    null);
+
+// ── runProjection — Real mode bug fix ─────────────────────
+group('runProjection — Real mode vs Nominal (deflated contributions)');
+const r4nom = runProjection({ ...s1, mode: 'nominal' });
+const r4rl  = runProjection({ ...s1, mode: 'real' });
+// Real portfolio at yr 50 should be lower because contributions are deflated
+assert('Real yr-50 portfolio < Nominal yr-50 (deflated contributions)',
+  r4rl.data[50].portfolio < r4nom.data[50].portfolio,
+  Math.round(r4rl.data[50].portfolio), '< ' + Math.round(r4nom.data[50].portfolio));
+// Sanity: no blow-up in real mode
+assert('Real yr-50 portfolio is finite and positive',
+  Number.isFinite(r4rl.data[50].portfolio) && r4rl.data[50].portfolio > 0,
+  r4rl.data[50].portfolio.toFixed(0), '>0');
+
+// ── runProjection — Box-3 tax drag ────────────────────────
+group('runProjection — Box-3 tax slows growth');
+const r5notax = runProjection({ ...s1, taxMode: 'none' });
+const r5box3  = runProjection({ ...s1, taxMode: 'box3' });
+assert('Box-3 yr-20 portfolio < no-tax yr-20',
+  r5box3.data[20].portfolio < r5notax.data[20].portfolio,
+  Math.round(r5box3.data[20].portfolio), '< ' + Math.round(r5notax.data[20].portfolio));
+
+// ── runProjection — Custom tax ────────────────────────────
+group('runProjection — Custom tax');
+const r6custom = runProjection({ ...s1, taxMode: 'custom', taxCustomPct: 20 });
+assert('Custom-20% yr-20 portfolio < no-tax yr-20',
+  r6custom.data[20].portfolio < r5notax.data[20].portfolio,
+  Math.round(r6custom.data[20].portfolio), '< ' + Math.round(r5notax.data[20].portfolio));
+
+// ── coastFiTarget ─────────────────────────────────────────
+group('coastFiTarget');
+const fi = 750000, realReturn = 0.05;
+const coast30 = coastFiTarget(fi, 30, realReturn);
+const coast65 = coastFiTarget(fi, 65, realReturn);
+assert('Coast FI at age 30 < Full FI',        coast30 < fi,   coast30.toFixed(0), '< ' + fi);
+assert('Coast FI at age 65 === Full FI',       near(coast65, fi, 1), coast65.toFixed(0), fi);
+assert('Coast FI at age 64 slightly < Full FI', coastFiTarget(fi, 64, realReturn) < fi, '< fi', fi);
+
+// ── Summary ───────────────────────────────────────────────
+const total = pass + fail;
+document.getElementById('summary').innerHTML =
+  `${total} tests — <span class="pass">${pass} passed</span>` +
+  (fail > 0 ? `, <span class="fail">${fail} failed</span>` : ' — all green 🎉');
+</script>
+</body>
+</html>
