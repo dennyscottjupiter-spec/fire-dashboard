@@ -68,6 +68,56 @@ const els = {
 
 /* ── 5. Chart.js Setup ────────────────────────────────────── */
 let chart;
+let chartReady = false;
+
+// Inline plugin: draws a vertical crossover line + dot + label when FI is reached.
+const crossoverPlugin = {
+  id: 'fireMarker',
+  afterDatasetsDraw(ch) {
+    const yr = ch.$fireYear;
+    if (yr == null || yr < 1) return;
+    const meta = ch.getDatasetMeta(0);
+    if (!meta || !meta.data[yr]) return;
+
+    const pt   = meta.data[yr];
+    const ctx2 = ch.ctx;
+    const top  = ch.chartArea.top;
+    const bot  = ch.chartArea.bottom;
+
+    ctx2.save();
+
+    // Vertical dashed line
+    ctx2.beginPath();
+    ctx2.setLineDash([5, 4]);
+    ctx2.strokeStyle = 'rgba(34,211,160,0.55)';
+    ctx2.lineWidth   = 1.5;
+    ctx2.moveTo(pt.x, top);
+    ctx2.lineTo(pt.x, bot);
+    ctx2.stroke();
+
+    // Glow dot on portfolio line
+    ctx2.setLineDash([]);
+    ctx2.beginPath();
+    ctx2.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+    ctx2.fillStyle   = 'rgba(34,211,160,0.25)';
+    ctx2.fill();
+    ctx2.beginPath();
+    ctx2.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+    ctx2.fillStyle   = '#22d3a0';
+    ctx2.fill();
+
+    // Label: "🔥 Yr N"
+    const label = `🔥 Yr ${yr}`;
+    ctx2.font        = 'bold 11px ui-monospace, SF Mono, monospace';
+    ctx2.fillStyle   = '#22d3a0';
+    ctx2.textAlign   = pt.x > ch.chartArea.right - 60 ? 'right' : 'left';
+    ctx2.textBaseline = 'bottom';
+    const labelX = ctx2.textAlign === 'right' ? pt.x - 8 : pt.x + 8;
+    ctx2.fillText(label, labelX, pt.y - 8);
+
+    ctx2.restore();
+  }
+};
 
 function initChart() {
   const ctx = $('fi-chart').getContext('2d');
@@ -101,6 +151,7 @@ function initChart() {
         }
       ]
     },
+    plugins: [crossoverPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: true,
@@ -147,6 +198,7 @@ function initChart() {
       }
     }
   });
+  chartReady = true;
 }
 
 /* ── 6. Milestone definitions & renderer ─────────────────── */
@@ -240,10 +292,13 @@ function recalc() {
   els.notice.classList.toggle('visible', unattainable);
 
   // ── Chart
-  chart.data.labels            = data.map(d => `Yr ${d.year}`);
-  chart.data.datasets[0].data  = data.map(d => Math.round(d.portfolio));
-  chart.data.datasets[1].data  = data.map(d => Math.round(d.fi));
-  chart.update();
+  if (chartReady) {
+    chart.$fireYear              = (yearsToFI !== null && yearsToFI <= 50) ? yearsToFI : null;
+    chart.data.labels            = data.map(d => `Yr ${d.year}`);
+    chart.data.datasets[0].data  = data.map(d => Math.round(d.portfolio));
+    chart.data.datasets[1].data  = data.map(d => Math.round(d.fi));
+    chart.update();
+  }
 
   // ── Milestones (at t=0, mode-independent)
   const realReturn = (1 + state.returnRate / 100) / (1 + state.inflation / 100) - 1;
