@@ -272,7 +272,29 @@ function bindRange(slider, box, sliderMax, [capMin, capMax]) {
   });
 }
 
-/* ── 10. Wire all inputs ──────────────────────────────────── */
+/* ── 10. Rate stepper ────────────────────────────────────── */
+// Nudges a rate box by `delta`, respects its cap, re-pins the slider.
+// configs keyed by box id for cap lookup.
+const RATE_CFG = {
+  'val-return':     { slider: 'slider-return',     sliderMax: 15, capMin: 0,   capMax: 50  },
+  'val-inflation':  { slider: 'slider-inflation',  sliderMax: 10, capMin: 0,   capMax: 50  },
+  'val-withdrawal': { slider: 'slider-withdrawal', sliderMax: 10, capMin: 0.5, capMax: 20  },
+};
+
+function stepRate(boxId, delta) {
+  const cfg    = RATE_CFG[boxId];
+  if (!cfg) return;
+  const box    = $(boxId);
+  const slider = $(cfg.slider);
+  const curr   = parseFloat(box.value) || cfg.capMin;
+  const next   = Math.min(cfg.capMax, Math.max(cfg.capMin, parseFloat((curr + delta).toFixed(1))));
+  box.value        = next;
+  box._lastValid   = next;
+  slider.value     = Math.min(next, cfg.sliderMax);
+  recalc();
+}
+
+/* ── 11. Wire all inputs ──────────────────────────────────── */
 function wireInputs() {
 
   // € grouped inputs: fire recalc on input, format on blur, strip on focus
@@ -292,6 +314,21 @@ function wireInputs() {
   bindRange(els.sliderReturn, els.valReturn, 15,  [0,   50]);
   bindRange(els.sliderInfl,   els.valInfl,   10,  [0,   50]);
   bindRange(els.sliderWR,     els.valWR,     10,  [0.5, 20]);
+
+  // Stepper buttons (▲/▼)
+  document.querySelectorAll('.stepper-btn').forEach(btn => {
+    btn.addEventListener('click', () =>
+      stepRate(btn.dataset.box, parseFloat(btn.dataset.dir) * 0.5)
+    );
+  });
+
+  // ArrowUp/Down keyboard on each rate box
+  [els.valReturn, els.valInfl, els.valWR].forEach(box => {
+    box.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp')   { e.preventDefault(); stepRate(box.id, +0.5); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); stepRate(box.id, -0.5); }
+    });
+  });
 
   // Macro preset buttons — set both slider and box
   document.querySelectorAll('.macro-btn').forEach(btn => {
@@ -336,7 +373,7 @@ function wireInputs() {
   });
 }
 
-/* ── 11. Export / Import ──────────────────────────────────── */
+/* ── 12. Export / Import ──────────────────────────────────── */
 function exportConfig() {
   const config = {
     portfolio:    state.portfolio,
@@ -439,7 +476,7 @@ els.fileInput.addEventListener('change', e => {
   els.fileInput.value = '';
 });
 
-/* ── 12. Boot ─────────────────────────────────────────────── */
+/* ── 13. Boot ─────────────────────────────────────────────── */
 initChart();
 wireInputs();
 
