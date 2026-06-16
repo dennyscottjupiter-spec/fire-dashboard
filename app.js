@@ -55,6 +55,13 @@ const els = {
   btnExport:    $('btn-export'),
   btnImport:    $('btn-import'),
   fileInput:    $('file-input'),
+  // Tax
+  btnTaxNone:   $('btn-tax-none'),
+  btnTaxBox3:   $('btn-tax-box3'),
+  btnTaxCustom: $('btn-tax-custom'),
+  taxBox3Info:  $('tax-box3-info'),
+  taxCustomRow: $('tax-custom-row'),
+  valTaxCustom: $('val-tax-custom'),
 };
 
 /* ── 5. Chart.js Setup ────────────────────────────────────── */
@@ -180,9 +187,10 @@ function recalc() {
   state.spending   = Math.max(0, parseNum(els.spending.value));
 
   // Rate fields read from the editable value-boxes (source of truth)
-  state.returnRate = parseFloat(els.valReturn.value)  || 0;
-  state.inflation  = parseFloat(els.valInfl.value)    || 0;
-  state.withdrawal = parseFloat(els.valWR.value)      || 0;
+  state.returnRate   = parseFloat(els.valReturn.value)    || 0;
+  state.inflation    = parseFloat(els.valInfl.value)      || 0;
+  state.withdrawal   = parseFloat(els.valWR.value)        || 0;
+  state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
 
   refreshMacroActive();
 
@@ -306,18 +314,41 @@ function wireInputs() {
       recalc();
     });
   });
+
+  // Tax toggle
+  function applyTaxMode(mode) {
+    state.taxMode = mode;
+    [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(b =>
+      b.classList.toggle('active-tax', b.dataset.tax === mode)
+    );
+    els.taxBox3Info.style.display  = mode === 'box3'   ? 'block' : 'none';
+    els.taxCustomRow.style.display = mode === 'custom' ? 'flex'  : 'none';
+    recalc();
+  }
+  [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(btn =>
+    btn.addEventListener('click', () => applyTaxMode(btn.dataset.tax))
+  );
+  els.valTaxCustom.addEventListener('input', recalc);
+  els.valTaxCustom.addEventListener('blur', () => {
+    const v = parseFloat(els.valTaxCustom.value);
+    els.valTaxCustom.value = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+    recalc();
+  });
 }
 
 /* ── 11. Export / Import ──────────────────────────────────── */
 function exportConfig() {
   const config = {
-    portfolio:  state.portfolio,
-    income:     state.income,
-    spending:   state.spending,
-    returnRate: state.returnRate,
-    inflation:  state.inflation,
-    withdrawal: state.withdrawal,
-    mode:       state.mode,
+    portfolio:    state.portfolio,
+    income:       state.income,
+    spending:     state.spending,
+    returnRate:   state.returnRate,
+    inflation:    state.inflation,
+    withdrawal:   state.withdrawal,
+    mode:         state.mode,
+    taxMode:      state.taxMode,
+    taxCustomPct: state.taxCustomPct,
+    currentAge:   state.currentAge,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -370,6 +401,20 @@ function importConfig(file) {
         state.mode = cfg.mode;
         els.btnReal.classList.toggle('active', state.mode === 'real');
         els.btnNominal.classList.toggle('active', state.mode === 'nominal');
+      }
+
+      // Tax
+      if (['none','box3','custom'].includes(cfg.taxMode)) {
+        state.taxMode = cfg.taxMode;
+        [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(b =>
+          b.classList.toggle('active-tax', b.dataset.tax === cfg.taxMode)
+        );
+        els.taxBox3Info.style.display  = cfg.taxMode === 'box3'   ? 'block' : 'none';
+        els.taxCustomRow.style.display = cfg.taxMode === 'custom' ? 'flex'  : 'none';
+      }
+      if (cfg.taxCustomPct != null) {
+        state.taxCustomPct     = cfg.taxCustomPct;
+        els.valTaxCustom.value = cfg.taxCustomPct;
       }
 
       recalc();

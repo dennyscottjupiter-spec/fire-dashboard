@@ -133,6 +133,31 @@
           </div>
         </div>
 
+        <!-- Tax -->
+        <div class="control-group">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="Tax slows your portfolio's growth each year. Box 3 (NL) is a wealth tax on assets above €57k — about 2.17%/yr. Custom lets you type your own effective rate.">
+              💸 Investment Tax
+            </span>
+          </div>
+          <div class="tax-toggle">
+            <button class="tax-btn active-tax" id="btn-tax-none"   data-tax="none">None</button>
+            <button class="tax-btn"             id="btn-tax-box3"  data-tax="box3">Box 3 (NL)</button>
+            <button class="tax-btn"             id="btn-tax-custom" data-tax="custom">Custom %</button>
+          </div>
+          <div id="tax-box3-info" class="tax-info" style="display:none">
+            ≈ 2.17%/yr on wealth above €57,000 (NL 2024 deemed-return rate)
+          </div>
+          <div id="tax-custom-row" class="tax-custom-row" style="display:none">
+            <span class="tax-custom-label">Effective rate on annual gains:</span>
+            <span class="rate-display">
+              <input type="text" inputmode="decimal" class="value-box" id="val-tax-custom" value="15" />
+              <span class="pct-sign">%</span>
+            </span>
+          </div>
+        </div>
+
       </div><!-- /panel -->
     </aside>
 
