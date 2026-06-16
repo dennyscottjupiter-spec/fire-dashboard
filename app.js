@@ -151,16 +151,17 @@ function initChart() {
 
 /* ── 6. Milestone definitions & renderer ─────────────────── */
 const MILESTONES = [
-  { key: '100k',   threshold: _fi => 100000,    el: 'ms-100k-val'   },
-  { key: '25pct',  threshold: fi  => fi * 0.25, el: 'ms-25pct-val'  },
-  { key: '50pct',  threshold: fi  => fi * 0.50, el: 'ms-50pct-val'  },
-  { key: '75pct',  threshold: fi  => fi * 0.75, el: 'ms-75pct-val'  },
-  { key: '100pct', threshold: fi  => fi,         el: 'ms-100pct-val' },
+  { key: 'coast',  threshold: (fi, age, rr) => coastFiTarget(fi, age, rr), el: 'ms-coast-val'  },
+  { key: '100k',   threshold: ()            => 100000,                      el: 'ms-100k-val'   },
+  { key: 'barista',threshold: fi            => fi * 0.50,                   el: 'ms-barista-val'},
+  { key: 'lean',   threshold: fi            => fi * 0.70,                   el: 'ms-lean-val'   },
+  { key: 'full',   threshold: fi            => fi,                          el: 'ms-full-val'   },
+  { key: 'fat',    threshold: fi            => fi * 1.50,                   el: 'ms-fat-val'    },
 ];
 
-function updateMilestones(portfolio, fiTarget) {
+function updateMilestones(portfolio, fiTarget, currentAge, realReturn) {
   MILESTONES.forEach(m => {
-    const threshold = m.threshold(fiTarget);
+    const threshold = m.threshold(fiTarget, currentAge, realReturn);
     const achieved  = portfolio >= threshold;
     const item      = document.querySelector(`[data-milestone="${m.key}"]`);
     const valEl     = $(m.el);
@@ -245,7 +246,8 @@ function recalc() {
   chart.update();
 
   // ── Milestones (at t=0, mode-independent)
-  updateMilestones(state.portfolio, fiTarget);
+  const realReturn = (1 + state.returnRate / 100) / (1 + state.inflation / 100) - 1;
+  updateMilestones(state.portfolio, fiTarget, state.currentAge, realReturn);
 }
 
 /* ── 9. bindRange — syncs a slider + editable box ────────── */

@@ -563,7 +563,14 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .milestone-icon { font-size: 15px; }
-.milestone-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--muted); }
+.milestone-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  /* tooltip base */
+  position: relative;
+}
 .milestone-item.achieved .milestone-name { color: var(--success); }
 
 .milestone-threshold {
