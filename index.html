@@ -71,6 +71,18 @@
                  class="euro-input" value="30000" placeholder="e.g. 30,000" autocomplete="off" />
         </div>
 
+        <!-- Current Age -->
+        <div class="control-group">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="Your age today. Used to show which calendar year you'll hit FIRE, and to calculate your Coast FI milestone.">
+              🎂 Current Age
+            </span>
+          </div>
+          <input type="text" inputmode="numeric" id="input-age"
+                 class="euro-input" value="30" autocomplete="off" />
+        </div>
+
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
         <!-- Return Rate -->
@@ -197,6 +209,7 @@
             ⏳ Years to FIRE
           </div>
           <div class="kpi-value" id="kpi-years">—</div>
+          <div class="kpi-fire-year" id="kpi-fire-year" style="display:none"></div>
           <div class="kpi-sub" id="kpi-years-sub">Savings rate: —</div>
         </div>
       </div>

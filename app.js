@@ -48,7 +48,9 @@ const els = {
   kpiFI:        $('kpi-fi-number'),
   kpiFISub:     $('kpi-fi-sub'),
   kpiYears:     $('kpi-years'),
+  kpiFireYear:  $('kpi-fire-year'),
   kpiYearsSub:  $('kpi-years-sub'),
+  inputAge:     $('input-age'),
   notice:       $('notice-banner'),
   btnReal:      $('btn-real'),
   btnNominal:   $('btn-nominal'),
@@ -185,6 +187,7 @@ function recalc() {
   state.portfolio  = Math.max(0, parseNum(els.portfolio.value));
   state.income     = Math.max(0, parseNum(els.income.value));
   state.spending   = Math.max(0, parseNum(els.spending.value));
+  state.currentAge = Math.max(1, Math.min(100, parseNum(els.inputAge.value) || 30));
 
   // Rate fields read from the editable value-boxes (source of truth)
   state.returnRate   = parseFloat(els.valReturn.value)    || 0;
@@ -210,6 +213,18 @@ function recalc() {
   } else {
     els.kpiYears.textContent = unattainable ? 'Never ❌' : '>50 yrs';
     els.kpiYears.className   = 'kpi-value' + (unattainable ? ' warn' : '');
+  }
+
+  // ── KPI: FIRE year + age pill
+  if (yearsToFI !== null && yearsToFI <= 50) {
+    const fireYear = new Date().getFullYear() + yearsToFI;
+    const fireAge  = state.currentAge + yearsToFI;
+    els.kpiFireYear.textContent   = yearsToFI === 0
+      ? '🔥 Already FI!'
+      : `🔥 ${fireYear} · age ${fireAge}`;
+    els.kpiFireYear.style.display = 'inline-block';
+  } else {
+    els.kpiFireYear.style.display = 'none';
   }
 
   const srLabel      = savingsRate > 0 ? savingsRate.toFixed(1) + '%' : '0%';
@@ -308,6 +323,14 @@ function wireInputs() {
       el.value = numFmt.format(parseNum(el.value));
       recalc();
     });
+  });
+
+  // Age input
+  els.inputAge.addEventListener('input', recalc);
+  els.inputAge.addEventListener('blur', () => {
+    const v = parseNum(els.inputAge.value);
+    els.inputAge.value = Math.max(1, Math.min(100, v || 30));
+    recalc();
   });
 
   // Rate sliders + boxes — hard caps: Return 50%, Inflation 50%, WR 20%
@@ -452,6 +475,10 @@ function importConfig(file) {
       if (cfg.taxCustomPct != null) {
         state.taxCustomPct     = cfg.taxCustomPct;
         els.valTaxCustom.value = cfg.taxCustomPct;
+      }
+      if (cfg.currentAge != null) {
+        state.currentAge       = cfg.currentAge;
+        els.inputAge.value     = cfg.currentAge;
       }
 
       recalc();

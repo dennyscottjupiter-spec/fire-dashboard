@@ -481,6 +481,21 @@ input[type="range"]::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
 }
 
+.kpi-fire-year {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, rgba(34,211,160,0.18) 0%, rgba(14,165,233,0.14) 100%);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
 /* ── Notice banner ───────────────────────────────────────── */
 #notice-banner {
   background: var(--warn-dim);
