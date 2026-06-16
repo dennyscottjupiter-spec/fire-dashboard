@@ -303,19 +303,23 @@ function recalc() {
   // ── Milestones (at t=0, mode-independent)
   const realReturn = (1 + state.returnRate / 100) / (1 + state.inflation / 100) - 1;
   updateMilestones(state.portfolio, fiTarget, state.currentAge, realReturn);
+
+  // Persist every recalc (fire-and-forget, silently fails if storage unavailable)
+  saveState();
 }
 
 /* ── 9. bindRange — syncs a slider + editable box ────────── */
 // sliderMax  = the slider's track maximum
 // [capMin, capMax] = full allowed range for the typed box
+// Uses box._lastValid (on the DOM node) so macro/stepper/import paths all share one revert value.
 function bindRange(slider, box, sliderMax, [capMin, capMax]) {
-  let lastValid = parseFloat(box.value) || capMin;
+  box._lastValid = parseFloat(box.value) || capMin;
 
   // Slider moved → update box
   slider.addEventListener('input', () => {
     const v  = parseFloat(slider.value);
-    box.value = v;
-    lastValid = v;
+    box.value      = v;
+    box._lastValid = v;
     recalc();
   });
 
@@ -323,8 +327,8 @@ function bindRange(slider, box, sliderMax, [capMin, capMax]) {
   box.addEventListener('input', () => {
     const v = parseFloat(box.value);
     if (!isNaN(v) && v >= capMin) {
-      slider.value = Math.min(v, sliderMax);
-      lastValid    = Math.min(capMax, Math.max(capMin, v));
+      slider.value   = Math.min(v, sliderMax);
+      box._lastValid = Math.min(capMax, Math.max(capMin, v));
       recalc();
     }
   });
@@ -333,18 +337,103 @@ function bindRange(slider, box, sliderMax, [capMin, capMax]) {
   box.addEventListener('blur', () => {
     const v = parseFloat(box.value);
     if (isNaN(v) || v < capMin) {
-      box.value    = lastValid;
+      box.value = box._lastValid;
     } else {
-      const clamped = Math.min(capMax, v);
-      box.value     = clamped;
-      lastValid     = clamped;
-      slider.value  = Math.min(clamped, sliderMax);
+      const clamped  = Math.min(capMax, v);
+      box.value      = clamped;
+      box._lastValid = clamped;
+      slider.value   = Math.min(clamped, sliderMax);
     }
     recalc();
   });
 }
 
-/* ── 10. Rate stepper ────────────────────────────────────── */
+/* ── 10. applyConfig — shared restore logic ──────────────── */
+// Used by both importConfig() and loadState(). cfg keys match exportConfig().
+function applyConfig(cfg) {
+  if (cfg.portfolio != null) {
+    state.portfolio     = cfg.portfolio;
+    els.portfolio.value = numFmt.format(cfg.portfolio);
+  }
+  if (cfg.income != null) {
+    state.income     = cfg.income;
+    els.income.value = numFmt.format(cfg.income);
+  }
+  if (cfg.spending != null) {
+    state.spending     = cfg.spending;
+    els.spending.value = numFmt.format(cfg.spending);
+  }
+  if (cfg.returnRate != null) {
+    els.sliderReturn.value = Math.min(cfg.returnRate, 15);
+    els.valReturn.value    = cfg.returnRate;
+    els.valReturn._lastValid = cfg.returnRate;
+    state.returnRate       = cfg.returnRate;
+  }
+  if (cfg.inflation != null) {
+    els.sliderInfl.value = Math.min(cfg.inflation, 10);
+    els.valInfl.value    = cfg.inflation;
+    els.valInfl._lastValid = cfg.inflation;
+    state.inflation      = cfg.inflation;
+  }
+  if (cfg.withdrawal != null) {
+    els.sliderWR.value = Math.min(cfg.withdrawal, 10);
+    els.valWR.value    = cfg.withdrawal;
+    els.valWR._lastValid = cfg.withdrawal;
+    state.withdrawal   = cfg.withdrawal;
+  }
+  if (cfg.mode === 'real' || cfg.mode === 'nominal') {
+    state.mode = cfg.mode;
+    els.btnReal.classList.toggle('active', state.mode === 'real');
+    els.btnNominal.classList.toggle('active', state.mode === 'nominal');
+  }
+  if (['none','box3','custom'].includes(cfg.taxMode)) {
+    state.taxMode = cfg.taxMode;
+    [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(b =>
+      b.classList.toggle('active-tax', b.dataset.tax === cfg.taxMode)
+    );
+    els.taxBox3Info.style.display  = cfg.taxMode === 'box3'   ? 'block' : 'none';
+    els.taxCustomRow.style.display = cfg.taxMode === 'custom' ? 'flex'  : 'none';
+  }
+  if (cfg.taxCustomPct != null) {
+    state.taxCustomPct     = cfg.taxCustomPct;
+    els.valTaxCustom.value = cfg.taxCustomPct;
+  }
+  if (cfg.currentAge != null) {
+    state.currentAge   = cfg.currentAge;
+    els.inputAge.value = cfg.currentAge;
+  }
+}
+
+/* ── 10b. localStorage persistence ───────────────────────── */
+const LS_KEY = 'fire-dashboard-state';
+
+function saveState() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      portfolio:    state.portfolio,
+      income:       state.income,
+      spending:     state.spending,
+      returnRate:   state.returnRate,
+      inflation:    state.inflation,
+      withdrawal:   state.withdrawal,
+      mode:         state.mode,
+      taxMode:      state.taxMode,
+      taxCustomPct: state.taxCustomPct,
+      currentAge:   state.currentAge,
+    }));
+  } catch (_) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const cfg = JSON.parse(raw);
+    applyConfig(cfg);
+  } catch (_) {}
+}
+
+/* ── 11. Rate stepper ────────────────────────────────────── */
 // Nudges a rate box by `delta`, respects its cap, re-pins the slider.
 // configs keyed by box id for cap lookup.
 const RATE_CFG = {
@@ -354,19 +443,19 @@ const RATE_CFG = {
 };
 
 function stepRate(boxId, delta) {
-  const cfg    = RATE_CFG[boxId];
+  const cfg  = RATE_CFG[boxId];
   if (!cfg) return;
   const box    = $(boxId);
   const slider = $(cfg.slider);
   const curr   = parseFloat(box.value) || cfg.capMin;
   const next   = Math.min(cfg.capMax, Math.max(cfg.capMin, parseFloat((curr + delta).toFixed(1))));
-  box.value        = next;
-  box._lastValid   = next;
-  slider.value     = Math.min(next, cfg.sliderMax);
+  box.value      = next;
+  box._lastValid = next;
+  slider.value   = Math.min(next, cfg.sliderMax);
   recalc();
 }
 
-/* ── 11. Wire all inputs ──────────────────────────────────── */
+/* ── 12. Wire all inputs ──────────────────────────────────── */
 function wireInputs() {
 
   // € grouped inputs: fire recalc on input, format on blur, strip on focus
@@ -416,8 +505,11 @@ function wireInputs() {
       const slider = $(btn.dataset.slider);
       const boxId  = btn.dataset.slider.replace('slider-', 'val-');
       const box    = $(boxId);
-      if (slider) slider.value = btn.dataset.val;
-      if (box)    box.value    = btn.dataset.val;
+      if (slider) slider.value  = btn.dataset.val;
+      if (box) {
+        box.value      = btn.dataset.val;
+        box._lastValid = parseFloat(btn.dataset.val);
+      }
       recalc();
     });
   });
@@ -481,63 +573,7 @@ function importConfig(file) {
   reader.onload = e => {
     try {
       const cfg = JSON.parse(e.target.result);
-
-      // € fields — write raw, format on display
-      if (cfg.portfolio != null) {
-        state.portfolio     = cfg.portfolio;
-        els.portfolio.value = numFmt.format(cfg.portfolio);
-      }
-      if (cfg.income != null) {
-        state.income     = cfg.income;
-        els.income.value = numFmt.format(cfg.income);
-      }
-      if (cfg.spending != null) {
-        state.spending     = cfg.spending;
-        els.spending.value = numFmt.format(cfg.spending);
-      }
-
-      // Rate fields — populate both slider and box; slider pins at its track max
-      if (cfg.returnRate != null) {
-        els.sliderReturn.value = Math.min(cfg.returnRate, 15);
-        els.valReturn.value    = cfg.returnRate;
-        state.returnRate       = cfg.returnRate;
-      }
-      if (cfg.inflation != null) {
-        els.sliderInfl.value = Math.min(cfg.inflation, 10);
-        els.valInfl.value    = cfg.inflation;
-        state.inflation      = cfg.inflation;
-      }
-      if (cfg.withdrawal != null) {
-        els.sliderWR.value = Math.min(cfg.withdrawal, 10);
-        els.valWR.value    = cfg.withdrawal;
-        state.withdrawal   = cfg.withdrawal;
-      }
-
-      // Mode toggle
-      if (cfg.mode === 'real' || cfg.mode === 'nominal') {
-        state.mode = cfg.mode;
-        els.btnReal.classList.toggle('active', state.mode === 'real');
-        els.btnNominal.classList.toggle('active', state.mode === 'nominal');
-      }
-
-      // Tax
-      if (['none','box3','custom'].includes(cfg.taxMode)) {
-        state.taxMode = cfg.taxMode;
-        [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(b =>
-          b.classList.toggle('active-tax', b.dataset.tax === cfg.taxMode)
-        );
-        els.taxBox3Info.style.display  = cfg.taxMode === 'box3'   ? 'block' : 'none';
-        els.taxCustomRow.style.display = cfg.taxMode === 'custom' ? 'flex'  : 'none';
-      }
-      if (cfg.taxCustomPct != null) {
-        state.taxCustomPct     = cfg.taxCustomPct;
-        els.valTaxCustom.value = cfg.taxCustomPct;
-      }
-      if (cfg.currentAge != null) {
-        state.currentAge       = cfg.currentAge;
-        els.inputAge.value     = cfg.currentAge;
-      }
-
+      applyConfig(cfg);
       recalc();
     } catch {
       const banner = els.notice;
@@ -561,15 +597,31 @@ els.fileInput.addEventListener('change', e => {
 });
 
 /* ── 13. Boot ─────────────────────────────────────────────── */
-initChart();
+
+// CDN fallback: if Chart.js didn't load, show a graceful message and disable chart writes.
+if (typeof Chart === 'undefined') {
+  chartReady = false;
+  const panel = document.querySelector('.chart-panel');
+  if (panel) {
+    panel.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px 20px;font-size:13px">' +
+      '📶 Chart library failed to load (offline or CDN blocked).<br>' +
+      'All inputs and KPIs still work — open with a network connection to see the projection chart.</p>';
+  }
+} else {
+  initChart();
+}
+
 wireInputs();
 
-// Format seed values in € inputs before first recalc
+// Restore from localStorage (overrides seed values)
+loadState();
+
+// Format seed € values that weren't overridden by loadState
 [els.portfolio, els.income, els.spending].forEach(el => {
-  el.value = numFmt.format(parseNum(el.value));
+  if (!el.value.includes(',')) el.value = numFmt.format(parseNum(el.value));
 });
 
-// Sync macro active states with initial seed values
+// Sync macro active states before first recalc
 refreshMacroActive();
 
 recalc();

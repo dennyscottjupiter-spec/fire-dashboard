@@ -202,7 +202,7 @@
     <section class="dashboard">
 
       <!-- Notice banner -->
-      <div id="notice-banner">
+      <div id="notice-banner" role="status" aria-live="assertive">
         ⚠️ With current income and spending, retirement is unattainable. Increase income or reduce spending to generate positive savings.
       </div>
 
@@ -213,17 +213,17 @@
                data-tip="Your target nest egg. Once your pot reaches this number, investment returns alone can fund your lifestyle — you don't need to work anymore.">
             🎯 FI Number
           </div>
-          <div class="kpi-value" id="kpi-fi-number">€750,000</div>
-          <div class="kpi-sub" id="kpi-fi-sub">Covers €30,000/yr · €2,500/mo</div>
+          <div class="kpi-value" id="kpi-fi-number" aria-live="polite">€750,000</div>
+          <div class="kpi-sub" id="kpi-fi-sub" aria-live="polite">Covers €30,000/yr · €2,500/mo</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label has-tip tip-right" tabindex="0"
                data-tip="How many years until your pot reaches the FI Number at your current savings pace and expected return. Also shows your savings rate (SR) — a key FIRE metric.">
             ⏳ Years to FIRE
           </div>
-          <div class="kpi-value" id="kpi-years">—</div>
-          <div class="kpi-fire-year" id="kpi-fire-year" style="display:none"></div>
-          <div class="kpi-sub" id="kpi-years-sub">Savings rate: —</div>
+          <div class="kpi-value" id="kpi-years" aria-live="polite">—</div>
+          <div class="kpi-fire-year" id="kpi-fire-year" style="display:none" aria-live="polite"></div>
+          <div class="kpi-sub" id="kpi-years-sub" aria-live="polite">Savings rate: —</div>
         </div>
       </div>
 
