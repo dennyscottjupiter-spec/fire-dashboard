@@ -10,7 +10,7 @@ Chart.js 4 is loaded from CDN (`cdn.jsdelivr.net/npm/chart.js@4.4.3`) with an **
 
 A **Content-Security-Policy** `<meta>` restricts scripts to `'self' + cdn.jsdelivr.net`, styles to `'self' + 'unsafe-inline'` (required for static `style="display:none"` attributes), and blocks all other origins.
 
-Open `tests.html` in a browser to run the full test suite: engine unit tests (synchronous) + iframe-based integration tests that drive every input box, the gauge, the blend, and import guards.
+Open `tests.html` in a browser to run the full test suite: engine unit tests (synchronous) + iframe-based integration tests that drive every input box, the gauge, the blend, import guards, localStorage round-trip, Reset button, and milestones. The harness is bulletproof: try/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ input event
 
 **Asset allocation** — `state.investReturn` (investment return %) and `state.savingsReturn` (cash rate %) are split fields. `state.allocInvest` (0–100) is the % in investments; savings = 100−allocInvest. `state.returnRate` is derived in every `recalc()` via the blend formula; `engine.js` remains untouched. `RATE_CFG['val-savings']` has `slider: null`.
 
-**Retirement Readiness gauge** — `updateGauge(readiness)` drives an inline SVG semicircle. `ARC_LEN = π·80`. Arc fill: `stroke-dashoffset = ARC_LEN · (1 − clamp(readiness, 0, 1))`. Needle: `rotate((c·180 − 90)deg)` via CSSOM on `#gauge-needle` (`transform-box: view-box; transform-origin: 100px 100px`). Colour ramp: red `<33%` → amber `<80%` → green `≥80%`. `--amber: #f5a524` token in `:root`.
+**Retirement Readiness gauge** — Speedometer dial built entirely in SVG/CSS with no extra libraries. `buildGauge()` runs once at boot and injects into `#gauge-svg`: colored zone arcs (red 0–33% / amber 33–80% / green 80–100%), minor ticks every 10%, major ticks at 0/25/50/75/100%, numeric labels at r=94, and three FIRE milestone checkpoint flags (`.gauge-flag`) at Barista 50% / Lean FI 70% / Full FIRE 100%. The needle is a tapered `<polygon>` (not a `<line>`), hub is a two-circle chrome cap. `updateGauge(readiness)` sets `stroke-dashoffset = ARC_LEN · (1 − clamp(readiness, 0, 1))` and `rotate((c·180−90)deg)` on `#gauge-needle` (`transform-box: view-box; transform-origin: 100px 100px`). Colour ramp: red `<33%` → amber `<80%` → green `≥80%`. `ARC_LEN = π·80 ≈ 251.33`. `--amber: #f5a524` token in `:root`.
 
 **€ inputs** — `type="text"` (not `type="number"` — browsers reject comma-formatted strings). `parseNum()` strips all non-digits before parsing. `numFmt.format()` (en-US, no symbol) writes `50,000` on blur. `eur.format()` (en-IE) writes `€750,000` — use en-IE, not de-DE (which gives `750.000 €`).
 
@@ -60,7 +60,7 @@ input event
 
 **Milestones** — `MILESTONES` array drives `updateMilestones(portfolio, fi, currentAge, realReturn)`. Ladder (order in DOM): First €100k → Coast FI → Barista FI (50%) → Lean FI (70%) → Full FIRE (100%) → Fat FIRE (150%). Coast FI uses `coastFiTarget(fi, currentAge, realReturn)` from `engine.js`.
 
-**localStorage** — `saveState()` is called at the end of every `recalc()`. On boot, `loadState()` runs before the first `recalc()` and calls `applyConfig(cfg)` — the same helper used by `importConfig()`.
+**localStorage** — `saveState()` is called at the end of every `recalc()`. On boot, `loadState()` runs before the first `recalc()` and calls `applyConfig(cfg)` — the same helper used by `importConfig()`. `DEFAULTS` const holds the seed values. `resetSavedData()` removes the LS key, applies `DEFAULTS`, and recalcs — wired to the `#btn-reset` button in the header. `window._state`, `window._LS_KEY`, `window.resetSavedData`, and `window.importConfig` are exposed at boot for integration tests.
 
 **Import guards** — `importConfig(file)` rejects before `FileReader` if `file.size > 100 KB` or type is not `application/json | text/json | "" (empty MIME)` and name doesn't end in `.json`. All three rejection paths share `showImportError(msg)`.
 
@@ -72,4 +72,4 @@ input event
 
 Private repo: `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints.
 
-Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0`.
+Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0`.
