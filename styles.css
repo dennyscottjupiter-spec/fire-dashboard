@@ -151,10 +151,19 @@ header h1 .brand { color: var(--accent); }
   background: var(--warn-dim);
   border: 1px solid rgba(244,63,94,0.35);
   color: var(--warn);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
 }
 #btn-reset:hover {
   background: rgba(244,63,94,0.22);
   box-shadow: 0 0 0 1px rgba(244,63,94,0.5);
+}
+/* Armed state: first click — bright warn ring to signal "click again to confirm" */
+#btn-reset.armed {
+  background: rgba(244,63,94,0.28);
+  border-color: var(--warn);
+  box-shadow: 0 0 0 2px rgba(244,63,94,0.45);
+  color: var(--warn);
+  font-weight: 700;
 }
 
 /* ── Main Grid ───────────────────────────────────────────── */

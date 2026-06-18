@@ -788,7 +788,30 @@ els.fileInput.addEventListener('change', e => {
   if (e.target.files[0]) importConfig(e.target.files[0]);
   els.fileInput.value = '';
 });
-document.getElementById('btn-reset').addEventListener('click', resetSavedData);
+
+// Two-step confirm: 1st click arms; 2nd click within 3 s actually resets.
+// Automatically disarms if ignored (no accidental wipes).
+let _resetArmed = false, _resetTimer = null;
+const _btnReset = document.getElementById('btn-reset');
+
+function _disarmReset() {
+  _resetArmed = false;
+  clearTimeout(_resetTimer);
+  _btnReset.classList.remove('armed');
+  _btnReset.textContent = '🗑 Reset';
+}
+
+_btnReset.addEventListener('click', () => {
+  if (_resetArmed) {
+    _disarmReset();
+    resetSavedData();
+    return;
+  }
+  _resetArmed = true;
+  _btnReset.classList.add('armed');
+  _btnReset.textContent = '⚠️ Click again to confirm';
+  _resetTimer = setTimeout(_disarmReset, 3000);
+});
 
 /* ── 13. Boot ─────────────────────────────────────────────── */
 
@@ -822,6 +845,7 @@ refreshMacroActive();
 recalc();
 
 // Expose globals for integration tests
-window._state        = state;
-window._LS_KEY       = LS_KEY;
+window._state         = state;
+window._LS_KEY        = LS_KEY;
 window.resetSavedData = resetSavedData;
+window._disarmReset   = _disarmReset;

@@ -646,21 +646,31 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] localStorage round-trip: ${e.message}\n`; }
 
-  /* ── Reset button ─────────────────────────────────────────── */
+  /* ── Reset button (two-step confirm) ─────────────────────── */
   try {
-    group('Integration — Reset saved data button');
+    group('Integration — Reset saved data button (two-step confirm)');
     resetBaseline();
     setVal('input-portfolio', '99999'); fireBlur('input-portfolio');
-    /* confirm something is stored */
     const lsKey = win._LS_KEY || 'fire-dashboard-state';
     assert('LS has data before reset', win.localStorage.getItem(lsKey) !== null, true, true);
 
     const resetBtn = doc.getElementById('btn-reset');
     if (resetBtn) {
+      /* 1st click: arm — must NOT reset yet */
       resetBtn.click();
       await new Promise(r => setTimeout(r, 50));
-      assert('LS key removed after Reset', win.localStorage.getItem(lsKey) === null, win.localStorage.getItem(lsKey), null);
-      assert('portfolio returns to default (50000) after Reset', s.portfolio === 50000, s.portfolio, 50000);
+      assert('single click does NOT reset LS (guard)', win.localStorage.getItem(lsKey) !== null,
+        win.localStorage.getItem(lsKey) !== null, true);
+      assert('single click does NOT reset portfolio (guard)', s.portfolio === 99999, s.portfolio, 99999);
+      assert('button gets .armed class after 1st click', resetBtn.classList.contains('armed'), true, true);
+
+      /* 2nd click: confirm — now it resets */
+      resetBtn.click();
+      await new Promise(r => setTimeout(r, 50));
+      assert('LS key removed after 2nd click', win.localStorage.getItem(lsKey) === null,
+        win.localStorage.getItem(lsKey), null);
+      assert('portfolio returns to default (50000) after 2nd click', s.portfolio === 50000, s.portfolio, 50000);
+      assert('button disarms after reset (.armed removed)', !resetBtn.classList.contains('armed'), true, true);
     } else {
       fail++;
       out.innerHTML += `<span class="fail">❌</span>  Reset button (#btn-reset) not found in DOM\n`;
