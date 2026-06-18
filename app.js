@@ -788,6 +788,7 @@ els.fileInput.addEventListener('change', e => {
   if (e.target.files[0]) importConfig(e.target.files[0]);
   els.fileInput.value = '';
 });
+document.getElementById('btn-reset').addEventListener('click', resetSavedData);
 
 /* ── 13. Boot ─────────────────────────────────────────────── */
 
@@ -821,5 +822,6 @@ refreshMacroActive();
 recalc();
 
 // Expose globals for integration tests
-window._state  = state;
-window._LS_KEY = LS_KEY;
+window._state        = state;
+window._LS_KEY       = LS_KEY;
+window.resetSavedData = resetSavedData;

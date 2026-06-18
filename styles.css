@@ -138,6 +138,16 @@ header h1 .brand { color: var(--accent); }
   color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-dim);
 }
+/* Reset — muted destructive tone (warn-tinted, not alarming) */
+#btn-reset {
+  background: var(--warn-dim);
+  border: 1px solid rgba(244,63,94,0.35);
+  color: var(--warn);
+}
+#btn-reset:hover {
+  background: rgba(244,63,94,0.22);
+  box-shadow: 0 0 0 1px rgba(244,63,94,0.5);
+}
 
 /* ── Main Grid ───────────────────────────────────────────── */
 main {
@@ -738,3 +748,17 @@ input[type="range"]::-moz-range-thumb {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* ── localStorage transparency note ─────────────────────── */
+.ls-note {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: default;
+  line-height: 1.5;
+  position: relative;
+}
+.ls-note:hover { color: rgba(255,255,255,0.5); border-color: var(--border-hi); }

@@ -35,6 +35,10 @@
               data-tip="Load a previously exported JSON file to restore your saved settings.">
         ⬆ Import
       </button>
+      <button class="io-btn io-btn-reset has-tip tip-right" id="btn-reset" tabindex="0"
+              data-tip="Clears your saved inputs from this browser's local storage and resets all values to the defaults. Your data is stored only in this browser — never uploaded anywhere.">
+        🗑 Reset
+      </button>
       <input type="file" id="file-input" accept=".json" style="display:none" />
     </div>
   </header>
@@ -230,6 +234,11 @@
         </div>
 
       </div><!-- /panel -->
+
+      <p class="ls-note has-tip" tabindex="0"
+         data-tip="Your inputs auto-save in this browser's localStorage — a local database that never leaves your device. No server, no account, no upload. Use the Reset button to wipe it.">
+        💾 Inputs auto-saved locally only &mdash; never uploaded.
+      </p>
     </aside>
 
     <!-- RIGHT: Dashboard Viewport -->
