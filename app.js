@@ -11,7 +11,10 @@ const state = {
   portfolio:    50000,
   income:       60000,
   spending:     30000,
-  returnRate:   7,        // %
+  investReturn: 7,        // % — investments (source of truth for the box/slider)
+  savingsReturn: 2,       // % — cash/savings bucket
+  allocInvest:   80,      // % allocated to investments (0–100); savings = 100 - allocInvest
+  returnRate:   7,        // % derived blend — set every recalc(), read by runProjection
   inflation:    2,        // %
   withdrawal:   4,        // %
   mode:         'nominal',
@@ -64,6 +67,16 @@ const els = {
   taxBox3Info:  $('tax-box3-info'),
   taxCustomRow: $('tax-custom-row'),
   valTaxCustom: $('val-tax-custom'),
+  // Asset allocation
+  valSavings:      $('val-savings'),
+  sliderAlloc:     $('slider-alloc'),
+  allocInvestPct:  $('alloc-invest-pct'),
+  allocSavingsPct: $('alloc-savings-pct'),
+  blendedReturn:   $('blended-return'),
+  // Gauge
+  gaugeArc:    $('gauge-arc'),
+  gaugeNeedle: $('gauge-needle'),
+  gaugePct:    $('gauge-pct'),
 };
 
 /* ── 5. Chart.js Setup ────────────────────────────────────── */
@@ -232,6 +245,21 @@ function refreshMacroActive() {
     const val   = parseFloat(btn.dataset.val);
     btn.classList.toggle('active-macro', box && parseFloat(box.value) === val);
   });
+}
+
+/* ── 7b. Retirement Readiness gauge ─────────────────────── */
+const ARC_LEN = Math.PI * 80; // semicircle r=80 ≈ 251.33
+
+function updateGauge(readiness) {
+  const pct = isFinite(readiness) ? readiness * 100 : 0;
+  const c   = Math.max(0, Math.min(1, readiness || 0));
+  els.gaugeArc.style.strokeDasharray  = ARC_LEN;
+  els.gaugeArc.style.strokeDashoffset = ARC_LEN * (1 - c);
+  els.gaugeNeedle.style.transform     = `rotate(${c * 180 - 90}deg)`;
+  const col = pct < 33 ? 'var(--warn)' : pct < 80 ? 'var(--amber)' : 'var(--success)';
+  els.gaugeArc.style.stroke = col;
+  els.gaugePct.style.color  = col;
+  els.gaugePct.textContent  = Math.round(pct) + '%';
 }
 
 /* ── 8. Recalculate + Render ─────────────────────────────── */
@@ -568,7 +596,20 @@ function exportConfig() {
   URL.revokeObjectURL(url);
 }
 
+const MAX_IMPORT_BYTES = 100 * 1024;
+
+function showImportError(msg) {
+  const banner = els.notice;
+  const prev   = banner.textContent;
+  banner.textContent = msg;
+  banner.classList.add('visible');
+  setTimeout(() => { banner.textContent = prev; recalc(); }, 4000);
+}
+
 function importConfig(file) {
+  const okType = ['application/json', 'text/json', ''].includes(file.type) || /\.json$/i.test(file.name);
+  if (file.size > MAX_IMPORT_BYTES) return showImportError('⚠️ File too large (max 100 KB). Is this a FIRE Dashboard config?');
+  if (!okType)                       return showImportError('⚠️ Wrong file type — please upload a .json config exported from this app.');
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -576,14 +617,7 @@ function importConfig(file) {
       applyConfig(cfg);
       recalc();
     } catch {
-      const banner = els.notice;
-      const prev   = banner.textContent;
-      banner.textContent = '⚠️ Failed to parse config file. Please upload a valid FIRE Dashboard JSON.';
-      banner.classList.add('visible');
-      setTimeout(() => {
-        banner.textContent = prev;
-        recalc();
-      }, 4000);
+      showImportError('⚠️ Failed to parse config file. Please upload a valid FIRE Dashboard JSON.');
     }
   };
   reader.readAsText(file);

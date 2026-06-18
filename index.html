@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'" />
   <title>🔥 FIRE Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -102,8 +104,8 @@
         <div class="control-group">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
-                  data-tip="How much your investments grow per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
-              📈 Expected Annual Return
+                  data-tip="How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
+              📈 Investment Return
             </span>
             <span class="rate-display">
               <div class="steppers">
@@ -119,6 +121,38 @@
             <button class="macro-btn" data-slider="slider-return" data-val="4">Conservative 4%</button>
             <button class="macro-btn" data-slider="slider-return" data-val="7">Moderate 7%</button>
             <button class="macro-btn" data-slider="slider-return" data-val="10">Optimistic 10%</button>
+          </div>
+        </div>
+
+        <!-- Asset Allocation -->
+        <div class="control-group">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="How your money is split between growth investments and lower-risk savings. Both slices always sum to 100% — move the slider to change the mix.">
+              💼 Asset Allocation
+            </span>
+          </div>
+          <div class="alloc-labels">
+            <span>📈 Invested <span id="alloc-invest-pct">80%</span></span>
+            <span>🏦 Savings <span id="alloc-savings-pct">20%</span></span>
+          </div>
+          <input type="range" id="slider-alloc" min="0" max="100" step="1" value="80" />
+          <div class="control-label alloc-savings-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="The annual rate your cash savings or money-market account earns. Typically 1–4%, much lower than equities.">
+              🏦 Savings Return
+            </span>
+            <span class="rate-display">
+              <div class="steppers">
+                <button class="stepper-btn" data-box="val-savings" data-dir="1"  aria-label="Increase savings rate">▲</button>
+                <button class="stepper-btn" data-box="val-savings" data-dir="-1" aria-label="Decrease savings rate">▼</button>
+              </div>
+              <input type="text" inputmode="decimal" class="value-box" id="val-savings" value="2" />
+              <span class="pct-sign">%</span>
+            </span>
+          </div>
+          <div class="blended-readout">
+            ≈ <span id="blended-return">6.0</span>% blended return
           </div>
         </div>
 
@@ -216,6 +250,19 @@
           <div class="kpi-value" id="kpi-fi-number" aria-live="polite">€750,000</div>
           <div class="kpi-sub" id="kpi-fi-sub" aria-live="polite">Covers €30,000/yr · €2,500/mo</div>
         </div>
+        <div class="kpi-card gauge-card">
+          <div class="kpi-label has-tip" tabindex="0"
+               data-tip="How close your current portfolio is to your FI Number. 100% means you've hit financial independence.">
+            📊 Retirement Readiness
+          </div>
+          <svg class="gauge" viewBox="0 0 200 132" role="img" aria-label="Retirement readiness gauge">
+            <path class="gauge-track" d="M20 100 A80 80 0 0 1 180 100" />
+            <path class="gauge-arc" id="gauge-arc" d="M20 100 A80 80 0 0 1 180 100" />
+            <g id="gauge-needle"><line x1="100" y1="100" x2="100" y2="34" /></g>
+            <circle class="gauge-hub" cx="100" cy="100" r="6" />
+          </svg>
+          <div class="gauge-pct" id="gauge-pct" aria-live="polite">0%</div>
+        </div>
         <div class="kpi-card">
           <div class="kpi-label has-tip tip-right" tabindex="0"
                data-tip="How many years until your pot reaches the FI Number at your current savings pace and expected return. Also shows your savings rate (SR) — a key FIRE metric.">
@@ -304,7 +351,9 @@
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+        integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF"
+        crossorigin="anonymous"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>
 </body>
