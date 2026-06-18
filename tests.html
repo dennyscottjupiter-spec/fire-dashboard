@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FIRE Engine — Tests</title>
+  <title>FIRE Dashboard — Tests</title>
   <style>
     body { font-family: ui-monospace, "SF Mono", monospace; background: #1a1a1b; color: #f0f0f0; padding: 28px; font-size: 13px; line-height: 1.6; }
     h1   { color: #0ea5e9; margin-bottom: 4px; font-size: 18px; }
@@ -14,10 +14,11 @@
   </style>
 </head>
 <body>
-<h1>🔬 FIRE Engine — Test Suite</h1>
-<p>Open this file in a browser. All tests run in-page against engine.js.</p>
+<h1>🔬 FIRE Dashboard — Test Suite</h1>
+<p>Open this file in a browser. Engine tests run synchronously; integration tests load index.html in a hidden iframe.</p>
 <pre id="out"></pre>
-<div id="summary"></div>
+<div id="summary">⏳ Running integration tests…</div>
+
 <script src="engine.js"></script>
 <script>
 'use strict';
@@ -30,11 +31,17 @@ function assert(label, ok, got, expected) {
     out.innerHTML += `<span class="pass">✅</span>  ${label}\n`;
   } else {
     fail++;
-    out.innerHTML += `<span class="fail">❌</span>  ${label}\n       got      : ${got}\n       expected : ${expected}\n`;
+    out.innerHTML += `<span class="fail">❌</span>  ${label}\n       got      : ${JSON.stringify(got)}\n       expected : ${JSON.stringify(expected)}\n`;
   }
 }
 function group(name) { out.innerHTML += `\n<b style="color:#8a8a8a">${name}</b>\n`; }
 function near(a, b, eps = 0.01) { return Math.abs(a - b) <= eps; }
+function renderSummary() {
+  const total = pass + fail;
+  document.getElementById('summary').innerHTML =
+    `${total} tests — <span class="pass">${pass} passed</span>` +
+    (fail > 0 ? `, <span class="fail">${fail} failed</span>` : ' — all green 🎉');
+}
 
 // ── parseNum ──────────────────────────────────────────────
 group('parseNum');
@@ -49,7 +56,6 @@ group('box3Tax');
 assert('no tax below allowance',    box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
 const expected3 = 0.36 * 0.0604 * (100000 - 57000);
 assert('tax above allowance (t=0)', near(box3Tax(100000, 0, 0.02, false), expected3), box3Tax(100000, 0, 0.02, false).toFixed(4), expected3.toFixed(4));
-// Real mode deflates allowance — tax base is slightly larger
 const box3Real = box3Tax(100000, 5, 0.02, true);
 const box3Nom  = box3Tax(100000, 5, 0.02, false);
 assert('real-mode allowance deflates → larger tax than nominal', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
@@ -75,15 +81,13 @@ const r3 = runProjection({ ...s1, income: 20000 });
 assert('unattainable flag is true',  r3.unattainable === true, r3.unattainable, true);
 assert('yearsToFI is null',          r3.yearsToFI === null,    r3.yearsToFI,    null);
 
-// ── runProjection — Real mode bug fix ─────────────────────
+// ── runProjection — Real mode ─────────────────────────────
 group('runProjection — Real mode vs Nominal (deflated contributions)');
 const r4nom = runProjection({ ...s1, mode: 'nominal' });
 const r4rl  = runProjection({ ...s1, mode: 'real' });
-// Real portfolio at yr 50 should be lower because contributions are deflated
 assert('Real yr-50 portfolio < Nominal yr-50 (deflated contributions)',
   r4rl.data[50].portfolio < r4nom.data[50].portfolio,
   Math.round(r4rl.data[50].portfolio), '< ' + Math.round(r4nom.data[50].portfolio));
-// Sanity: no blow-up in real mode
 assert('Real yr-50 portfolio is finite and positive',
   Number.isFinite(r4rl.data[50].portfolio) && r4rl.data[50].portfolio > 0,
   r4rl.data[50].portfolio.toFixed(0), '>0');
@@ -108,15 +112,268 @@ group('coastFiTarget');
 const fi = 750000, realReturn = 0.05;
 const coast30 = coastFiTarget(fi, 30, realReturn);
 const coast65 = coastFiTarget(fi, 65, realReturn);
-assert('Coast FI at age 30 < Full FI',        coast30 < fi,   coast30.toFixed(0), '< ' + fi);
-assert('Coast FI at age 65 === Full FI',       near(coast65, fi, 1), coast65.toFixed(0), fi);
-assert('Coast FI at age 64 slightly < Full FI', coastFiTarget(fi, 64, realReturn) < fi, '< fi', fi);
+assert('Coast FI at age 30 < Full FI',          coast30 < fi,             coast30.toFixed(0), '< ' + fi);
+assert('Coast FI at age 65 === Full FI',         near(coast65, fi, 1),     coast65.toFixed(0), fi);
+assert('Coast FI at age 64 slightly < Full FI',  coastFiTarget(fi, 64, realReturn) < fi, '< fi', fi);
 
-// ── Summary ───────────────────────────────────────────────
-const total = pass + fail;
-document.getElementById('summary').innerHTML =
-  `${total} tests — <span class="pass">${pass} passed</span>` +
-  (fail > 0 ? `, <span class="fail">${fail} failed</span>` : ' — all green 🎉');
+// ══════════════════════════════════════════════════════════
+// Integration tests — iframe drives the real app
+// ══════════════════════════════════════════════════════════
+(async function runIntegration() {
+  group('\n━━━━━━━━ Integration (iframe → index.html) ━━━━━━━━');
+
+  const iframe = document.createElement('iframe');
+  iframe.src = 'index.html';
+  iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
+  document.body.appendChild(iframe);
+
+  try {
+    await Promise.race([
+      new Promise(resolve => iframe.addEventListener('load', resolve, { once: true })),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('iframe load timeout')), 15000))
+    ]);
+  } catch (e) {
+    fail++;
+    out.innerHTML += `<span class="fail">❌</span>  iframe failed to load: ${e.message}\n`;
+    renderSummary();
+    return;
+  }
+
+  const win = iframe.contentWindow;
+  const doc = win.document;
+
+  // ── helpers ───────────────────────────────────────────
+  function setVal(id, v) {
+    const el = doc.getElementById(id);
+    if (!el) { fail++; out.innerHTML += `<span class="fail">❌</span>  [missing element #${id}]\n`; return; }
+    el.value = v;
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+  }
+  function fireBlur(id) {
+    const el = doc.getElementById(id);
+    if (el) el.dispatchEvent(new win.Event('blur', { bubbles: true }));
+  }
+  function clickEl(id) { const el = doc.getElementById(id); if (el) el.click(); }
+  function keyDown(id, key) {
+    const el = doc.getElementById(id);
+    if (el) el.dispatchEvent(new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+  function text(id) { const el = doc.getElementById(id); return el ? el.textContent.trim() : '(missing:'+id+')'; }
+  function val(id)  { const el = doc.getElementById(id); return el ? el.value            : '(missing:'+id+')'; }
+
+  const s = win._state; // live reference to app state (window._state = state at end of app.js)
+  if (!s) { fail++; out.innerHTML += `<span class="fail">❌</span>  window._state not found — app.js may not have loaded\n`; renderSummary(); return; }
+
+  // ── reset to known baseline ───────────────────────────
+  win.localStorage.clear();
+  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  setVal('input-income',    '60000'); fireBlur('input-income');
+  setVal('input-spending',  '30000'); fireBlur('input-spending');
+  setVal('input-age',       '30');    fireBlur('input-age');
+  setVal('val-return',      '7');     fireBlur('val-return');
+  setVal('val-savings',     '2');     fireBlur('val-savings');
+  setVal('val-inflation',   '2');     fireBlur('val-inflation');
+  setVal('val-withdrawal',  '4');     fireBlur('val-withdrawal');
+  setVal('val-tax-custom',  '15');    fireBlur('val-tax-custom');
+  doc.getElementById('slider-alloc').value = '80';
+  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+  clickEl('btn-nominal');
+  clickEl('btn-tax-none');
+
+  // ── euro inputs ───────────────────────────────────────
+  group('Integration — euro inputs (parseNum + formatting)');
+  setVal('input-portfolio', '100,000');
+  assert('portfolio parseNum strips comma → 100000', s.portfolio === 100000, s.portfolio, 100000);
+  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  assert('portfolio blur formats → "50,000"', val('input-portfolio') === '50,000', val('input-portfolio'), '50,000');
+  assert('income reads 60000', s.income === 60000, s.income, 60000);
+  assert('spending reads 30000', s.spending === 30000, s.spending, 30000);
+
+  // ── age clamping ──────────────────────────────────────
+  group('Integration — age clamping');
+  setVal('input-age', '45'); fireBlur('input-age');
+  assert('age 45 accepted', s.currentAge === 45, s.currentAge, 45);
+  setVal('input-age', '200'); fireBlur('input-age');
+  assert('age 200 clamps to 100', s.currentAge === 100, s.currentAge, 100);
+  setVal('input-age', '0'); fireBlur('input-age');
+  assert('age 0 falls back to default 30 (0||30)', s.currentAge === 30, s.currentAge, 30);
+  setVal('input-age', '30'); fireBlur('input-age');
+
+  // ── investment return box/slider ──────────────────────
+  group('Integration — investment return box / slider sync');
+  setVal('val-return', '12');
+  assert('investReturn 12 accepted', s.investReturn === 12, s.investReturn, 12);
+  assert('slider-return pins at 12 (within track max 15)', parseFloat(val('slider-return')) === 12, val('slider-return'), '12');
+  setVal('val-return', '99'); fireBlur('val-return');
+  assert('investReturn clamps to cap 50 on blur', s.investReturn === 50, s.investReturn, 50);
+  assert('slider-return pins at track max 15', parseFloat(val('slider-return')) === 15, val('slider-return'), '15');
+  setVal('val-return', '7'); fireBlur('val-return');
+
+  // ── inflation box/slider ──────────────────────────────
+  group('Integration — inflation box / slider sync');
+  setVal('val-inflation', '8');
+  assert('inflation 8 accepted', s.inflation === 8, s.inflation, 8);
+  setVal('val-inflation', '99'); fireBlur('val-inflation');
+  assert('inflation clamps to cap 50 on blur', s.inflation === 50, s.inflation, 50);
+  setVal('val-inflation', '2'); fireBlur('val-inflation');
+
+  // ── withdrawal box/slider ─────────────────────────────
+  group('Integration — withdrawal box / slider sync');
+  setVal('val-withdrawal', '5');
+  assert('withdrawal 5 accepted', s.withdrawal === 5, s.withdrawal, 5);
+  setVal('val-withdrawal', '25'); fireBlur('val-withdrawal');
+  assert('withdrawal clamps to cap 20 on blur', s.withdrawal === 20, s.withdrawal, 20);
+  setVal('val-withdrawal', '4'); fireBlur('val-withdrawal');
+
+  // ── savings return (new) ──────────────────────────────
+  group('Integration — savings return box (new, no slider)');
+  setVal('val-savings', '3'); fireBlur('val-savings');
+  assert('savingsReturn 3 accepted', s.savingsReturn === 3, s.savingsReturn, 3);
+  setVal('val-savings', '15'); fireBlur('val-savings');
+  assert('savingsReturn clamps to cap 10 on blur', s.savingsReturn === 10, s.savingsReturn, 10);
+  setVal('val-savings', '2'); fireBlur('val-savings');
+
+  // ── allocation slider + blended return (new) ──────────
+  group('Integration — allocation slider + blended return (new)');
+  setVal('val-return', '7'); fireBlur('val-return');
+  setVal('val-savings', '2'); fireBlur('val-savings');
+
+  doc.getElementById('slider-alloc').value = '100';
+  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+  assert('alloc 100% → invest label = "100%"', text('alloc-invest-pct') === '100%', text('alloc-invest-pct'), '100%');
+  assert('alloc 100% → savings label = "0%"',  text('alloc-savings-pct') === '0%',  text('alloc-savings-pct'), '0%');
+  assert('blended at 100% alloc = investReturn (7)', near(s.returnRate, 7), s.returnRate, 7);
+
+  doc.getElementById('slider-alloc').value = '50';
+  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+  assert('alloc 50/50 → blended = 4.5 (0.5·7 + 0.5·2)', near(s.returnRate, 4.5), s.returnRate, 4.5);
+  assert('blended-return DOM text = "4.5"', text('blended-return') === '4.5', text('blended-return'), '4.5');
+
+  doc.getElementById('slider-alloc').value = '80';
+  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+  assert('alloc 80/20 default → blended ≈ 6.0', near(s.returnRate, 6.0), s.returnRate, 6.0);
+
+  // ── mode buttons ──────────────────────────────────────
+  group('Integration — Real / Nominal mode buttons');
+  clickEl('btn-real');
+  assert('mode = "real" after click', s.mode === 'real', s.mode, 'real');
+  assert('btn-real has .active class', doc.getElementById('btn-real').classList.contains('active'), true, true);
+  clickEl('btn-nominal');
+  assert('mode = "nominal" after click', s.mode === 'nominal', s.mode, 'nominal');
+  assert('btn-nominal has .active class', doc.getElementById('btn-nominal').classList.contains('active'), true, true);
+
+  // ── tax buttons + visibility ──────────────────────────
+  group('Integration — tax buttons + row visibility');
+  clickEl('btn-tax-box3');
+  assert('taxMode = "box3"', s.taxMode === 'box3', s.taxMode, 'box3');
+  assert('tax-box3-info visible', doc.getElementById('tax-box3-info').style.display !== 'none', true, true);
+  clickEl('btn-tax-custom');
+  assert('taxMode = "custom"', s.taxMode === 'custom', s.taxMode, 'custom');
+  assert('tax-custom-row visible', doc.getElementById('tax-custom-row').style.display !== 'none', true, true);
+  clickEl('btn-tax-none');
+  assert('taxMode = "none"', s.taxMode === 'none', s.taxMode, 'none');
+  assert('tax-box3-info hidden again',  doc.getElementById('tax-box3-info').style.display  === 'none', doc.getElementById('tax-box3-info').style.display,  'none');
+  assert('tax-custom-row hidden again', doc.getElementById('tax-custom-row').style.display === 'none', doc.getElementById('tax-custom-row').style.display, 'none');
+
+  // ── custom tax box ────────────────────────────────────
+  group('Integration — custom tax % box');
+  setVal('val-tax-custom', '25');
+  assert('taxCustomPct = 25', s.taxCustomPct === 25, s.taxCustomPct, 25);
+  setVal('val-tax-custom', '500'); fireBlur('val-tax-custom');
+  assert('taxCustomPct clamps to 100 on blur', s.taxCustomPct === 100, s.taxCustomPct, 100);
+  setVal('val-tax-custom', '15'); fireBlur('val-tax-custom');
+
+  // ── macro buttons ─────────────────────────────────────
+  group('Integration — macro preset buttons');
+  setVal('val-return', '10'); fireBlur('val-return');  // start somewhere else
+  const modBtn = Array.from(doc.querySelectorAll('.macro-btn')).find(b => b.dataset.val === '7' && b.dataset.slider === 'slider-return');
+  if (modBtn) modBtn.click();
+  assert('macro "Moderate 7%" sets investReturn', s.investReturn === 7, s.investReturn, 7);
+  assert('macro syncs slider-return to 7', parseFloat(val('slider-return')) === 7, val('slider-return'), '7');
+  assert('macro btn gets .active-macro class', modBtn ? modBtn.classList.contains('active-macro') : false, true, true);
+
+  // ── steppers ▲/▼ ─────────────────────────────────────
+  group('Integration — steppers ▲/▼ (return + savings)');
+  setVal('val-return', '7'); fireBlur('val-return');
+  const stepRUp = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="1"]');
+  const stepRDn = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="-1"]');
+  if (stepRUp) stepRUp.click();
+  assert('return stepper ▲ → investReturn 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
+  if (stepRDn) { stepRDn.click(); stepRDn.click(); }
+  assert('return stepper ▼ twice → investReturn 6.5', near(s.investReturn, 6.5), s.investReturn, 6.5);
+  setVal('val-return', '7'); fireBlur('val-return');
+
+  setVal('val-savings', '2'); fireBlur('val-savings');
+  const stepSUp = doc.querySelector('.stepper-btn[data-box="val-savings"][data-dir="1"]');
+  if (stepSUp) stepSUp.click();
+  assert('savings stepper ▲ → savingsReturn 2.5 (no slider crash)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
+  setVal('val-savings', '2'); fireBlur('val-savings');
+
+  // ── arrow keys ────────────────────────────────────────
+  group('Integration — ArrowUp/Down on rate boxes');
+  setVal('val-return', '7'); fireBlur('val-return');
+  keyDown('val-return', 'ArrowUp');
+  assert('ArrowUp on val-return → 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
+  keyDown('val-return', 'ArrowDown');
+  assert('ArrowDown on val-return → 7.0', near(s.investReturn, 7.0), s.investReturn, 7.0);
+
+  setVal('val-savings', '2'); fireBlur('val-savings');
+  keyDown('val-savings', 'ArrowUp');
+  assert('ArrowUp on val-savings → 2.5 (slider-less box)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
+  setVal('val-savings', '2'); fireBlur('val-savings');
+
+  // ── retirement readiness gauge (new) ─────────────────
+  group('Integration — Retirement Readiness gauge (new)');
+  // FI = spending / (withdrawal/100) = 30000 / 0.04 = 750000
+  setVal('input-spending', '30000'); fireBlur('input-spending');
+  setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
+  setVal('input-portfolio', '750000'); fireBlur('input-portfolio');
+  assert('gauge = 100% at portfolio ≥ FI', text('gauge-pct') === '100%', text('gauge-pct'), '100%');
+  setVal('input-portfolio', '375000'); fireBlur('input-portfolio');
+  assert('gauge = 50% at portfolio = FI/2', text('gauge-pct') === '50%', text('gauge-pct'), '50%');
+  setVal('input-portfolio', '0'); fireBlur('input-portfolio');
+  assert('gauge = 0% at portfolio = 0', text('gauge-pct') === '0%', text('gauge-pct'), '0%');
+  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+
+  // ── KPI values ────────────────────────────────────────
+  group('Integration — KPI output values');
+  setVal('input-spending', '30000'); fireBlur('input-spending');
+  setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
+  assert('FI number contains "750" (spending/wr = 750k)', text('kpi-fi-number').includes('750'), text('kpi-fi-number'), '~€750,000');
+  assert('years-to-FIRE is populated (non-empty)', text('kpi-years').length > 0, text('kpi-years'), 'non-empty');
+  assert('savings-rate sub shows "SR:"', text('kpi-years-sub').startsWith('SR:'), text('kpi-years-sub').slice(0,3), 'SR:');
+
+  // ── import guards (Task 3) ────────────────────────────
+  group('Integration — import size / type guards');
+  const portfolioBefore = s.portfolio;
+
+  // size guard: 102401 bytes > 100 KB cap
+  win.importConfig(new File(['x'.repeat(102401)], 'big.json', { type: 'application/json' }));
+  assert('size guard: state unchanged after >100 KB file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+
+  // type guard: text/plain + .txt name → both checks fail
+  win.importConfig(new File(['{}'], 'bad.txt', { type: 'text/plain' }));
+  assert('type guard: state unchanged after wrong-type file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+
+  // valid import (FileReader is async — wait 150 ms)
+  const validCfg = JSON.stringify({ portfolio: 123456, income: 80000, spending: 25000 });
+  win.importConfig(new File([validCfg], 'fire.json', { type: 'application/json' }));
+  await new Promise(r => setTimeout(r, 150));
+  assert('valid import applies new portfolio value', s.portfolio === 123456, s.portfolio, 123456);
+
+  // ── return-split state fields ─────────────────────────
+  group('Integration — split-return state fields (new)');
+  assert('state.investReturn is a number',  typeof s.investReturn  === 'number', typeof s.investReturn,  'number');
+  assert('state.savingsReturn is a number', typeof s.savingsReturn === 'number', typeof s.savingsReturn, 'number');
+  assert('state.allocInvest is a number',   typeof s.allocInvest   === 'number', typeof s.allocInvest,   'number');
+  const expectedBlend = s.allocInvest / 100 * s.investReturn + (1 - s.allocInvest / 100) * s.savingsReturn;
+  assert('state.returnRate equals blend formula', near(s.returnRate, expectedBlend, 0.001), s.returnRate, expectedBlend);
+
+  // clean up localStorage
+  win.localStorage.clear();
+
+  renderSummary();
+})();
 </script>
 </body>
 </html>
