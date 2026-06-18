@@ -1,6 +1,14 @@
 /* ============================================================
-   FIRE Dashboard v1.1 — Finance-Dark Theme
+   FIRE Dashboard v1.5 — Finance-Dark Theme
    ============================================================ */
+
+/* ── Inter variable font (self-hosted, SIL OFL) ─────────── */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
 
 :root {
   /* Palette */
@@ -24,9 +32,9 @@
   --radius:      10px;
   --gap:         20px;
 
-  /* Typography */
-  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+  /* Typography — single Inter variable font app-wide */
+  --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Inter", "Segoe UI", system-ui, sans-serif;
 
   /* Shadows */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
