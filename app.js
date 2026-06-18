@@ -271,7 +271,14 @@ function recalc() {
   state.currentAge = Math.max(1, Math.min(100, parseNum(els.inputAge.value) || 30));
 
   // Rate fields read from the editable value-boxes (source of truth)
-  state.returnRate   = parseFloat(els.valReturn.value)    || 0;
+  state.investReturn  = parseFloat(els.valReturn.value)    || 0;
+  state.savingsReturn = parseFloat(els.valSavings.value)   || 0;
+  state.allocInvest   = parseFloat(els.sliderAlloc.value);
+  const a = state.allocInvest / 100;
+  state.returnRate    = a * state.investReturn + (1 - a) * state.savingsReturn;
+  els.allocInvestPct.textContent  = Math.round(state.allocInvest)       + '%';
+  els.allocSavingsPct.textContent = Math.round(100 - state.allocInvest) + '%';
+  els.blendedReturn.textContent   = state.returnRate.toFixed(1);
   state.inflation    = parseFloat(els.valInfl.value)      || 0;
   state.withdrawal   = parseFloat(els.valWR.value)        || 0;
   state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
@@ -327,6 +334,9 @@ function recalc() {
     chart.data.datasets[1].data  = data.map(d => Math.round(d.fi));
     chart.update();
   }
+
+  // ── Gauge
+  updateGauge(isFinite(fiTarget) && fiTarget > 0 ? state.portfolio / fiTarget : 0);
 
   // ── Milestones (at t=0, mode-independent)
   const realReturn = (1 + state.returnRate / 100) / (1 + state.inflation / 100) - 1;
@@ -391,11 +401,30 @@ function applyConfig(cfg) {
     state.spending     = cfg.spending;
     els.spending.value = numFmt.format(cfg.spending);
   }
-  if (cfg.returnRate != null) {
-    els.sliderReturn.value = Math.min(cfg.returnRate, 15);
-    els.valReturn.value    = cfg.returnRate;
-    els.valReturn._lastValid = cfg.returnRate;
-    state.returnRate       = cfg.returnRate;
+  // investReturn: new configs use investReturn; old configs use returnRate (treat as 100% invested)
+  if (cfg.investReturn != null) {
+    els.sliderReturn.value    = Math.min(cfg.investReturn, 15);
+    els.valReturn.value       = cfg.investReturn;
+    els.valReturn._lastValid  = cfg.investReturn;
+    state.investReturn        = cfg.investReturn;
+  } else if (cfg.returnRate != null) {
+    els.sliderReturn.value    = Math.min(cfg.returnRate, 15);
+    els.valReturn.value       = cfg.returnRate;
+    els.valReturn._lastValid  = cfg.returnRate;
+    state.investReturn        = cfg.returnRate;
+  }
+  if (cfg.savingsReturn != null) {
+    els.valSavings.value      = cfg.savingsReturn;
+    els.valSavings._lastValid = cfg.savingsReturn;
+    state.savingsReturn       = cfg.savingsReturn;
+  }
+  if (cfg.allocInvest != null) {
+    els.sliderAlloc.value = cfg.allocInvest;
+    state.allocInvest     = cfg.allocInvest;
+  } else if (cfg.returnRate != null) {
+    // old config: was fully invested — preserve its projection
+    els.sliderAlloc.value = 100;
+    state.allocInvest     = 100;
   }
   if (cfg.inflation != null) {
     els.sliderInfl.value = Math.min(cfg.inflation, 10);
@@ -438,16 +467,18 @@ const LS_KEY = 'fire-dashboard-state';
 function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      portfolio:    state.portfolio,
-      income:       state.income,
-      spending:     state.spending,
-      returnRate:   state.returnRate,
-      inflation:    state.inflation,
-      withdrawal:   state.withdrawal,
-      mode:         state.mode,
-      taxMode:      state.taxMode,
-      taxCustomPct: state.taxCustomPct,
-      currentAge:   state.currentAge,
+      portfolio:     state.portfolio,
+      income:        state.income,
+      spending:      state.spending,
+      investReturn:  state.investReturn,
+      savingsReturn: state.savingsReturn,
+      allocInvest:   state.allocInvest,
+      inflation:     state.inflation,
+      withdrawal:    state.withdrawal,
+      mode:          state.mode,
+      taxMode:       state.taxMode,
+      taxCustomPct:  state.taxCustomPct,
+      currentAge:    state.currentAge,
     }));
   } catch (_) {}
 }
@@ -468,18 +499,19 @@ const RATE_CFG = {
   'val-return':     { slider: 'slider-return',     sliderMax: 15, capMin: 0,   capMax: 50  },
   'val-inflation':  { slider: 'slider-inflation',  sliderMax: 10, capMin: 0,   capMax: 50  },
   'val-withdrawal': { slider: 'slider-withdrawal', sliderMax: 10, capMin: 0.5, capMax: 20  },
+  'val-savings':    { slider: null,                sliderMax: 0,  capMin: 0,   capMax: 10  },
 };
 
 function stepRate(boxId, delta) {
   const cfg  = RATE_CFG[boxId];
   if (!cfg) return;
   const box    = $(boxId);
-  const slider = $(cfg.slider);
+  const slider = cfg.slider ? $(cfg.slider) : null;
   const curr   = parseFloat(box.value) || cfg.capMin;
   const next   = Math.min(cfg.capMax, Math.max(cfg.capMin, parseFloat((curr + delta).toFixed(1))));
   box.value      = next;
   box._lastValid = next;
-  slider.value   = Math.min(next, cfg.sliderMax);
+  if (slider) slider.value = Math.min(next, cfg.sliderMax);
   recalc();
 }
 
@@ -512,6 +544,20 @@ function wireInputs() {
   bindRange(els.sliderInfl,   els.valInfl,   10,  [0,   50]);
   bindRange(els.sliderWR,     els.valWR,     10,  [0.5, 20]);
 
+  // Savings return (no slider — clamp [0,10] on blur)
+  els.valSavings._lastValid = parseFloat(els.valSavings.value) || 0;
+  els.valSavings.addEventListener('input', recalc);
+  els.valSavings.addEventListener('blur', () => {
+    const v = parseFloat(els.valSavings.value);
+    const clamped = isNaN(v) ? els.valSavings._lastValid : Math.min(10, Math.max(0, v));
+    els.valSavings.value      = clamped;
+    els.valSavings._lastValid = clamped;
+    recalc();
+  });
+
+  // Allocation slider
+  els.sliderAlloc.addEventListener('input', recalc);
+
   // Stepper buttons (▲/▼)
   document.querySelectorAll('.stepper-btn').forEach(btn => {
     btn.addEventListener('click', () =>
@@ -520,7 +566,7 @@ function wireInputs() {
   });
 
   // ArrowUp/Down keyboard on each rate box
-  [els.valReturn, els.valInfl, els.valWR].forEach(box => {
+  [els.valReturn, els.valInfl, els.valWR, els.valSavings].forEach(box => {
     box.addEventListener('keydown', e => {
       if (e.key === 'ArrowUp')   { e.preventDefault(); stepRate(box.id, +0.5); }
       if (e.key === 'ArrowDown') { e.preventDefault(); stepRate(box.id, -0.5); }
@@ -576,16 +622,18 @@ function wireInputs() {
 /* ── 12. Export / Import ──────────────────────────────────── */
 function exportConfig() {
   const config = {
-    portfolio:    state.portfolio,
-    income:       state.income,
-    spending:     state.spending,
-    returnRate:   state.returnRate,
-    inflation:    state.inflation,
-    withdrawal:   state.withdrawal,
-    mode:         state.mode,
-    taxMode:      state.taxMode,
-    taxCustomPct: state.taxCustomPct,
-    currentAge:   state.currentAge,
+    portfolio:     state.portfolio,
+    income:        state.income,
+    spending:      state.spending,
+    investReturn:  state.investReturn,
+    savingsReturn: state.savingsReturn,
+    allocInvest:   state.allocInvest,
+    inflation:     state.inflation,
+    withdrawal:    state.withdrawal,
+    mode:          state.mode,
+    taxMode:       state.taxMode,
+    taxCustomPct:  state.taxCustomPct,
+    currentAge:    state.currentAge,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -659,3 +707,6 @@ loadState();
 refreshMacroActive();
 
 recalc();
+
+// Expose live state object for integration tests (read-only intent)
+window._state = state;
