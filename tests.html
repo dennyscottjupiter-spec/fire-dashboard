@@ -17,14 +17,16 @@
 <h1>🔬 FIRE Dashboard — Test Suite</h1>
 <p>Open this file in a browser. Engine tests run synchronously; integration tests load index.html in a hidden iframe.</p>
 <pre id="out"></pre>
-<div id="summary">⏳ Running integration tests…</div>
+<div id="summary">⏳ Running tests…</div>
 
 <script src="engine.js"></script>
 <script>
 'use strict';
 const out = document.getElementById('out');
 let pass = 0, fail = 0;
+let _done = false;
 
+/* ── harness helpers ──────────────────────────────────────── */
 function assert(label, ok, got, expected) {
   if (ok) {
     pass++;
@@ -36,31 +38,71 @@ function assert(label, ok, got, expected) {
 }
 function group(name) { out.innerHTML += `\n<b style="color:#8a8a8a">${name}</b>\n`; }
 function near(a, b, eps = 0.01) { return Math.abs(a - b) <= eps; }
+
 function renderSummary() {
+  if (_done) return;
+  _done = true;
   const total = pass + fail;
   document.getElementById('summary').innerHTML =
     `${total} tests — <span class="pass">${pass} passed</span>` +
     (fail > 0 ? `, <span class="fail">${fail} failed</span>` : ' — all green 🎉');
 }
 
-// ── parseNum ──────────────────────────────────────────────
-group('parseNum');
-assert('parseNum("50,000")',    parseNum('50,000')    === 50000, parseNum('50,000'),    50000);
-assert('parseNum("1,234,567")',parseNum('1,234,567') === 1234567, parseNum('1,234,567'), 1234567);
-assert('parseNum("")',         parseNum('')          === 0,     parseNum(''),          0);
-assert('parseNum("abc")',      parseNum('abc')       === 0,     parseNum('abc'),       0);
-assert('parseNum("100")',      parseNum('100')       === 100,   parseNum('100'),       100);
+/* global error/rejection → count as failed test, always resolve */
+window.addEventListener('error', ev => {
+  fail++;
+  out.innerHTML += `<span class="fail">❌</span>  [uncaught error] ${ev.message} (${ev.filename}:${ev.lineno})\n`;
+});
+window.addEventListener('unhandledrejection', ev => {
+  fail++;
+  out.innerHTML += `<span class="fail">❌</span>  [unhandled rejection] ${String(ev.reason)}\n`;
+});
 
-// ── box3Tax ───────────────────────────────────────────────
+/* watchdog: if integration never finishes, force renderSummary after 25 s */
+const _watchdog = setTimeout(() => {
+  fail++;
+  out.innerHTML += `<span class="fail">❌</span>  [watchdog] Integration tests did not complete within 25 s\n`;
+  renderSummary();
+}, 25000);
+
+/* ══════════════════════════════════════════════════════════
+   ENGINE UNIT TESTS  (synchronous — run immediately)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── parseNum ──────────────────────────────────────────────── */
+group('parseNum');
+assert('parseNum("50,000")',     parseNum('50,000')    === 50000,   parseNum('50,000'),    50000);
+assert('parseNum("1,234,567")', parseNum('1,234,567') === 1234567, parseNum('1,234,567'), 1234567);
+assert('parseNum("")',          parseNum('')          === 0,       parseNum(''),          0);
+assert('parseNum("abc")',       parseNum('abc')       === 0,       parseNum('abc'),       0);
+assert('parseNum("100")',       parseNum('100')       === 100,     parseNum('100'),       100);
+assert('parseNum("€50,000")',   parseNum('€50,000')   === 50000,   parseNum('€50,000'),   50000);
+assert('parseNum("  50 000 ")  — spaces stripped', parseNum('  50 000 ') === 50000, parseNum('  50 000 '), 50000);
+assert('parseNum("0")',         parseNum('0')         === 0,       parseNum('0'),         0);
+assert('parseNum("007")',       parseNum('007')       === 7,       parseNum('007'),       7);
+assert('parseNum("9999999")',   parseNum('9999999')   === 9999999, parseNum('9999999'),   9999999);
+
+/* ── box3Tax ───────────────────────────────────────────────── */
 group('box3Tax');
-assert('no tax below allowance',    box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
+assert('no tax below allowance', box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
+assert('no tax exactly at allowance', box3Tax(57000, 0, 0.02, false) === 0, box3Tax(57000, 0, 0.02, false), 0);
 const expected3 = 0.36 * 0.0604 * (100000 - 57000);
 assert('tax above allowance (t=0)', near(box3Tax(100000, 0, 0.02, false), expected3), box3Tax(100000, 0, 0.02, false).toFixed(4), expected3.toFixed(4));
 const box3Real = box3Tax(100000, 5, 0.02, true);
 const box3Nom  = box3Tax(100000, 5, 0.02, false);
-assert('real-mode allowance deflates → larger tax than nominal', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
+assert('real-mode allowance deflates → larger tax than nominal at t=5', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
+assert('real-mode at t=0 equals nominal', near(box3Tax(100000, 0, 0.02, true), box3Tax(100000, 0, 0.02, false), 0.001), true, true);
+assert('box3Tax result is non-negative for P=0', box3Tax(0, 0, 0.02, false) === 0, box3Tax(0, 0, 0.02, false), 0);
 
-// ── runProjection — basic nominal ─────────────────────────
+/* ── customTax ─────────────────────────────────────────────── */
+group('customTax');
+assert('customTax(1000, 20) = 200',       near(customTax(1000, 20), 200),   customTax(1000, 20),   200);
+assert('customTax(1000, 0) = 0',          customTax(1000, 0) === 0,         customTax(1000, 0),    0);
+assert('customTax(-500, 20) = 0 (neg gain)', customTax(-500, 20) === 0,     customTax(-500, 20),   0);
+assert('customTax(0, 20) = 0',            customTax(0, 20) === 0,           customTax(0, 20),      0);
+assert('customTax(500, 100) = 500',       near(customTax(500, 100), 500),   customTax(500, 100),   500);
+
+/* ── runProjection — basic nominal ────────────────────────── */
 group('runProjection — nominal, no tax');
 const s1 = { portfolio: 50000, income: 60000, spending: 30000, returnRate: 7, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none' };
 const r1 = runProjection(s1);
@@ -69,19 +111,42 @@ assert('savings = income − spending',      r1.savings === 30000,         r1.sa
 assert('savingsRate = 50%',               near(r1.savingsRate, 50),     r1.savingsRate, 50);
 assert('yearsToFI is finite and > 0',     r1.yearsToFI > 0,            r1.yearsToFI,  '>0');
 assert('data length = 51 (yr 0–50)',      r1.data.length === 51,        r1.data.length, 51);
+assert('yr-0 portfolio = initial',        r1.data[0].portfolio === 50000, r1.data[0].portfolio, 50000);
 
-// ── runProjection — already FI ────────────────────────────
+/* ── runProjection — already FI ──────────────────────────── */
 group('runProjection — already FI');
 const r2 = runProjection({ ...s1, portfolio: 800000 });
-assert('yearsToFI === 0 when already FI', r2.yearsToFI === 0, r2.yearsToFI, 0);
+assert('yearsToFI === 0 when already FI',  r2.yearsToFI === 0, r2.yearsToFI, 0);
+assert('unattainable is false when already FI', r2.unattainable === false, r2.unattainable, false);
 
-// ── runProjection — unattainable ──────────────────────────
+/* ── runProjection — exactly at FI ───────────────────────── */
+group('runProjection — portfolio exactly equals FI target');
+const rExact = runProjection({ ...s1, portfolio: 750000 });
+assert('portfolio===fiTarget → yearsToFI===0', rExact.yearsToFI === 0, rExact.yearsToFI, 0);
+
+/* ── runProjection — unattainable ────────────────────────── */
 group('runProjection — unattainable (spending > income)');
 const r3 = runProjection({ ...s1, income: 20000 });
 assert('unattainable flag is true',  r3.unattainable === true, r3.unattainable, true);
 assert('yearsToFI is null',          r3.yearsToFI === null,    r3.yearsToFI,    null);
 
-// ── runProjection — Real mode ─────────────────────────────
+/* ── runProjection — zero spending ───────────────────────── */
+group('runProjection — spending = 0 (FI already)');
+const rZeroSpend = runProjection({ ...s1, spending: 0 });
+assert('spending=0 → fiTarget=0 → already FI', rZeroSpend.yearsToFI === 0, rZeroSpend.yearsToFI, 0);
+
+/* ── runProjection — withdrawal = 0 ─────────────────────── */
+group('runProjection — withdrawal rate = 0 (Infinity FI)');
+const rZeroWR = runProjection({ ...s1, withdrawal: 0 });
+assert('withdrawal=0 → fiTarget=Infinity', !isFinite(rZeroWR.fiTarget), rZeroWR.fiTarget, Infinity);
+assert('withdrawal=0 → yearsToFI=null (never)',  rZeroWR.yearsToFI === null, rZeroWR.yearsToFI, null);
+
+/* ── runProjection — zero income ─────────────────────────── */
+group('runProjection — income = 0');
+const rZeroIncome = runProjection({ ...s1, income: 0, spending: 0 });
+assert('income=0 spending=0 → savingsRate=0', rZeroIncome.savingsRate === 0, rZeroIncome.savingsRate, 0);
+
+/* ── runProjection — Real mode ───────────────────────────── */
 group('runProjection — Real mode vs Nominal (deflated contributions)');
 const r4nom = runProjection({ ...s1, mode: 'nominal' });
 const r4rl  = runProjection({ ...s1, mode: 'real' });
@@ -92,7 +157,13 @@ assert('Real yr-50 portfolio is finite and positive',
   Number.isFinite(r4rl.data[50].portfolio) && r4rl.data[50].portfolio > 0,
   r4rl.data[50].portfolio.toFixed(0), '>0');
 
-// ── runProjection — Box-3 tax drag ────────────────────────
+/* ── runProjection — high inflation real mode stays finite ── */
+group('runProjection — high inflation real mode stays finite and ≥ 0');
+const rHighInfl = runProjection({ ...s1, inflation: 8, returnRate: 5, mode: 'real' });
+assert('high-inflation real mode yr-50 is finite', Number.isFinite(rHighInfl.data[50].portfolio), true, true);
+assert('high-inflation real mode yr-50 is ≥ 0', rHighInfl.data[50].portfolio >= 0, true, true);
+
+/* ── runProjection — Box-3 tax drag ──────────────────────── */
 group('runProjection — Box-3 tax slows growth');
 const r5notax = runProjection({ ...s1, taxMode: 'none' });
 const r5box3  = runProjection({ ...s1, taxMode: 'box3' });
@@ -100,25 +171,42 @@ assert('Box-3 yr-20 portfolio < no-tax yr-20',
   r5box3.data[20].portfolio < r5notax.data[20].portfolio,
   Math.round(r5box3.data[20].portfolio), '< ' + Math.round(r5notax.data[20].portfolio));
 
-// ── runProjection — Custom tax ────────────────────────────
+/* ── runProjection — Box-3 real mode ─────────────────────── */
+group('runProjection — Box-3 in real mode');
+const r5box3Real = runProjection({ ...s1, taxMode: 'box3', mode: 'real' });
+assert('Box-3 real yr-20 portfolio < no-tax nominal yr-20',
+  r5box3Real.data[20].portfolio < r5notax.data[20].portfolio, true, true);
+assert('Box-3 real yr-20 is finite and > 0',
+  Number.isFinite(r5box3Real.data[20].portfolio) && r5box3Real.data[20].portfolio > 0, true, true);
+
+/* ── runProjection — Custom tax ──────────────────────────── */
 group('runProjection — Custom tax');
 const r6custom = runProjection({ ...s1, taxMode: 'custom', taxCustomPct: 20 });
 assert('Custom-20% yr-20 portfolio < no-tax yr-20',
   r6custom.data[20].portfolio < r5notax.data[20].portfolio,
   Math.round(r6custom.data[20].portfolio), '< ' + Math.round(r5notax.data[20].portfolio));
 
-// ── coastFiTarget ─────────────────────────────────────────
+/* ── runProjection — Custom tax real mode ─────────────────── */
+group('runProjection — Custom tax in real mode');
+const r6customReal = runProjection({ ...s1, taxMode: 'custom', taxCustomPct: 20, mode: 'real' });
+assert('Custom-20% real yr-20 < no-tax real yr-20',
+  r6customReal.data[20].portfolio < r4rl.data[20].portfolio, true, true);
+
+/* ── coastFiTarget ───────────────────────────────────────── */
 group('coastFiTarget');
 const fi = 750000, realReturn = 0.05;
 const coast30 = coastFiTarget(fi, 30, realReturn);
 const coast65 = coastFiTarget(fi, 65, realReturn);
-assert('Coast FI at age 30 < Full FI',          coast30 < fi,             coast30.toFixed(0), '< ' + fi);
-assert('Coast FI at age 65 === Full FI',         near(coast65, fi, 1),     coast65.toFixed(0), fi);
-assert('Coast FI at age 64 slightly < Full FI',  coastFiTarget(fi, 64, realReturn) < fi, '< fi', fi);
+assert('Coast FI at age 30 < Full FI',           coast30 < fi,                       coast30.toFixed(0), '< ' + fi);
+assert('Coast FI at age 65 === Full FI',          near(coast65, fi, 1),               coast65.toFixed(0), fi);
+assert('Coast FI at age 64 slightly < Full FI',   coastFiTarget(fi, 64, realReturn) < fi, '< fi', fi);
+assert('Coast FI at age > 65 returns fi',         coastFiTarget(fi, 70, realReturn) === fi, coastFiTarget(fi, 70, realReturn), fi);
+assert('Coast FI with realReturn=0 returns fi',   coastFiTarget(fi, 30, 0) === fi,    coastFiTarget(fi, 30, 0), fi);
+assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) > fi, coastFiTarget(fi, 30, -0.01).toFixed(0), '> ' + fi);
 
-// ══════════════════════════════════════════════════════════
-// Integration tests — iframe drives the real app
-// ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════
+   INTEGRATION TESTS  (async — iframe drives the real app)
+   ══════════════════════════════════════════════════════════ */
 (async function runIntegration() {
   group('\n━━━━━━━━ Integration (iframe → index.html) ━━━━━━━━');
 
@@ -130,11 +218,12 @@ assert('Coast FI at age 64 slightly < Full FI',  coastFiTarget(fi, 64, realRetur
   try {
     await Promise.race([
       new Promise(resolve => iframe.addEventListener('load', resolve, { once: true })),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('iframe load timeout')), 15000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('iframe load timeout (15 s)')), 15000))
     ]);
   } catch (e) {
     fail++;
     out.innerHTML += `<span class="fail">❌</span>  iframe failed to load: ${e.message}\n`;
+    clearTimeout(_watchdog);
     renderSummary();
     return;
   }
@@ -142,7 +231,7 @@ assert('Coast FI at age 64 slightly < Full FI',  coastFiTarget(fi, 64, realRetur
   const win = iframe.contentWindow;
   const doc = win.document;
 
-  // ── helpers ───────────────────────────────────────────
+  /* ── iframe helpers ──────────────────────────────────── */
   function setVal(id, v) {
     const el = doc.getElementById(id);
     if (!el) { fail++; out.innerHTML += `<span class="fail">❌</span>  [missing element #${id}]\n`; return; }
@@ -158,220 +247,407 @@ assert('Coast FI at age 64 slightly < Full FI',  coastFiTarget(fi, 64, realRetur
     const el = doc.getElementById(id);
     if (el) el.dispatchEvent(new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
   }
-  function text(id) { const el = doc.getElementById(id); return el ? el.textContent.trim() : '(missing:'+id+')'; }
-  function val(id)  { const el = doc.getElementById(id); return el ? el.value            : '(missing:'+id+')'; }
+  function text(id)  { const el = doc.getElementById(id); return el ? el.textContent.trim() : '(missing:' + id + ')'; }
+  function val(id)   { const el = doc.getElementById(id); return el ? el.value               : '(missing:' + id + ')'; }
+  function style(id) { const el = doc.getElementById(id); return el ? el.style               : {}; }
 
-  const s = win._state; // live reference to app state (window._state = state at end of app.js)
-  if (!s) { fail++; out.innerHTML += `<span class="fail">❌</span>  window._state not found — app.js may not have loaded\n`; renderSummary(); return; }
+  /* guard: abort integration if _state isn't exposed */
+  const s = win._state;
+  if (!s) {
+    fail++;
+    out.innerHTML += `<span class="fail">❌</span>  window._state not found — app.js may not have loaded\n`;
+    clearTimeout(_watchdog);
+    renderSummary();
+    return;
+  }
 
-  // ── reset to known baseline ───────────────────────────
-  win.localStorage.clear();
-  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
-  setVal('input-income',    '60000'); fireBlur('input-income');
-  setVal('input-spending',  '30000'); fireBlur('input-spending');
-  setVal('input-age',       '30');    fireBlur('input-age');
-  setVal('val-return',      '7');     fireBlur('val-return');
-  setVal('val-savings',     '2');     fireBlur('val-savings');
-  setVal('val-inflation',   '2');     fireBlur('val-inflation');
-  setVal('val-withdrawal',  '4');     fireBlur('val-withdrawal');
-  setVal('val-tax-custom',  '15');    fireBlur('val-tax-custom');
-  doc.getElementById('slider-alloc').value = '80';
-  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-  clickEl('btn-nominal');
-  clickEl('btn-tax-none');
+  /* ── helper: safely clear localStorage inside the iframe ── */
+  function safeClearLS() {
+    try { win.localStorage.clear(); } catch (_) {}
+  }
 
-  // ── euro inputs ───────────────────────────────────────
-  group('Integration — euro inputs (parseNum + formatting)');
-  setVal('input-portfolio', '100,000');
-  assert('portfolio parseNum strips comma → 100000', s.portfolio === 100000, s.portfolio, 100000);
-  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
-  assert('portfolio blur formats → "50,000"', val('input-portfolio') === '50,000', val('input-portfolio'), '50,000');
-  assert('income reads 60000', s.income === 60000, s.income, 60000);
-  assert('spending reads 30000', s.spending === 30000, s.spending, 30000);
+  /* ── reset iframe to a known baseline ───────────────────── */
+  function resetBaseline() {
+    safeClearLS();
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+    setVal('input-income',    '60000'); fireBlur('input-income');
+    setVal('input-spending',  '30000'); fireBlur('input-spending');
+    setVal('input-age',       '30');    fireBlur('input-age');
+    setVal('val-return',      '7');     fireBlur('val-return');
+    setVal('val-savings',     '2');     fireBlur('val-savings');
+    setVal('val-inflation',   '2');     fireBlur('val-inflation');
+    setVal('val-withdrawal',  '4');     fireBlur('val-withdrawal');
+    setVal('val-tax-custom',  '15');    fireBlur('val-tax-custom');
+    doc.getElementById('slider-alloc').value = '80';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    clickEl('btn-nominal');
+    clickEl('btn-tax-none');
+  }
+  resetBaseline();
 
-  // ── age clamping ──────────────────────────────────────
-  group('Integration — age clamping');
-  setVal('input-age', '45'); fireBlur('input-age');
-  assert('age 45 accepted', s.currentAge === 45, s.currentAge, 45);
-  setVal('input-age', '200'); fireBlur('input-age');
-  assert('age 200 clamps to 100', s.currentAge === 100, s.currentAge, 100);
-  setVal('input-age', '0'); fireBlur('input-age');
-  assert('age 0 falls back to default 30 (0||30)', s.currentAge === 30, s.currentAge, 30);
-  setVal('input-age', '30'); fireBlur('input-age');
+  /* ────────────────────────────────────────────────────────
+     Each group wrapped in try/catch so one bad assertion
+     can't skip the rest of the suite
+     ──────────────────────────────────────────────────────── */
 
-  // ── investment return box/slider ──────────────────────
-  group('Integration — investment return box / slider sync');
-  setVal('val-return', '12');
-  assert('investReturn 12 accepted', s.investReturn === 12, s.investReturn, 12);
-  assert('slider-return pins at 12 (within track max 15)', parseFloat(val('slider-return')) === 12, val('slider-return'), '12');
-  setVal('val-return', '99'); fireBlur('val-return');
-  assert('investReturn clamps to cap 50 on blur', s.investReturn === 50, s.investReturn, 50);
-  assert('slider-return pins at track max 15', parseFloat(val('slider-return')) === 15, val('slider-return'), '15');
-  setVal('val-return', '7'); fireBlur('val-return');
+  /* ── euro inputs ──────────────────────────────────────── */
+  try {
+    group('Integration — euro inputs (parseNum + formatting)');
+    setVal('input-portfolio', '100,000');
+    assert('portfolio parseNum strips comma → 100000', s.portfolio === 100000, s.portfolio, 100000);
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+    assert('portfolio blur formats → "50,000"', val('input-portfolio') === '50,000', val('input-portfolio'), '50,000');
+    assert('income reads 60000', s.income === 60000, s.income, 60000);
+    assert('spending reads 30000', s.spending === 30000, s.spending, 30000);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] euro inputs: ${e.message}\n`; }
 
-  // ── inflation box/slider ──────────────────────────────
-  group('Integration — inflation box / slider sync');
-  setVal('val-inflation', '8');
-  assert('inflation 8 accepted', s.inflation === 8, s.inflation, 8);
-  setVal('val-inflation', '99'); fireBlur('val-inflation');
-  assert('inflation clamps to cap 50 on blur', s.inflation === 50, s.inflation, 50);
-  setVal('val-inflation', '2'); fireBlur('val-inflation');
+  /* ── € focus strips to raw digits ──────────────────────── */
+  try {
+    group('Integration — € input focus/blur cycle');
+    setVal('input-portfolio', '100000'); fireBlur('input-portfolio');
+    assert('blur of 100000 → "100,000"', val('input-portfolio') === '100,000', val('input-portfolio'), '100,000');
+    doc.getElementById('input-portfolio').dispatchEvent(new win.Event('focus', { bubbles: true }));
+    assert('focus strips comma → "100000"', val('input-portfolio') === '100000', val('input-portfolio'), '100000');
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] focus/blur: ${e.message}\n`; }
 
-  // ── withdrawal box/slider ─────────────────────────────
-  group('Integration — withdrawal box / slider sync');
-  setVal('val-withdrawal', '5');
-  assert('withdrawal 5 accepted', s.withdrawal === 5, s.withdrawal, 5);
-  setVal('val-withdrawal', '25'); fireBlur('val-withdrawal');
-  assert('withdrawal clamps to cap 20 on blur', s.withdrawal === 20, s.withdrawal, 20);
-  setVal('val-withdrawal', '4'); fireBlur('val-withdrawal');
+  /* ── age clamping ──────────────────────────────────────── */
+  try {
+    group('Integration — age clamping');
+    setVal('input-age', '45'); fireBlur('input-age');
+    assert('age 45 accepted', s.currentAge === 45, s.currentAge, 45);
+    setVal('input-age', '200'); fireBlur('input-age');
+    assert('age 200 clamps to 100', s.currentAge === 100, s.currentAge, 100);
+    setVal('input-age', '0'); fireBlur('input-age');
+    assert('age 0 falls back to default 30 (0||30)', s.currentAge === 30, s.currentAge, 30);
+    setVal('input-age', '30'); fireBlur('input-age');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] age clamping: ${e.message}\n`; }
 
-  // ── savings return (new) ──────────────────────────────
-  group('Integration — savings return box (new, no slider)');
-  setVal('val-savings', '3'); fireBlur('val-savings');
-  assert('savingsReturn 3 accepted', s.savingsReturn === 3, s.savingsReturn, 3);
-  setVal('val-savings', '15'); fireBlur('val-savings');
-  assert('savingsReturn clamps to cap 10 on blur', s.savingsReturn === 10, s.savingsReturn, 10);
-  setVal('val-savings', '2'); fireBlur('val-savings');
+  /* ── investment return box/slider ────────────────────────── */
+  try {
+    group('Integration — investment return box / slider sync');
+    setVal('val-return', '12');
+    assert('investReturn 12 accepted', s.investReturn === 12, s.investReturn, 12);
+    assert('slider-return pins at 12 (within track max 15)', parseFloat(val('slider-return')) === 12, val('slider-return'), '12');
+    setVal('val-return', '99'); fireBlur('val-return');
+    assert('investReturn clamps to cap 50 on blur', s.investReturn === 50, s.investReturn, 50);
+    assert('slider-return pins at track max 15', parseFloat(val('slider-return')) === 15, val('slider-return'), '15');
+    setVal('val-return', '7'); fireBlur('val-return');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] return box/slider: ${e.message}\n`; }
 
-  // ── allocation slider + blended return (new) ──────────
-  group('Integration — allocation slider + blended return (new)');
-  setVal('val-return', '7'); fireBlur('val-return');
-  setVal('val-savings', '2'); fireBlur('val-savings');
+  /* ── inflation box/slider ────────────────────────────────── */
+  try {
+    group('Integration — inflation box / slider sync');
+    setVal('val-inflation', '8');
+    assert('inflation 8 accepted', s.inflation === 8, s.inflation, 8);
+    setVal('val-inflation', '99'); fireBlur('val-inflation');
+    assert('inflation clamps to cap 50 on blur', s.inflation === 50, s.inflation, 50);
+    setVal('val-inflation', '2'); fireBlur('val-inflation');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] inflation: ${e.message}\n`; }
 
-  doc.getElementById('slider-alloc').value = '100';
-  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-  assert('alloc 100% → invest label = "100%"', text('alloc-invest-pct') === '100%', text('alloc-invest-pct'), '100%');
-  assert('alloc 100% → savings label = "0%"',  text('alloc-savings-pct') === '0%',  text('alloc-savings-pct'), '0%');
-  assert('blended at 100% alloc = investReturn (7)', near(s.returnRate, 7), s.returnRate, 7);
+  /* ── withdrawal box/slider ───────────────────────────────── */
+  try {
+    group('Integration — withdrawal box / slider sync');
+    setVal('val-withdrawal', '5');
+    assert('withdrawal 5 accepted', s.withdrawal === 5, s.withdrawal, 5);
+    setVal('val-withdrawal', '25'); fireBlur('val-withdrawal');
+    assert('withdrawal clamps to cap 20 on blur', s.withdrawal === 20, s.withdrawal, 20);
+    setVal('val-withdrawal', '4'); fireBlur('val-withdrawal');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] withdrawal: ${e.message}\n`; }
 
-  doc.getElementById('slider-alloc').value = '50';
-  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-  assert('alloc 50/50 → blended = 4.5 (0.5·7 + 0.5·2)', near(s.returnRate, 4.5), s.returnRate, 4.5);
-  assert('blended-return DOM text = "4.5"', text('blended-return') === '4.5', text('blended-return'), '4.5');
+  /* ── savings return ──────────────────────────────────────── */
+  try {
+    group('Integration — savings return box (no slider)');
+    setVal('val-savings', '3'); fireBlur('val-savings');
+    assert('savingsReturn 3 accepted', s.savingsReturn === 3, s.savingsReturn, 3);
+    setVal('val-savings', '15'); fireBlur('val-savings');
+    assert('savingsReturn clamps to cap 10 on blur', s.savingsReturn === 10, s.savingsReturn, 10);
+    setVal('val-savings', '2'); fireBlur('val-savings');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] savings return: ${e.message}\n`; }
 
-  doc.getElementById('slider-alloc').value = '80';
-  doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-  assert('alloc 80/20 default → blended ≈ 6.0', near(s.returnRate, 6.0), s.returnRate, 6.0);
+  /* ── allocation slider + blended return ──────────────────── */
+  try {
+    group('Integration — allocation slider + blended return');
+    setVal('val-return', '7'); fireBlur('val-return');
+    setVal('val-savings', '2'); fireBlur('val-savings');
 
-  // ── mode buttons ──────────────────────────────────────
-  group('Integration — Real / Nominal mode buttons');
-  clickEl('btn-real');
-  assert('mode = "real" after click', s.mode === 'real', s.mode, 'real');
-  assert('btn-real has .active class', doc.getElementById('btn-real').classList.contains('active'), true, true);
-  clickEl('btn-nominal');
-  assert('mode = "nominal" after click', s.mode === 'nominal', s.mode, 'nominal');
-  assert('btn-nominal has .active class', doc.getElementById('btn-nominal').classList.contains('active'), true, true);
+    doc.getElementById('slider-alloc').value = '100';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert('alloc 100% → invest label = "100%"', text('alloc-invest-pct') === '100%', text('alloc-invest-pct'), '100%');
+    assert('alloc 100% → savings label = "0%"',  text('alloc-savings-pct') === '0%',  text('alloc-savings-pct'), '0%');
+    assert('blended at 100% alloc = investReturn (7)', near(s.returnRate, 7), s.returnRate, 7);
 
-  // ── tax buttons + visibility ──────────────────────────
-  group('Integration — tax buttons + row visibility');
-  clickEl('btn-tax-box3');
-  assert('taxMode = "box3"', s.taxMode === 'box3', s.taxMode, 'box3');
-  assert('tax-box3-info visible', doc.getElementById('tax-box3-info').style.display !== 'none', true, true);
-  clickEl('btn-tax-custom');
-  assert('taxMode = "custom"', s.taxMode === 'custom', s.taxMode, 'custom');
-  assert('tax-custom-row visible', doc.getElementById('tax-custom-row').style.display !== 'none', true, true);
-  clickEl('btn-tax-none');
-  assert('taxMode = "none"', s.taxMode === 'none', s.taxMode, 'none');
-  assert('tax-box3-info hidden again',  doc.getElementById('tax-box3-info').style.display  === 'none', doc.getElementById('tax-box3-info').style.display,  'none');
-  assert('tax-custom-row hidden again', doc.getElementById('tax-custom-row').style.display === 'none', doc.getElementById('tax-custom-row').style.display, 'none');
+    doc.getElementById('slider-alloc').value = '50';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert('alloc 50/50 → blended = 4.5 (0.5·7 + 0.5·2)', near(s.returnRate, 4.5), s.returnRate, 4.5);
+    assert('blended-return DOM text = "4.5"', text('blended-return') === '4.5', text('blended-return'), '4.5');
 
-  // ── custom tax box ────────────────────────────────────
-  group('Integration — custom tax % box');
-  setVal('val-tax-custom', '25');
-  assert('taxCustomPct = 25', s.taxCustomPct === 25, s.taxCustomPct, 25);
-  setVal('val-tax-custom', '500'); fireBlur('val-tax-custom');
-  assert('taxCustomPct clamps to 100 on blur', s.taxCustomPct === 100, s.taxCustomPct, 100);
-  setVal('val-tax-custom', '15'); fireBlur('val-tax-custom');
+    doc.getElementById('slider-alloc').value = '80';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert('alloc 80/20 default → blended ≈ 6.0', near(s.returnRate, 6.0), s.returnRate, 6.0);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] allocation: ${e.message}\n`; }
 
-  // ── macro buttons ─────────────────────────────────────
-  group('Integration — macro preset buttons');
-  setVal('val-return', '10'); fireBlur('val-return');  // start somewhere else
-  const modBtn = Array.from(doc.querySelectorAll('.macro-btn')).find(b => b.dataset.val === '7' && b.dataset.slider === 'slider-return');
-  if (modBtn) modBtn.click();
-  assert('macro "Moderate 7%" sets investReturn', s.investReturn === 7, s.investReturn, 7);
-  assert('macro syncs slider-return to 7', parseFloat(val('slider-return')) === 7, val('slider-return'), '7');
-  assert('macro btn gets .active-macro class', modBtn ? modBtn.classList.contains('active-macro') : false, true, true);
+  /* ── mode buttons ────────────────────────────────────────── */
+  try {
+    group('Integration — Real / Nominal mode buttons');
+    clickEl('btn-real');
+    assert('mode = "real" after click', s.mode === 'real', s.mode, 'real');
+    assert('btn-real has .active class', doc.getElementById('btn-real').classList.contains('active'), true, true);
+    clickEl('btn-nominal');
+    assert('mode = "nominal" after click', s.mode === 'nominal', s.mode, 'nominal');
+    assert('btn-nominal has .active class', doc.getElementById('btn-nominal').classList.contains('active'), true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] mode buttons: ${e.message}\n`; }
 
-  // ── steppers ▲/▼ ─────────────────────────────────────
-  group('Integration — steppers ▲/▼ (return + savings)');
-  setVal('val-return', '7'); fireBlur('val-return');
-  const stepRUp = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="1"]');
-  const stepRDn = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="-1"]');
-  if (stepRUp) stepRUp.click();
-  assert('return stepper ▲ → investReturn 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
-  if (stepRDn) { stepRDn.click(); stepRDn.click(); }
-  assert('return stepper ▼ twice → investReturn 6.5', near(s.investReturn, 6.5), s.investReturn, 6.5);
-  setVal('val-return', '7'); fireBlur('val-return');
+  /* ── tax buttons + visibility ────────────────────────────── */
+  try {
+    group('Integration — tax buttons + row visibility');
+    clickEl('btn-tax-box3');
+    assert('taxMode = "box3"', s.taxMode === 'box3', s.taxMode, 'box3');
+    assert('tax-box3-info visible', doc.getElementById('tax-box3-info').style.display !== 'none', true, true);
+    clickEl('btn-tax-custom');
+    assert('taxMode = "custom"', s.taxMode === 'custom', s.taxMode, 'custom');
+    assert('tax-custom-row visible', doc.getElementById('tax-custom-row').style.display !== 'none', true, true);
+    clickEl('btn-tax-none');
+    assert('taxMode = "none"', s.taxMode === 'none', s.taxMode, 'none');
+    assert('tax-box3-info hidden again',  doc.getElementById('tax-box3-info').style.display  === 'none', doc.getElementById('tax-box3-info').style.display,  'none');
+    assert('tax-custom-row hidden again', doc.getElementById('tax-custom-row').style.display === 'none', doc.getElementById('tax-custom-row').style.display, 'none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax buttons: ${e.message}\n`; }
 
-  setVal('val-savings', '2'); fireBlur('val-savings');
-  const stepSUp = doc.querySelector('.stepper-btn[data-box="val-savings"][data-dir="1"]');
-  if (stepSUp) stepSUp.click();
-  assert('savings stepper ▲ → savingsReturn 2.5 (no slider crash)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
-  setVal('val-savings', '2'); fireBlur('val-savings');
+  /* ── custom tax box ──────────────────────────────────────── */
+  try {
+    group('Integration — custom tax % box');
+    setVal('val-tax-custom', '25');
+    assert('taxCustomPct = 25', s.taxCustomPct === 25, s.taxCustomPct, 25);
+    setVal('val-tax-custom', '500'); fireBlur('val-tax-custom');
+    assert('taxCustomPct clamps to 100 on blur', s.taxCustomPct === 100, s.taxCustomPct, 100);
+    setVal('val-tax-custom', '15'); fireBlur('val-tax-custom');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] custom tax: ${e.message}\n`; }
 
-  // ── arrow keys ────────────────────────────────────────
-  group('Integration — ArrowUp/Down on rate boxes');
-  setVal('val-return', '7'); fireBlur('val-return');
-  keyDown('val-return', 'ArrowUp');
-  assert('ArrowUp on val-return → 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
-  keyDown('val-return', 'ArrowDown');
-  assert('ArrowDown on val-return → 7.0', near(s.investReturn, 7.0), s.investReturn, 7.0);
+  /* ── macro buttons ───────────────────────────────────────── */
+  try {
+    group('Integration — macro preset buttons');
+    setVal('val-return', '10'); fireBlur('val-return');
+    const modBtn = Array.from(doc.querySelectorAll('.macro-btn')).find(b => b.dataset.val === '7' && b.dataset.slider === 'slider-return');
+    if (modBtn) modBtn.click();
+    assert('macro "Moderate 7%" sets investReturn', s.investReturn === 7, s.investReturn, 7);
+    assert('macro syncs slider-return to 7', parseFloat(val('slider-return')) === 7, val('slider-return'), '7');
+    assert('macro btn gets .active-macro class', modBtn ? modBtn.classList.contains('active-macro') : false, true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] macro buttons: ${e.message}\n`; }
 
-  setVal('val-savings', '2'); fireBlur('val-savings');
-  keyDown('val-savings', 'ArrowUp');
-  assert('ArrowUp on val-savings → 2.5 (slider-less box)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
-  setVal('val-savings', '2'); fireBlur('val-savings');
+  /* ── steppers ▲/▼ ───────────────────────────────────────── */
+  try {
+    group('Integration — steppers ▲/▼ (return + savings)');
+    setVal('val-return', '7'); fireBlur('val-return');
+    const stepRUp = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="1"]');
+    const stepRDn = doc.querySelector('.stepper-btn[data-box="val-return"][data-dir="-1"]');
+    if (stepRUp) stepRUp.click();
+    assert('return stepper ▲ → investReturn 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
+    if (stepRDn) { stepRDn.click(); stepRDn.click(); }
+    assert('return stepper ▼ twice → investReturn 6.5', near(s.investReturn, 6.5), s.investReturn, 6.5);
+    setVal('val-return', '7'); fireBlur('val-return');
 
-  // ── retirement readiness gauge (new) ─────────────────
-  group('Integration — Retirement Readiness gauge (new)');
-  // FI = spending / (withdrawal/100) = 30000 / 0.04 = 750000
-  setVal('input-spending', '30000'); fireBlur('input-spending');
-  setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
-  setVal('input-portfolio', '750000'); fireBlur('input-portfolio');
-  assert('gauge = 100% at portfolio ≥ FI', text('gauge-pct') === '100%', text('gauge-pct'), '100%');
-  setVal('input-portfolio', '375000'); fireBlur('input-portfolio');
-  assert('gauge = 50% at portfolio = FI/2', text('gauge-pct') === '50%', text('gauge-pct'), '50%');
-  setVal('input-portfolio', '0'); fireBlur('input-portfolio');
-  assert('gauge = 0% at portfolio = 0', text('gauge-pct') === '0%', text('gauge-pct'), '0%');
-  setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+    setVal('val-savings', '2'); fireBlur('val-savings');
+    const stepSUp = doc.querySelector('.stepper-btn[data-box="val-savings"][data-dir="1"]');
+    if (stepSUp) stepSUp.click();
+    assert('savings stepper ▲ → savingsReturn 2.5 (no slider crash)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
+    setVal('val-savings', '2'); fireBlur('val-savings');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] steppers: ${e.message}\n`; }
 
-  // ── KPI values ────────────────────────────────────────
-  group('Integration — KPI output values');
-  setVal('input-spending', '30000'); fireBlur('input-spending');
-  setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
-  assert('FI number contains "750" (spending/wr = 750k)', text('kpi-fi-number').includes('750'), text('kpi-fi-number'), '~€750,000');
-  assert('years-to-FIRE is populated (non-empty)', text('kpi-years').length > 0, text('kpi-years'), 'non-empty');
-  assert('savings-rate sub shows "SR:"', text('kpi-years-sub').startsWith('SR:'), text('kpi-years-sub').slice(0,3), 'SR:');
+  /* ── arrow keys ──────────────────────────────────────────── */
+  try {
+    group('Integration — ArrowUp/Down on rate boxes');
+    setVal('val-return', '7'); fireBlur('val-return');
+    keyDown('val-return', 'ArrowUp');
+    assert('ArrowUp on val-return → 7.5', near(s.investReturn, 7.5), s.investReturn, 7.5);
+    keyDown('val-return', 'ArrowDown');
+    assert('ArrowDown on val-return → 7.0', near(s.investReturn, 7.0), s.investReturn, 7.0);
 
-  // ── import guards (Task 3) ────────────────────────────
-  group('Integration — import size / type guards');
-  const portfolioBefore = s.portfolio;
+    setVal('val-savings', '2'); fireBlur('val-savings');
+    keyDown('val-savings', 'ArrowUp');
+    assert('ArrowUp on val-savings → 2.5 (slider-less box)', near(s.savingsReturn, 2.5), s.savingsReturn, 2.5);
+    setVal('val-savings', '2'); fireBlur('val-savings');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] arrow keys: ${e.message}\n`; }
 
-  // size guard: 102401 bytes > 100 KB cap
-  win.importConfig(new File(['x'.repeat(102401)], 'big.json', { type: 'application/json' }));
-  assert('size guard: state unchanged after >100 KB file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+  /* ── retirement readiness gauge ──────────────────────────── */
+  try {
+    group('Integration — Retirement Readiness gauge');
+    setVal('input-spending', '30000'); fireBlur('input-spending');
+    setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
 
-  // type guard: text/plain + .txt name → both checks fail
-  win.importConfig(new File(['{}'], 'bad.txt', { type: 'text/plain' }));
-  assert('type guard: state unchanged after wrong-type file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+    setVal('input-portfolio', '750000'); fireBlur('input-portfolio');
+    assert('gauge = 100% at portfolio ≥ FI', text('gauge-pct') === '100%', text('gauge-pct'), '100%');
 
-  // valid import (FileReader is async — wait 150 ms)
-  const validCfg = JSON.stringify({ portfolio: 123456, income: 80000, spending: 25000 });
-  win.importConfig(new File([validCfg], 'fire.json', { type: 'application/json' }));
-  await new Promise(r => setTimeout(r, 150));
-  assert('valid import applies new portfolio value', s.portfolio === 123456, s.portfolio, 123456);
+    setVal('input-portfolio', '375000'); fireBlur('input-portfolio');
+    assert('gauge = 50% at portfolio = FI/2', text('gauge-pct') === '50%', text('gauge-pct'), '50%');
 
-  // ── return-split state fields ─────────────────────────
-  group('Integration — split-return state fields (new)');
-  assert('state.investReturn is a number',  typeof s.investReturn  === 'number', typeof s.investReturn,  'number');
-  assert('state.savingsReturn is a number', typeof s.savingsReturn === 'number', typeof s.savingsReturn, 'number');
-  assert('state.allocInvest is a number',   typeof s.allocInvest   === 'number', typeof s.allocInvest,   'number');
-  const expectedBlend = s.allocInvest / 100 * s.investReturn + (1 - s.allocInvest / 100) * s.savingsReturn;
-  assert('state.returnRate equals blend formula', near(s.returnRate, expectedBlend, 0.001), s.returnRate, expectedBlend);
+    setVal('input-portfolio', '0'); fireBlur('input-portfolio');
+    assert('gauge = 0% at portfolio = 0', text('gauge-pct') === '0%', text('gauge-pct'), '0%');
 
-  // clean up localStorage
-  win.localStorage.clear();
+    /* clamp: portfolio 2× FI → still shows 100% */
+    setVal('input-portfolio', '1500000'); fireBlur('input-portfolio');
+    assert('gauge clamps at 100% when portfolio > FI', text('gauge-pct') === '100%', text('gauge-pct'), '100%');
 
+    /* color ramp: at 0% should be red (warn), at 50% amber, at 100% green */
+    setVal('input-portfolio', '0'); fireBlur('input-portfolio');
+    assert('gauge arc stroke is warn color at 0%',
+      doc.getElementById('gauge-arc').style.stroke === 'var(--warn)',
+      doc.getElementById('gauge-arc').style.stroke, 'var(--warn)');
+    setVal('input-portfolio', '400000'); fireBlur('input-portfolio'); // ~53% → amber
+    assert('gauge arc stroke is amber between 33%–80%',
+      doc.getElementById('gauge-arc').style.stroke === 'var(--amber)',
+      doc.getElementById('gauge-arc').style.stroke, 'var(--amber)');
+    setVal('input-portfolio', '750000'); fireBlur('input-portfolio'); // 100% → green
+    assert('gauge arc stroke is success at 100%',
+      doc.getElementById('gauge-arc').style.stroke === 'var(--success)',
+      doc.getElementById('gauge-arc').style.stroke, 'var(--success)');
+
+    /* needle transform contains rotate */
+    assert('gauge needle has rotate transform',
+      doc.getElementById('gauge-needle').style.transform.includes('rotate'),
+      doc.getElementById('gauge-needle').style.transform.includes('rotate'), true);
+
+    /* checkpoint flags exist in SVG */
+    const svgFlags = doc.querySelectorAll('.gauge-flag');
+    assert('SVG has gauge checkpoint flag elements (.gauge-flag)', svgFlags.length > 0, svgFlags.length, '>0');
+
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] gauge: ${e.message}\n`; }
+
+  /* ── KPI values ──────────────────────────────────────────── */
+  try {
+    group('Integration — KPI output values');
+    setVal('input-spending', '30000'); fireBlur('input-spending');
+    setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
+    assert('FI number contains "750" (spending/wr = 750k)', text('kpi-fi-number').includes('750'), text('kpi-fi-number'), '~€750,000');
+    assert('years-to-FIRE is populated (non-empty)', text('kpi-years').length > 0, text('kpi-years'), 'non-empty');
+    assert('savings-rate sub shows "SR:"', text('kpi-years-sub').startsWith('SR:'), text('kpi-years-sub').slice(0,3), 'SR:');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] KPI: ${e.message}\n`; }
+
+  /* ── notice banner (unattainable) ────────────────────────── */
+  try {
+    group('Integration — notice banner (unattainable scenario)');
+    setVal('input-income',   '20000'); fireBlur('input-income');
+    setVal('input-spending', '30000'); fireBlur('input-spending');
+    assert('notice banner visible when spending > income',
+      doc.getElementById('notice-banner').classList.contains('visible'), true, true);
+    assert('KPI years shows "Never" when unattainable',
+      text('kpi-years').includes('Never'), text('kpi-years'), '~Never ❌');
+    setVal('input-income', '60000'); fireBlur('input-income');
+    assert('notice banner hidden after restoring income',
+      !doc.getElementById('notice-banner').classList.contains('visible'), true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] notice banner: ${e.message}\n`; }
+
+  /* ── milestones ──────────────────────────────────────────── */
+  try {
+    group('Integration — milestones achieved / unachieved');
+    setVal('input-spending', '30000'); fireBlur('input-spending');
+    setVal('val-withdrawal', '4');     fireBlur('val-withdrawal');
+
+    setVal('input-portfolio', '150000'); fireBlur('input-portfolio');
+    assert('First €100k milestone achieved at 150k',
+      doc.querySelector('[data-milestone="100k"]').classList.contains('achieved'), true, true);
+    assert('Barista milestone (375k) NOT achieved at 150k',
+      !doc.querySelector('[data-milestone="barista"]').classList.contains('achieved'), true, true);
+
+    setVal('input-portfolio', '750000'); fireBlur('input-portfolio');
+    assert('Full FIRE milestone achieved at exactly 750k (FI target)',
+      doc.querySelector('[data-milestone="full"]').classList.contains('achieved'), true, true);
+    assert('Fat FIRE (1125k) NOT achieved at 750k',
+      !doc.querySelector('[data-milestone="fat"]').classList.contains('achieved'), true, true);
+
+    setVal('input-portfolio', '1125000'); fireBlur('input-portfolio');
+    assert('Fat FIRE achieved at 1125k (150% × 750k)',
+      doc.querySelector('[data-milestone="fat"]').classList.contains('achieved'), true, true);
+
+    /* milestone threshold text is formatted € */
+    const fullVal = text('ms-full-val');
+    assert('Full FIRE threshold shows € amount', fullVal.includes('€') || fullVal.includes('750'), fullVal, '€750,000');
+
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] milestones: ${e.message}\n`; }
+
+  /* ── import guards ───────────────────────────────────────── */
+  try {
+    group('Integration — import size / type guards');
+    const portfolioBefore = s.portfolio;
+
+    win.importConfig(new File(['x'.repeat(102401)], 'big.json', { type: 'application/json' }));
+    assert('size guard: state unchanged after >100 KB file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+
+    win.importConfig(new File(['{}'], 'bad.txt', { type: 'text/plain' }));
+    assert('type guard: state unchanged after wrong-type file', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+
+    /* invalid JSON content */
+    win.importConfig(new File(['not valid json {{'], 'fire.json', { type: 'application/json' }));
+    await new Promise(r => setTimeout(r, 150));
+    assert('invalid-JSON import: state unchanged', s.portfolio === portfolioBefore, s.portfolio, portfolioBefore);
+
+    /* valid import */
+    const validCfg = JSON.stringify({ portfolio: 123456, income: 80000, spending: 25000 });
+    win.importConfig(new File([validCfg], 'fire.json', { type: 'application/json' }));
+    await new Promise(r => setTimeout(r, 150));
+    assert('valid import applies new portfolio value', s.portfolio === 123456, s.portfolio, 123456);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] import guards: ${e.message}\n`; }
+
+  /* ── backward-compat import (old returnRate key) ─────────── */
+  try {
+    group('Integration — backward-compat import (old returnRate key)');
+    const oldCfg = JSON.stringify({ portfolio: 90000, returnRate: 8 });
+    win.importConfig(new File([oldCfg], 'fire.json', { type: 'application/json' }));
+    await new Promise(r => setTimeout(r, 150));
+    assert('old config: portfolio applied', s.portfolio === 90000, s.portfolio, 90000);
+    assert('old config: investReturn set to 8 (from returnRate)', s.investReturn === 8, s.investReturn, 8);
+    assert('old config: allocInvest forced to 100', s.allocInvest === 100, s.allocInvest, 100);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] backward-compat import: ${e.message}\n`; }
+
+  /* ── split-return state fields ───────────────────────────── */
+  try {
+    group('Integration — split-return state fields');
+    resetBaseline();
+    assert('state.investReturn is a number',  typeof s.investReturn  === 'number', typeof s.investReturn,  'number');
+    assert('state.savingsReturn is a number', typeof s.savingsReturn === 'number', typeof s.savingsReturn, 'number');
+    assert('state.allocInvest is a number',   typeof s.allocInvest   === 'number', typeof s.allocInvest,   'number');
+    const expectedBlend = s.allocInvest / 100 * s.investReturn + (1 - s.allocInvest / 100) * s.savingsReturn;
+    assert('state.returnRate equals blend formula', near(s.returnRate, expectedBlend, 0.001), s.returnRate, expectedBlend);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] split-return: ${e.message}\n`; }
+
+  /* ── localStorage persistence round-trip ─────────────────── */
+  try {
+    group('Integration — localStorage persistence round-trip');
+    resetBaseline();
+    setVal('input-portfolio', '88888'); fireBlur('input-portfolio');
+    /* saveState() fires on every recalc — check LS now */
+    const stored = JSON.parse(win.localStorage.getItem(win._LS_KEY || 'fire-dashboard-state') || '{}');
+    assert('portfolio 88888 persisted to localStorage', stored.portfolio === 88888, stored.portfolio, 88888);
+    assert('inflation persisted to localStorage', stored.inflation === s.inflation, stored.inflation, s.inflation);
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] localStorage round-trip: ${e.message}\n`; }
+
+  /* ── Reset button ─────────────────────────────────────────── */
+  try {
+    group('Integration — Reset saved data button');
+    resetBaseline();
+    setVal('input-portfolio', '99999'); fireBlur('input-portfolio');
+    /* confirm something is stored */
+    const lsKey = win._LS_KEY || 'fire-dashboard-state';
+    assert('LS has data before reset', win.localStorage.getItem(lsKey) !== null, true, true);
+
+    const resetBtn = doc.getElementById('btn-reset');
+    if (resetBtn) {
+      resetBtn.click();
+      await new Promise(r => setTimeout(r, 50));
+      assert('LS key removed after Reset', win.localStorage.getItem(lsKey) === null, win.localStorage.getItem(lsKey), null);
+      assert('portfolio returns to default (50000) after Reset', s.portfolio === 50000, s.portfolio, 50000);
+    } else {
+      fail++;
+      out.innerHTML += `<span class="fail">❌</span>  Reset button (#btn-reset) not found in DOM\n`;
+    }
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] reset button: ${e.message}\n`; }
+
+  /* cleanup */
+  safeClearLS();
+
+  clearTimeout(_watchdog);
   renderSummary();
 })();
 </script>
