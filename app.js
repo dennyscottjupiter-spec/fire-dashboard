@@ -262,6 +262,103 @@ function updateGauge(readiness) {
   els.gaugePct.textContent  = Math.round(pct) + '%';
 }
 
+/* ── 7c. Build static speedometer dial (runs once at boot) ── */
+function buildGauge() {
+  const svg = document.getElementById('gauge-svg');
+  if (!svg) return;
+  const ns = 'http://www.w3.org/2000/svg';
+
+  function el(tag, attrs, txt) {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  }
+
+  // Point on the semicircle at fraction f∈[0,1], radius r.
+  // f=0 → left (20,100)  f=0.5 → top (100,20)  f=1 → right (180,100)
+  function pt(r, f) {
+    const a = Math.PI * (1 - f);
+    return [parseFloat((100 + r * Math.cos(a)).toFixed(2)),
+            parseFloat((100 - r * Math.sin(a)).toFixed(2))];
+  }
+
+  function arcPath(r, f1, f2) {
+    const [x1, y1] = pt(r, f1);
+    const [x2, y2] = pt(r, f2);
+    return `M${x1} ${y1} A${r} ${r} 0 ${(f2 - f1) > 0.5 ? 1 : 0} 1 ${x2} ${y2}`;
+  }
+
+  const needleGroup = document.getElementById('gauge-needle');
+  const gaugeArc    = document.getElementById('gauge-arc');
+  const oldHub      = svg.querySelector('.gauge-hub');
+
+  // ─ Zone arcs (red / amber / green) sit on top of the dark track,
+  //   behind the live fill arc — so unfilled zones glow faintly.
+  const zones = [
+    [0,    0.33, 'rgba(244,63,94,0.28)'],
+    [0.33, 0.80, 'rgba(245,165,36,0.28)'],
+    [0.80, 1.00, 'rgba(34,211,160,0.28)'],
+  ];
+  for (const [f1, f2, stroke] of zones) {
+    svg.insertBefore(
+      el('path', { class: 'gauge-zone', d: arcPath(80, f1, f2), stroke, fill: 'none' }),
+      gaugeArc   // insert after track, before live arc
+    );
+  }
+
+  // ─ Minor tick marks every 10% ─
+  for (let i = 0; i <= 10; i++) {
+    const f = i / 10;
+    const [x1, y1] = pt(80, f);
+    const [x2, y2] = pt(74, f);
+    svg.insertBefore(el('line', { class: 'gauge-tick', x1, y1, x2, y2 }), needleGroup);
+  }
+
+  // ─ Major ticks at 0 / 25 / 50 / 75 / 100 % ─
+  for (const f of [0, 0.25, 0.5, 0.75, 1.0]) {
+    const [x1, y1] = pt(80, f);
+    const [x2, y2] = pt(67, f);
+    svg.insertBefore(el('line', { class: 'gauge-tick gauge-tick-major', x1, y1, x2, y2 }), needleGroup);
+  }
+
+  // ─ Numeric labels outside the arc ─
+  for (const [f, txt] of [[0, '0'], [0.25, '25'], [0.5, '50'], [0.75, '75'], [1.0, '100']]) {
+    const [lx, ly] = pt(94, f);
+    const anchor = f < 0.05 ? 'end' : f > 0.95 ? 'start' : 'middle';
+    svg.insertBefore(el('text', { class: 'gauge-label', x: lx, y: ly,
+                                  'text-anchor': anchor, 'dominant-baseline': 'middle' }, txt), needleGroup);
+  }
+
+  // ─ FIRE milestone checkpoint flags ─
+  // Colored inward ticks + dot at Barista (50%) / Lean FI (70%) / Full FIRE (100%)
+  const FLAGS = [
+    [0.50, 'var(--success)', 'Barista FI (50%)'],
+    [0.70, 'var(--amber)',   'Lean FI (70%)'],
+    [1.00, 'var(--success)', 'Full FIRE (100%)'],
+  ];
+  for (const [f, color, title] of FLAGS) {
+    const [ox, oy] = pt(84, f);   // slightly outside arc
+    const [ix, iy] = pt(63, f);   // inside arc
+    const [dx, dy] = pt(84, f);   // dot on outer tip
+    const g = el('g', { class: 'gauge-flag' });
+    g.appendChild(el('title', {}, title));
+    g.appendChild(el('line', { class: 'gauge-flag-tick', x1: ox, y1: oy, x2: ix, y2: iy,
+                                stroke: color, 'stroke-width': 2.5, 'stroke-linecap': 'round' }));
+    g.appendChild(el('circle', { class: 'gauge-flag-dot', cx: dx, cy: dy, r: 3.5, fill: color }));
+    svg.insertBefore(g, needleGroup);
+  }
+
+  // ─ Replace line needle with tapered polygon ─
+  needleGroup.innerHTML = '';
+  needleGroup.appendChild(el('polygon', { class: 'gauge-needle-poly', points: '100,27 96.5,100 103.5,100' }));
+
+  // ─ Replace flat hub with chrome hub cap ─
+  if (oldHub) oldHub.remove();
+  svg.appendChild(el('circle', { class: 'gauge-hub-ring', cx: 100, cy: 100, r: 9 }));
+  svg.appendChild(el('circle', { class: 'gauge-hub',      cx: 100, cy: 100, r: 6 }));
+}
+
 /* ── 8. Recalculate + Render ─────────────────────────────── */
 function recalc() {
   // € fields via parseNum (handles "50,000" strings)
@@ -464,6 +561,14 @@ function applyConfig(cfg) {
 /* ── 10b. localStorage persistence ───────────────────────── */
 const LS_KEY = 'fire-dashboard-state';
 
+// Seed defaults for Reset — mirrors the initial state declaration above.
+const DEFAULTS = {
+  portfolio: 50000, income: 60000, spending: 30000,
+  investReturn: 7, savingsReturn: 2, allocInvest: 80,
+  inflation: 2, withdrawal: 4, mode: 'nominal',
+  taxMode: 'none', taxCustomPct: 0, currentAge: 30,
+};
+
 function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
@@ -490,6 +595,12 @@ function loadState() {
     const cfg = JSON.parse(raw);
     applyConfig(cfg);
   } catch (_) {}
+}
+
+function resetSavedData() {
+  try { localStorage.removeItem(LS_KEY); } catch (_) {}
+  applyConfig(DEFAULTS);
+  recalc();
 }
 
 /* ── 11. Rate stepper ────────────────────────────────────── */
@@ -693,6 +804,7 @@ if (typeof Chart === 'undefined') {
   initChart();
 }
 
+buildGauge();
 wireInputs();
 
 // Restore from localStorage (overrides seed values)
@@ -708,5 +820,6 @@ refreshMacroActive();
 
 recalc();
 
-// Expose live state object for integration tests (read-only intent)
-window._state = state;
+// Expose globals for integration tests
+window._state  = state;
+window._LS_KEY = LS_KEY;

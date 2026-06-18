@@ -255,13 +255,14 @@
                data-tip="How close your current portfolio is to your FI Number. 100% means you've hit financial independence.">
             📊 Retirement Readiness
           </div>
-          <svg class="gauge" viewBox="0 0 200 132" role="img" aria-label="Retirement readiness gauge">
+          <svg id="gauge-svg" class="gauge" viewBox="0 0 200 132" role="img" aria-label="Retirement readiness gauge">
             <path class="gauge-track" d="M20 100 A80 80 0 0 1 180 100" />
             <path class="gauge-arc" id="gauge-arc" d="M20 100 A80 80 0 0 1 180 100" />
             <g id="gauge-needle"><line x1="100" y1="100" x2="100" y2="34" /></g>
             <circle class="gauge-hub" cx="100" cy="100" r="6" />
           </svg>
           <div class="gauge-pct" id="gauge-pct" aria-live="polite">0%</div>
+          <div class="gauge-readiness-label">Readiness</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label has-tip tip-right" tabindex="0"
