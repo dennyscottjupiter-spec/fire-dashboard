@@ -473,6 +473,7 @@ input[type="range"]::-moz-range-thumb {
   display: grid;
   grid-template-columns: 1fr 1.05fr 1fr;
   gap: var(--gap);
+  align-items: stretch;   /* equal-height cards */
 }
 @media (max-width: 700px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 500px) { .kpi-row { grid-template-columns: 1fr; } }
@@ -626,7 +627,7 @@ input[type="range"]::-moz-range-thumb {
 .milestone-item.achieved .milestone-threshold { color: var(--success); }
 
 /* ── Retirement Readiness Gauge — Speedometer ────────────── */
-.gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+/* .gauge-card inherits flex centering from .kpi-card — no override needed */
 
 .gauge {
   width: 100%;
@@ -743,7 +744,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted);
   margin-bottom: 2px;
 }
-.alloc-labels span { font-variant-numeric: tabular-nums; }
+.alloc-labels > span { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
 .alloc-labels span span { color: var(--accent); font-weight: 700; }
 
 .alloc-savings-label {

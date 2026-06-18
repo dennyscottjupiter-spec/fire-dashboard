@@ -104,31 +104,7 @@
 
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
-        <!-- Return Rate -->
-        <div class="control-group">
-          <div class="control-label">
-            <span class="has-tip" tabindex="0"
-                  data-tip="How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
-              📈 Investment Return
-            </span>
-            <span class="rate-display">
-              <div class="steppers">
-                <button class="stepper-btn" data-box="val-return" data-dir="1"  aria-label="Increase return rate">▲</button>
-                <button class="stepper-btn" data-box="val-return" data-dir="-1" aria-label="Decrease return rate">▼</button>
-              </div>
-              <input type="text" inputmode="decimal" class="value-box" id="val-return" value="7" />
-              <span class="pct-sign">%</span>
-            </span>
-          </div>
-          <input type="range" id="slider-return" min="0" max="15" step="0.5" value="7" />
-          <div class="macro-btns">
-            <button class="macro-btn" data-slider="slider-return" data-val="4">Conservative 4%</button>
-            <button class="macro-btn" data-slider="slider-return" data-val="7">Moderate 7%</button>
-            <button class="macro-btn" data-slider="slider-return" data-val="10">Optimistic 10%</button>
-          </div>
-        </div>
-
-        <!-- Asset Allocation -->
+        <!-- Asset Allocation (sits above Investment Return — sets the mix first) -->
         <div class="control-group">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
@@ -157,6 +133,30 @@
           </div>
           <div class="blended-readout">
             ≈ <span id="blended-return">6.0</span>% blended return
+          </div>
+        </div>
+
+        <!-- Return Rate -->
+        <div class="control-group">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
+              📈 Investment Return
+            </span>
+            <span class="rate-display">
+              <div class="steppers">
+                <button class="stepper-btn" data-box="val-return" data-dir="1"  aria-label="Increase return rate">▲</button>
+                <button class="stepper-btn" data-box="val-return" data-dir="-1" aria-label="Decrease return rate">▼</button>
+              </div>
+              <input type="text" inputmode="decimal" class="value-box" id="val-return" value="7" />
+              <span class="pct-sign">%</span>
+            </span>
+          </div>
+          <input type="range" id="slider-return" min="0" max="15" step="0.5" value="7" />
+          <div class="macro-btns">
+            <button class="macro-btn" data-slider="slider-return" data-val="4">Conservative 4%</button>
+            <button class="macro-btn" data-slider="slider-return" data-val="7">Moderate 7%</button>
+            <button class="macro-btn" data-slider="slider-return" data-val="10">Optimistic 10%</button>
           </div>
         </div>
 
@@ -236,8 +236,8 @@
       </div><!-- /panel -->
 
       <p class="ls-note has-tip" tabindex="0"
-         data-tip="Your inputs auto-save in this browser's localStorage — a local database that never leaves your device. No server, no account, no upload. Use the Reset button to wipe it.">
-        💾 Inputs auto-saved locally only &mdash; never uploaded.
+         data-tip="Your inputs auto-save in this browser's localStorage — a local database that never leaves your device. No server, no account, no upload. Use the 🗑 Reset button (top-right) to wipe everything and restore defaults.">
+        💾 Inputs auto-saved locally only &mdash; never uploaded. Wipe anytime with the <strong>🗑 Reset</strong> button (top-right).
       </p>
     </aside>
 
