@@ -210,6 +210,18 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
 (async function runIntegration() {
   group('\n━━━━━━━━ Integration (iframe → index.html) ━━━━━━━━');
 
+  // file:// gives the iframe an opaque "null" origin; Chrome blocks cross-frame
+  // access with a SecurityError — not a real test failure, just a protocol limit.
+  if (location.protocol === 'file:') {
+    out.innerHTML += `ℹ️  Integration tests skipped on file:// (browser blocks cross-origin iframe access).\n` +
+                     `    Run with a local server to execute them:\n` +
+                     `      python -m http.server 8000\n` +
+                     `    then open http://localhost:8000/tests.html\n`;
+    clearTimeout(_watchdog);
+    renderSummary();
+    return;
+  }
+
   const iframe = document.createElement('iframe');
   iframe.src = 'index.html';
   iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
@@ -228,8 +240,19 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     return;
   }
 
-  const win = iframe.contentWindow;
-  const doc = win.document;
+  let win, doc;
+  try {
+    win = iframe.contentWindow;
+    doc = win.document;
+  } catch (e) {
+    fail++;
+    out.innerHTML += `<span class="fail">❌</span>  Cannot access iframe (cross-origin? Use http://): ${e.message}\n`;
+    clearTimeout(_watchdog);
+    renderSummary();
+    return;
+  }
+
+  try { /* ── integration body wrapped so watchdog always clears ── */
 
   /* ── iframe helpers ──────────────────────────────────── */
   function setVal(id, v) {
@@ -647,8 +670,13 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
   /* cleanup */
   safeClearLS();
 
-  clearTimeout(_watchdog);
-  renderSummary();
+  } catch (e) {
+    fail++;
+    out.innerHTML += `<span class="fail">❌</span>  [integration aborted] ${e.message}\n`;
+  } finally {
+    clearTimeout(_watchdog);
+    renderSummary();
+  }
 })();
 </script>
 </body>
