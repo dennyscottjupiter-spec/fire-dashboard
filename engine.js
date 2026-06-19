@@ -12,22 +12,32 @@ function parseNum(str) {
   return isNaN(n) ? 0 : n;
 }
 
-/* ── Box-3 wealth-tax constants (NL 2024) ─────────────────── */
+/* ── Box-3 wealth-tax constants (NL 2026) ─────────────────── */
 const BOX3 = {
-  allowance:    57000,   // heffingvrij vermogen per person (€)
-  deemedReturn: 0.0604,  // fictitious return rate (6.04%)
-  taxRate:      0.36,    // flat 36% on the deemed return
-  // Effective drag on wealth above allowance ≈ 2.17%/yr
+  allowance:     59357,  // heffingvrij vermogen 2026, single filer (€)
+  deemedInvest:  0.060,  // fictitious return on investments (provisional 2026)
+  deemedSavings: 0.0128, // fictitious return on savings (2026)
+  taxRate:       0.36,   // flat 36% on the total deemed return
 };
 
-// Annual Box-3 tax on portfolio P at projection year t.
+// Annual Box-3 tax on portfolio P using the NL 2026 proportional method.
+// allocInvest (0–100): % of P held in investments; remainder is savings.
 // In real mode, allowance is deflated so it stays comparable to a real-terms P.
-function box3Tax(P, t, infl, isReal) {
+// Proportional method: deemed return × (taxable fraction of P).
+//
+//   Example — P=€300k, 80% invest, single:
+//     deemed = 240k×6.0% + 60k×1.28% = 15,168
+//     taxable share = (300k − 59,357) / 300k = 0.8021
+//     tax = 0.36 × 15,168 × 0.8021 ≈ €4,380
+function box3Tax(P, t, infl, isReal, allocInvest) {
   const allowance = isReal
     ? BOX3.allowance / Math.pow(1 + infl, t)
     : BOX3.allowance;
-  const taxable = Math.max(0, P - allowance);
-  return BOX3.taxRate * BOX3.deemedReturn * taxable;
+  if (P <= allowance) return 0;
+  const a = (allocInvest == null ? 100 : allocInvest) / 100;
+  const deemed = P * a * BOX3.deemedInvest + P * (1 - a) * BOX3.deemedSavings;
+  const taxableShare = (P - allowance) / P;
+  return BOX3.taxRate * deemed * taxableShare;
 }
 
 // Capital-gains tax: pct% of that year's investment gain only.
@@ -50,7 +60,8 @@ function runProjection(s) {
   const data = [];
   let P  = s.portfolio;
   let FI = fiTarget;
-  let yearsToFI = null;
+  let yearsToFI   = null;
+  let firstYearTax = 0;
 
   data.push({ year: 0, portfolio: P, fi: FI });
   if (P >= fiTarget) yearsToFI = 0;
@@ -67,22 +78,24 @@ function runProjection(s) {
       const investGain  = prevP * realReturn;
 
       const tax = s.taxMode === 'box3'
-        ? box3Tax(prevP + investGain + realSavings, t, infl, true)
+        ? box3Tax(prevP + investGain + realSavings, t, infl, true, s.allocInvest)
         : s.taxMode === 'custom'
           ? customTax(investGain, s.taxCustomPct || 0)
           : 0;
 
+      if (t === 1) firstYearTax = tax;
       P = Math.max(0, prevP + investGain + realSavings - tax);
       // FI stays fixed in real-terms mode
     } else {
       const investGain = prevP * r;
 
       const tax = s.taxMode === 'box3'
-        ? box3Tax(prevP + investGain + savings, t, infl, false)
+        ? box3Tax(prevP + investGain + savings, t, infl, false, s.allocInvest)
         : s.taxMode === 'custom'
           ? customTax(investGain, s.taxCustomPct || 0)
           : 0;
 
+      if (t === 1) firstYearTax = tax;
       P  = Math.max(0, prevP + investGain + savings - tax);
       FI = FI * (1 + infl);
     }
@@ -91,7 +104,7 @@ function runProjection(s) {
     if (yearsToFI === null && P >= FI) yearsToFI = t;
   }
 
-  return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data };
+  return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax };
 }
 
 /* ── Coast FI target ─────────────────────────────────────── */

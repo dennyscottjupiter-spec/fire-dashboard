@@ -154,6 +154,9 @@ function recalc() {
       : 'No savings';
   els.kpiYearsSub.textContent = `SR: ${srLabel} · ${savingsLabel}`;
 
+  // ── Tax readout
+  els.taxAnnualVal.textContent = eur.format(firstYearTax);
+
   // ── Notice banner
   els.notice.classList.toggle('visible', unattainable);
 
