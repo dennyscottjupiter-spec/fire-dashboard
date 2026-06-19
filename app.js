@@ -69,6 +69,7 @@ const els = {
   taxBox3Info:  $('tax-box3-info'),
   taxCustomRow: $('tax-custom-row'),
   valTaxCustom: $('val-tax-custom'),
+  taxAnnualVal: $('tax-annual-val'),
   // Asset allocation
   valSavings:      $('val-savings'),
   sliderAlloc:     $('slider-alloc'),
@@ -115,7 +116,7 @@ function recalc() {
 
   refreshMacroActive();
 
-  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data } = runProjection(state);
+  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax } = runProjection(state);
 
   // ── KPI: FI Number
   els.kpiFI.textContent    = isFinite(fiTarget) ? eur.format(fiTarget) : '∞';
@@ -331,9 +332,9 @@ function loadState() {
 }
 
 function resetSavedData() {
-  try { localStorage.removeItem(LS_KEY); } catch (_) {}
   applyConfig(DEFAULTS);
-  recalc();
+  recalc();                                              // saveState() runs here…
+  try { localStorage.removeItem(LS_KEY); } catch (_) {} // …so wipe it last
 }
 
 /* ── 9. Rate stepper ─────────────────────────────────────── */
