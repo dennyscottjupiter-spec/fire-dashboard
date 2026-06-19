@@ -170,8 +170,8 @@ function updateMilestones(portfolio, fiTarget, currentAge, realReturn) {
 const ARC_LEN = Math.PI * 80; // semicircle r=80 ≈ 251.33
 
 function updateGauge(readiness) {
-  const pct = isFinite(readiness) ? readiness * 100 : 0;
-  const c   = Math.max(0, Math.min(1, readiness || 0));
+  const c   = Math.max(0, Math.min(1, isFinite(readiness) ? readiness : 0));
+  const pct = c * 100;
   els.gaugeArc.style.strokeDasharray  = ARC_LEN;
   els.gaugeArc.style.strokeDashoffset = ARC_LEN * (1 - c);
   els.gaugeNeedle.style.transform     = `rotate(${c * 180 - 90}deg)`;
