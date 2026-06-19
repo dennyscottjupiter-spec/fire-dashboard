@@ -82,17 +82,24 @@ assert('parseNum("0")',         parseNum('0')         === 0,       parseNum('0')
 assert('parseNum("007")',       parseNum('007')       === 7,       parseNum('007'),       7);
 assert('parseNum("9999999")',   parseNum('9999999')   === 9999999, parseNum('9999999'),   9999999);
 
-/* ── box3Tax ───────────────────────────────────────────────── */
-group('box3Tax');
-assert('no tax below allowance', box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
-assert('no tax exactly at allowance', box3Tax(57000, 0, 0.02, false) === 0, box3Tax(57000, 0, 0.02, false), 0);
-const expected3 = 0.36 * 0.0604 * (100000 - 57000);
-assert('tax above allowance (t=0)', near(box3Tax(100000, 0, 0.02, false), expected3), box3Tax(100000, 0, 0.02, false).toFixed(4), expected3.toFixed(4));
-const box3Real = box3Tax(100000, 5, 0.02, true);
-const box3Nom  = box3Tax(100000, 5, 0.02, false);
+/* ── box3Tax (NL 2026) ─────────────────────────────────────── */
+group('box3Tax — NL 2026 proportional method');
+assert('no tax below allowance (€50k < €59,357)', box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
+assert('no tax exactly at allowance (€59,357)', box3Tax(59357, 0, 0.02, false) === 0, box3Tax(59357, 0, 0.02, false), 0);
+// 100% invest, P=100k: deemed=100k×6.0%=6000; taxableShare=(100k-59357)/100k=0.40643; tax=0.36×6000×0.40643
+const expected3 = 0.36 * (100000 * 1.0 * 0.060) * ((100000 - 59357) / 100000);
+assert('tax above allowance, 100% invest (t=0)', near(box3Tax(100000, 0, 0.02, false, 100), expected3, 0.1), box3Tax(100000, 0, 0.02, false, 100).toFixed(2), expected3.toFixed(2));
+// 100% savings, same P: deemed=100k×1.28%=1280 — much less than invest
+const expected3sav = 0.36 * (100000 * 1.0 * 0.0128) * ((100000 - 59357) / 100000);
+assert('100% savings pays less tax than 100% invest', expected3sav < expected3, expected3sav.toFixed(2), '< ' + expected3.toFixed(2));
+assert('100% savings tax is non-negative', expected3sav >= 0, expected3sav >= 0, true);
+const box3Real = box3Tax(100000, 5, 0.02, true, 100);
+const box3Nom  = box3Tax(100000, 5, 0.02, false, 100);
 assert('real-mode allowance deflates → larger tax than nominal at t=5', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
-assert('real-mode at t=0 equals nominal', near(box3Tax(100000, 0, 0.02, true), box3Tax(100000, 0, 0.02, false), 0.001), true, true);
+assert('real-mode at t=0 equals nominal', near(box3Tax(100000, 0, 0.02, true, 100), box3Tax(100000, 0, 0.02, false, 100), 0.001), true, true);
 assert('box3Tax result is non-negative for P=0', box3Tax(0, 0, 0.02, false) === 0, box3Tax(0, 0, 0.02, false), 0);
+// backward-compat: omitting allocInvest defaults to 100% invest
+assert('omitting allocInvest defaults to 100% invest', near(box3Tax(100000, 0, 0.02, false), box3Tax(100000, 0, 0.02, false, 100), 0.001), true, true);
 
 /* ── customTax ─────────────────────────────────────────────── */
 group('customTax');
@@ -445,6 +452,39 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     assert('taxCustomPct clamps to 100 on blur', s.taxCustomPct === 100, s.taxCustomPct, 100);
     setVal('val-tax-custom', '15'); fireBlur('val-tax-custom');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] custom tax: ${e.message}\n`; }
+
+  /* ── annual tax readout ─────────────────────────────────── */
+  try {
+    group('Integration — annual tax readout (#tax-annual-val)');
+    resetBaseline();
+    /* None → readout shows €0 */
+    clickEl('btn-tax-none');
+    assert('tax-annual-val shows €0 when taxMode=none',
+      text('tax-annual-val') === '€0', text('tax-annual-val'), '€0');
+
+    /* Box 3 → non-zero € amount (portfolio=50k, which is below Box3 threshold 59357,
+       but year-1 P includes savings contributions: 50k + 3k gain + 30k savings = 83k > 59357) */
+    clickEl('btn-tax-box3');
+    assert('tax-annual-val is non-zero under Box 3',
+      text('tax-annual-val') !== '€0', text('tax-annual-val'), '!= €0');
+    assert('tax-annual-val contains € symbol under Box 3',
+      text('tax-annual-val').startsWith('€'), text('tax-annual-val'), 'starts with €');
+
+    /* savings-heavy (0% invest) pays less than invest-heavy (100% invest) */
+    doc.getElementById('slider-alloc').value = '0';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    doc.getElementById('slider-alloc').value = '100';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('Box 3: invest-heavy pays more tax than savings-heavy (higher deemed return)',
+      taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
+
+    /* restore */
+    clickEl('btn-tax-none');
+    doc.getElementById('slider-alloc').value = '80';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax readout: ${e.message}\n`; }
 
   /* ── macro buttons ───────────────────────────────────────── */
   try {
