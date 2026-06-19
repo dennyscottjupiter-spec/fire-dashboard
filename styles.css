@@ -517,8 +517,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .kpi-card .kpi-label {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--muted);
@@ -764,7 +764,7 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted);
   margin-bottom: 2px;
 }
-.alloc-labels > span { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+.alloc-labels > span { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--muted); }
 .alloc-labels span span { color: var(--accent); font-weight: 700; }
 
 .alloc-savings-label {
