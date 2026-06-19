@@ -12,7 +12,7 @@ A **Content-Security-Policy** `<meta>` restricts scripts to `'self' + cdn.jsdeli
 
 **Typography** — Inter variable font (rsms/inter v4.1, SIL OFL) is self-hosted in `fonts/InterVariable.woff2`. Both `--sans` and `--mono` CSS tokens point to Inter; Segoe UI / system-ui are fallbacks. `font-variant-numeric: tabular-nums` keeps numbers aligned without a separate monospace face.
 
-Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (51, synchronous) run on `file://` too. Integration tests (2 new guard assertions for two-step reset) drive every input, the gauge, blend, import guards, localStorage round-trip, and milestones. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
+Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (54, synchronous) run on `file://` too. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, and the annual tax readout (Box 3 split-deemed-return). The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
 
 ## Architecture
 
@@ -36,8 +36,8 @@ Single `state` object → **`recalc()`** is the only heartbeat. Every input even
 input event
   → update state fields (parseNum for € fields, parseFloat for rate boxes)
   → compute blend: state.returnRate = (allocInvest/100)·investReturn + (1-allocInvest/100)·savingsReturn
-  → runProjection(state) → { savings, fiTarget, yearsToFI, data[] }
-  → write KPIs + FIRE-year pill + notice banner
+  → runProjection(state) → { savings, fiTarget, yearsToFI, data[], firstYearTax }
+  → write KPIs + FIRE-year pill + notice banner + #tax-annual-val readout
   → updateGauge(portfolio / fiTarget)
   → chart.update() + crossover marker plugin
   → updateMilestones()
@@ -58,7 +58,7 @@ input event
 
 **Nominal vs Real mode** — controlled by `state.mode`. Nominal: both portfolio and FI target inflate each year. Real: FI target is fixed; portfolio uses `realReturn = (1+r)/(1+infl)-1`; contributions are deflated to today's purchasing power (`savings / (1+infl)^t`) so they don't overstate growth.
 
-**Tax** — `state.taxMode` is `'none' | 'box3' | 'custom'`. Box 3 (NL 2024): `0.36 × 0.0604` deemed-return tax on assets above €57k/yr; allowance is deflated in Real mode to stay comparable. Custom: `taxCustomPct`% applied to that year's investment gain only. Tax is subtracted *after* growth + contributions each year, inside `runProjection` in `engine.js`.
+**Tax** — `state.taxMode` is `'none' | 'box3' | 'custom'`. Box 3 (NL 2026 model): split deemed returns — investments 6.0%, savings 1.28%, flat 36% rate, €59,357 threshold (single). Uses the *proportional method*: `deemed = P·a·6.0% + P·(1−a)·1.28%`; `taxableShare = (P−allowance)/P`; tax = `0.36 × deemed × taxableShare`. `box3Tax(P, t, infl, isReal, allocInvest)` — `allocInvest` param passes `state.allocInvest` from `runProjection`; omitting it defaults to 100% invest (backward-compat). Allowance is deflated in Real mode. Custom: `taxCustomPct`% applied to that year's investment gain only. Tax is subtracted *after* growth + contributions each year, inside `runProjection`. `runProjection` returns `firstYearTax` (year-1 tax under the active mode) → rendered to `#tax-annual-val` readout as "≈ €X est. tax this year".
 
 **Macro buttons** — each has `data-slider` and `data-val` attributes. On click, set both the slider, the box, and `box._lastValid`. `refreshMacroActive()` compares against the box value (not the slider).
 
@@ -66,7 +66,7 @@ input event
 
 **Milestones** — `MILESTONES` array (in `ui.js`) drives `updateMilestones(portfolio, fi, currentAge, realReturn)`. Ladder (order in DOM): First €100k → Coast FI → Barista FI (50%) → Lean FI (70%) → Full FIRE (100%) → Fat FIRE (150%). Coast FI uses `coastFiTarget(fi, currentAge, realReturn)` from `engine.js` — already inflation-aware (passes real return = nominal − inflation; higher inflation raises the Coast FI target).
 
-**localStorage** — `saveState()` is called at the end of every `recalc()`. On boot, `loadState()` runs before the first `recalc()` and calls `applyConfig(cfg)` — the same helper used by `importConfig()`. `DEFAULTS` const holds the seed values. `resetSavedData()` removes the LS key, applies `DEFAULTS`, and recalcs.
+**localStorage** — `saveState()` is called at the end of every `recalc()`. On boot, `loadState()` runs before the first `recalc()` and calls `applyConfig(cfg)` — the same helper used by `importConfig()`. `DEFAULTS` const holds the seed values. `resetSavedData()` applies `DEFAULTS`, calls `recalc()` (which re-saves via `saveState()`), then *removes* the LS key — order is deliberate so the key ends up absent after the reset.
 
 **Reset confirm (two-step)** — `#btn-reset` uses an arm-then-confirm flow: first click arms the button (adds `.armed` class, changes label to "⚠️ Click again to confirm", starts a 3 s timer); second click within 3 s calls `resetSavedData()`; ignoring auto-disarms via `_disarmReset()`. `window._state`, `window._LS_KEY`, `window.resetSavedData`, `window.importConfig`, and `window._disarmReset` are exposed at boot for integration tests.
 
@@ -80,4 +80,4 @@ input event
 
 Private repo: `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints.
 
-Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0`.
+Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0`.
