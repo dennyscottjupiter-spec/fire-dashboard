@@ -27,6 +27,14 @@
           Nominal
         </button>
       </div>
+      <button class="io-btn has-tip tip-right" id="btn-wizard" tabindex="0"
+              data-tip="Guided setup: answer a few plain-language questions and we'll fill in the sliders for you.">
+        🧩 Wizard
+      </button>
+      <button class="io-btn has-tip tip-right" id="btn-compare" tabindex="0"
+              data-tip="Snapshot your current plan as Scenario A, then keep editing as Scenario B — both are drawn on the chart so you can compare them side by side. Click again to clear.">
+        📊 Compare
+      </button>
       <button class="io-btn has-tip tip-right" id="btn-export" tabindex="0"
               data-tip="Download your current settings as a JSON file. Share it or reload it later with Import.">
         ⬇ Export
@@ -399,6 +407,7 @@
             <span class="mc-success-label"><span id="mc-runs">1,000</span> futures survive to 95</span>
           </div>
         </div>
+        <div id="compare-readout" class="compare-readout" style="display:none" aria-live="polite"></div>
         <div id="lifecycle-note" class="lifecycle-note" aria-live="polite"></div>
         <canvas id="fi-chart"></canvas>
       </div>
@@ -469,6 +478,24 @@
 
     </section>
   </main>
+
+  <!-- ── Onboarding wizard (v2.0) ──────────────────────────── -->
+  <div id="wizard-overlay" class="wizard-overlay" style="display:none">
+    <div class="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+      <div class="wizard-head">
+        <h2 id="wizard-title">🧩 Quick Setup</h2>
+        <button id="wizard-skip" class="wizard-skip" aria-label="Skip setup">Skip ✕</button>
+      </div>
+      <div id="wizard-body" class="wizard-body"></div>
+      <div class="wizard-foot">
+        <div id="wizard-progress" class="wizard-progress"></div>
+        <div class="wizard-nav">
+          <button id="wizard-back" class="wizard-btn-ghost">← Back</button>
+          <button id="wizard-next" class="wizard-btn">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"

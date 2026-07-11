@@ -112,7 +112,22 @@ const els = {
   mcSuccess:      $('mc-success'),
   mcSuccessVal:   $('mc-success-val'),
   mcRuns:         $('mc-runs'),
+  // v2.0 cockpit
+  btnCompare:     $('btn-compare'),
+  btnWizard:      $('btn-wizard'),
+  compareReadout: $('compare-readout'),
+  wizardOverlay:  $('wizard-overlay'),
+  wizardBody:     $('wizard-body'),
+  wizardProgress: $('wizard-progress'),
+  wizardBack:     $('wizard-back'),
+  wizardNext:     $('wizard-next'),
+  wizardSkip:     $('wizard-skip'),
 };
+
+/* ── A/B scenario compare state (module-level, not in saved config) ── */
+const LS_SCENARIO_A = 'fire-dashboard-scenario-a';
+let compareOn = false;
+let scenarioA = null;   // frozen deterministic snapshot of the plan
 
 /* ── 5. Macro button active state ───────────────────────── */
 function refreshMacroActive() {
@@ -222,7 +237,8 @@ function recalc() {
   // ── Notice banner
   els.notice.classList.toggle('visible', unattainable);
 
-  // ── Chart — Steady / Monte Carlo / History (see renderChart)
+  // ── A/B compare readout + chart (Steady / Monte Carlo / History)
+  updateCompareReadout(det);
   renderChart(det);
 
   // ── Gauge
@@ -253,7 +269,7 @@ function renderChart(det) {
   if (state.projMode === 'montecarlo') {
     ds[0].hidden = true;                       // hide the single deterministic path
     ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
-    ds[5].hidden = true;                        // pension-pot line off in MC view
+    ds[5].hidden = ds[6].hidden = ds[7].hidden = true;   // pot + scenario-A off in MC view
     els.mcSuccess.style.display   = 'flex';
     els.vintageSelect.style.display = 'none';
     scheduleMonteCarlo();                       // debounced heavy compute
@@ -278,6 +294,16 @@ function renderChart(det) {
   const showPot = state.pensionPot > 0 || state.pensionContrib > 0;
   ds[5].hidden = !showPot;
   if (showPot) ds[5].data = proj.data.map(d => Math.round(d.pp || 0));
+
+  // Scenario A overlay (A/B compare mode)
+  if (compareOn && scenarioA) {
+    const projA = runProjection(scenarioA);
+    ds[6].data = projA.data.map(d => Math.round(d.portfolio));
+    ds[7].data = projA.data.map(d => Math.round(d.fi));
+    ds[6].hidden = ds[7].hidden = false;
+  } else {
+    ds[6].hidden = ds[7].hidden = true;
+  }
   chart.update();
 }
 
@@ -312,6 +338,143 @@ function populateVintages() {
     els.vintageSelect.appendChild(opt);
   });
   els.vintageSelect.value = state.vintageYear;
+}
+
+/* ── 6c. A/B scenario compare ────────────────────────────── */
+// Deterministic snapshot of the plan (returnRate is already fee-adjusted).
+function snapshotState() {
+  return JSON.parse(JSON.stringify({
+    portfolio: state.portfolio, income: state.income, spending: state.spending,
+    investReturn: state.investReturn, savingsReturn: state.savingsReturn, allocInvest: state.allocInvest,
+    returnRate: state.returnRate, inflation: state.inflation, withdrawal: state.withdrawal,
+    mode: state.mode, taxMode: state.taxMode, taxCustomPct: state.taxCustomPct, currentAge: state.currentAge,
+    terPct: state.terPct, pensionAge: state.pensionAge, pensionAmount: state.pensionAmount,
+    pensionPot: state.pensionPot, pensionContrib: state.pensionContrib, events: state.events,
+    wdStrategy: state.wdStrategy,
+  }));
+}
+
+function setCompareButton() {
+  els.btnCompare.classList.toggle('compare-on', compareOn);
+  els.btnCompare.textContent = compareOn ? '📊 Comparing ✕' : '📊 Compare';
+}
+
+function toggleCompare() {
+  if (compareOn) {
+    compareOn = false; scenarioA = null;
+    try { localStorage.removeItem(LS_SCENARIO_A); } catch (_) {}
+  } else {
+    scenarioA = snapshotState();
+    compareOn = true;
+    try { localStorage.setItem(LS_SCENARIO_A, JSON.stringify(scenarioA)); } catch (_) {}
+  }
+  setCompareButton();
+  recalc();
+}
+
+// FIRE calendar year for a projection (null if never reached in horizon).
+function fireYearOf(proj) {
+  return (proj.yearsToFI !== null && proj.yearsToFI <= proj.data.length - 1)
+    ? new Date().getFullYear() + proj.yearsToFI : null;
+}
+
+function updateCompareReadout(detB) {
+  if (!compareOn || !scenarioA) { els.compareReadout.style.display = 'none'; return; }
+  const aYr = fireYearOf(runProjection(scenarioA));
+  const bYr = fireYearOf(detB);
+  let delta = '';
+  if (aYr && bYr) {
+    const d = aYr - bYr;                        // positive → B is earlier
+    if (d > 0)      delta = `<span class="cmp-delta better">→ B is ${d} yr${d > 1 ? 's' : ''} earlier 🎉</span>`;
+    else if (d < 0) delta = `<span class="cmp-delta worse">→ B is ${-d} yr${-d > 1 ? 's' : ''} later</span>`;
+    else            delta = `<span class="cmp-delta">→ same FIRE year</span>`;
+  }
+  els.compareReadout.innerHTML =
+    `<span class="cmp-a">A: FIRE ${aYr || '—'}</span> &nbsp;·&nbsp; B: FIRE ${bYr || '—'} &nbsp;${delta}`;
+  els.compareReadout.style.display = 'block';
+}
+
+/* ── 6d. Onboarding wizard ───────────────────────────────── */
+const WIZARD_STEPS = [
+  { key: 'age',       icon: '🎂', q: 'How old are you today?',                 hint: 'We use this to place your FIRE year on the calendar.',                 type: 'number', suffix: 'years old', def: () => state.currentAge },
+  { key: 'income',    icon: '💵', q: 'Your yearly take-home income?',          hint: 'After tax — what actually lands in your account.',                     type: 'euro',   def: () => state.income },
+  { key: 'spending',  icon: '🛒', q: 'How much do you spend per year?',        hint: 'Everything: rent, food, fun. The gap is what you invest.',             type: 'euro',   def: () => state.spending },
+  { key: 'retireAge', icon: '🏖️', q: 'When do you want to stop mandatory work?', hint: 'Your target age. Earlier retirements get a safer withdrawal rate.',   type: 'number', suffix: 'years old', def: () => Math.max(state.currentAge + 1, 50) },
+  { key: 'risk',      icon: '🎯', q: 'How do you feel about market swings?',   hint: 'Sets your expected return and stock/cash mix.',                        type: 'choice', def: () => 'balanced', choices: [
+      { val: 'cautious', label: '🛡️ Cautious', desc: 'Steadier ride, lower growth (40% stocks)' },
+      { val: 'balanced', label: '⚖️ Balanced', desc: 'A healthy mix (70% stocks)' },
+      { val: 'growth',   label: '🚀 Growth',   desc: 'Ride the swings for more (95% stocks)' },
+  ] },
+];
+let _wizIdx = 0, _wizAns = {};
+
+function openWizard() { _wizIdx = 0; _wizAns = {}; els.wizardOverlay.style.display = 'flex'; renderWizardStep(); }
+function closeWizard() { els.wizardOverlay.style.display = 'none'; }
+
+function renderWizardStep() {
+  const step = WIZARD_STEPS[_wizIdx];
+  let html = `<div class="wiz-q">${step.icon} ${step.q}</div><div class="wiz-hint">${step.hint}</div>`;
+  if (step.type === 'choice') {
+    const cur = _wizAns[step.key] != null ? _wizAns[step.key] : step.def();
+    html += '<div class="wiz-choices">';
+    step.choices.forEach(c => {
+      html += `<button type="button" class="wiz-choice${c.val === cur ? ' selected' : ''}" data-val="${c.val}">` +
+              `<div><div class="wiz-choice-label">${c.label}</div><div class="wiz-choice-desc">${c.desc}</div></div></button>`;
+    });
+    html += '</div>';
+  } else {
+    const cur = _wizAns[step.key] != null ? _wizAns[step.key] : step.def();
+    const shown = step.type === 'euro' ? numFmt.format(cur) : cur;
+    html += `<input type="text" inputmode="numeric" class="wiz-input" id="wiz-input" value="${shown}" autocomplete="off" />`;
+    if (step.suffix) html += `<div class="wiz-suffix">${step.suffix}</div>`;
+  }
+  els.wizardBody.innerHTML = html;
+  els.wizardProgress.innerHTML = WIZARD_STEPS
+    .map((_, i) => `<span class="wiz-dot ${i < _wizIdx ? 'done' : i === _wizIdx ? 'active' : ''}"></span>`).join('');
+  els.wizardBack.disabled   = _wizIdx === 0;
+  els.wizardNext.textContent = _wizIdx === WIZARD_STEPS.length - 1 ? 'Finish ✓' : 'Next →';
+
+  if (step.type === 'choice') {
+    els.wizardBody.querySelectorAll('.wiz-choice').forEach(b => b.addEventListener('click', () => {
+      _wizAns[step.key] = b.dataset.val;
+      els.wizardBody.querySelectorAll('.wiz-choice').forEach(x => x.classList.toggle('selected', x === b));
+    }));
+  } else {
+    const inp = document.getElementById('wiz-input');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+}
+
+function wizardCapture() {
+  const step = WIZARD_STEPS[_wizIdx];
+  if (step.type === 'choice') {
+    if (_wizAns[step.key] == null) _wizAns[step.key] = step.def();
+  } else {
+    const inp = document.getElementById('wiz-input');
+    const n = parseNum(inp ? inp.value : '');
+    _wizAns[step.key] = step.type === 'euro' ? n : (n || step.def());
+  }
+}
+
+function wizardNext() {
+  wizardCapture();
+  if (_wizIdx < WIZARD_STEPS.length - 1) { _wizIdx++; renderWizardStep(); }
+  else finishWizard();
+}
+function wizardBack() { wizardCapture(); if (_wizIdx > 0) { _wizIdx--; renderWizardStep(); } }
+
+function finishWizard() {
+  const a = _wizAns, cfg = {};
+  if (a.age != null)       cfg.currentAge = Math.max(1, Math.min(100, a.age));
+  if (a.income != null)    cfg.income     = a.income;
+  if (a.spending != null)  cfg.spending   = a.spending;
+  if (a.retireAge != null) cfg.withdrawal = a.retireAge <= 55 ? 3.5 : a.retireAge <= 65 ? 4 : 4.5;
+  if (a.risk === 'cautious')      { cfg.investReturn = 6; cfg.allocInvest = 40; cfg.savingsReturn = 2; }
+  else if (a.risk === 'balanced') { cfg.investReturn = 7; cfg.allocInvest = 70; cfg.savingsReturn = 2; }
+  else if (a.risk === 'growth')   { cfg.investReturn = 8; cfg.allocInvest = 95; cfg.savingsReturn = 2; }
+  applyConfig(cfg);
+  recalc();
+  closeWizard();
 }
 
 /* ── 7. bindRange — syncs a slider + editable box ────────── */
@@ -759,6 +922,20 @@ function wireInputs() {
     state.vintageYear = parseInt(els.vintageSelect.value, 10) || 2008;
     recalc();
   });
+
+  // A/B scenario compare
+  els.btnCompare.addEventListener('click', toggleCompare);
+
+  // Onboarding wizard
+  els.btnWizard.addEventListener('click', openWizard);
+  els.wizardSkip.addEventListener('click', closeWizard);
+  els.wizardNext.addEventListener('click', wizardNext);
+  els.wizardBack.addEventListener('click', wizardBack);
+  els.wizardOverlay.addEventListener('click', e => { if (e.target === els.wizardOverlay) closeWizard(); });
+  els.wizardBody.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); wizardNext(); } });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && els.wizardOverlay.style.display !== 'none') closeWizard();
+  });
 }
 
 /* ── 11. Export / Import ─────────────────────────────────── */
@@ -871,8 +1048,17 @@ if (typeof Chart === 'undefined') {
 buildGauge();
 wireInputs();
 
+// First-run detection (before restore) → drives the onboarding wizard
+const _firstRun = (() => { try { return !localStorage.getItem(LS_KEY); } catch (_) { return false; } })();
+
 // Restore from localStorage (overrides seed values)
 loadState();
+
+// Restore A/B compare snapshot if one was saved
+try {
+  const rawA = localStorage.getItem(LS_SCENARIO_A);
+  if (rawA) { scenarioA = JSON.parse(rawA); compareOn = true; setCompareButton(); }
+} catch (_) {}
 
 // Format seed € values that weren't overridden by loadState
 [els.portfolio, els.income, els.spending, els.inputPensionAmount,
@@ -891,3 +1077,9 @@ window._LS_KEY        = LS_KEY;
 window.resetSavedData = resetSavedData;
 window.importConfig   = importConfig;
 window._disarmReset   = _disarmReset;
+window.openWizard     = openWizard;
+window.finishWizard   = finishWizard;
+window.toggleCompare  = toggleCompare;
+
+// First visit → guide the newcomer through setup
+if (_firstRun) openWizard();

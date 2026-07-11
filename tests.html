@@ -59,12 +59,15 @@ window.addEventListener('unhandledrejection', ev => {
   out.innerHTML += `<span class="fail">❌</span>  [unhandled rejection] ${String(ev.reason)}\n`;
 });
 
-/* watchdog: if integration never finishes, force renderSummary after 25 s */
+/* watchdog: if integration never finishes, force renderSummary after 45 s.
+   The suite has grown to 250+ tests with many deliberate async waits (Monte Carlo
+   debounce, FileReader imports, reset flush) — 45 s leaves headroom on slow machines
+   while still catching a genuine hang. */
 const _watchdog = setTimeout(() => {
   fail++;
-  out.innerHTML += `<span class="fail">❌</span>  [watchdog] Integration tests did not complete within 25 s\n`;
+  out.innerHTML += `<span class="fail">❌</span>  [watchdog] Integration tests did not complete within 45 s\n`;
   renderSummary();
-}, 25000);
+}, 45000);
 
 /* ══════════════════════════════════════════════════════════
    ENGINE UNIT TESTS  (synchronous — run immediately)
@@ -435,6 +438,8 @@ assert('pensionContrib builds the pot', contribPot.data[5].pp > 0, Math.round(co
   /* ── reset iframe to a known baseline ───────────────────── */
   function resetBaseline() {
     safeClearLS();
+    const wiz = doc.getElementById('wizard-overlay'); if (wiz) wiz.style.display = 'none';  // v2.0: dismiss auto-opened wizard
+    const cb = doc.getElementById('btn-compare'); if (cb && cb.classList.contains('compare-on')) cb.click();  // v2.0: exit compare
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
     setVal('input-income',    '60000'); fireBlur('input-income');
     setVal('input-spending',  '30000'); fireBlur('input-spending');
@@ -913,6 +918,52 @@ assert('pensionContrib builds the pot', contribPot.data[5].pp > 0, Math.round(co
     setVal('input-pension-contrib', '0'); fireBlur('input-pension-contrib');
     assert('pot line hidden when pot & contrib are 0', chartOf().data.datasets[5].hidden === true, chartOf().data.datasets[5].hidden, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] pension pot: ${e.message}\n`; }
+
+  /* ── A/B scenario compare (v2.0) ─────────────────────────── */
+  try {
+    group('Integration — A/B scenario compare');
+    resetBaseline();
+    const chartOf = () => win.Chart.getChart('fi-chart');
+    clickEl('btn-compare');
+    assert('compare on → scenario A datasets shown', chartOf().data.datasets[6].hidden === false, chartOf().data.datasets[6].hidden, false);
+    assert('compare readout visible', doc.getElementById('compare-readout').style.display !== 'none', true, true);
+    assert('scenario A saved to localStorage', win.localStorage.getItem('fire-dashboard-scenario-a') !== null, true, true);
+    setVal('input-income', '120000'); fireBlur('input-income');
+    assert('compare readout mentions FIRE years', text('compare-readout').includes('FIRE'), text('compare-readout').slice(0, 12), '~A: FIRE');
+    clickEl('btn-compare');  // toggle off
+    assert('compare off → A datasets hidden', chartOf().data.datasets[6].hidden === true, chartOf().data.datasets[6].hidden, true);
+    assert('compare readout hidden when off', doc.getElementById('compare-readout').style.display === 'none', true, true);
+    assert('scenario A cleared from localStorage', win.localStorage.getItem('fire-dashboard-scenario-a') === null, null, null);
+    setVal('input-income', '60000'); fireBlur('input-income');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] A/B compare: ${e.message}\n`; }
+
+  /* ── onboarding wizard (v2.0) ────────────────────────────── */
+  try {
+    group('Integration — onboarding wizard');
+    resetBaseline();
+    win.openWizard();
+    assert('wizard opens', doc.getElementById('wizard-overlay').style.display === 'flex', doc.getElementById('wizard-overlay').style.display, 'flex');
+    assert('wizard shows 5 progress dots', doc.querySelectorAll('#wizard-progress .wiz-dot').length === 5, doc.querySelectorAll('#wizard-progress .wiz-dot').length, 5);
+    const wizIn = v => { doc.getElementById('wiz-input').value = String(v); };
+    wizIn(45);        clickEl('wizard-next');
+    wizIn('100,000'); clickEl('wizard-next');
+    wizIn('40,000');  clickEl('wizard-next');
+    wizIn(60);        clickEl('wizard-next');
+    doc.querySelector('.wiz-choice[data-val="cautious"]').click();
+    assert('finish button labelled on last step', doc.getElementById('wizard-next').textContent.includes('Finish'), doc.getElementById('wizard-next').textContent, '~Finish');
+    clickEl('wizard-next');   // finish
+    await new Promise(r => setTimeout(r, 30));
+    assert('wizard applied age 45', s.currentAge === 45, s.currentAge, 45);
+    assert('wizard applied income 100000', s.income === 100000, s.income, 100000);
+    assert('wizard applied spending 40000', s.spending === 40000, s.spending, 40000);
+    assert('wizard retireAge 60 → withdrawal 4%', s.withdrawal === 4, s.withdrawal, 4);
+    assert('wizard cautious risk → alloc 40%', s.allocInvest === 40, s.allocInvest, 40);
+    assert('wizard closed after finish', doc.getElementById('wizard-overlay').style.display === 'none', true, true);
+    /* skip button also closes */
+    win.openWizard();
+    clickEl('wizard-skip');
+    assert('skip closes the wizard', doc.getElementById('wizard-overlay').style.display === 'none', true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] wizard: ${e.message}\n`; }
 
   /* ── import guards ───────────────────────────────────────── */
   try {

@@ -677,6 +677,108 @@ input[type="range"]::-moz-range-thumb {
 .mc-success.dry #mc-success-val { color: var(--warn); }
 .mc-success-label { font-size: 11px; color: var(--muted); }
 
+/* ── A/B compare readout (v2.0) ──────────────────────────── */
+.compare-readout {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin: -2px 0 8px;
+  padding: 6px 11px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.compare-readout .cmp-a { color: var(--muted); }
+.compare-readout .cmp-delta.better { color: var(--success); }
+.compare-readout .cmp-delta.worse  { color: var(--warn); }
+
+/* ── Onboarding wizard (v2.0) ────────────────────────────── */
+.wizard-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.62);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.wizard-modal {
+  background: var(--panel);
+  border: 1px solid var(--border-hi);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 24px 20px;
+  animation: wizPop 0.22s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes wizPop { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.wizard-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.wizard-head h2 { font-size: 17px; font-weight: 700; }
+.wizard-skip {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 12px; font-weight: 500; padding: 4px 6px;
+  transition: color 0.12s;
+}
+.wizard-skip:hover { color: var(--text); }
+.wizard-body { min-height: 168px; padding: 12px 0 4px; }
+.wiz-q { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.wiz-hint { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+.wiz-input {
+  width: 100%;
+  background: var(--track);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.wiz-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.wiz-suffix { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.wiz-choices { display: flex; flex-direction: column; gap: 8px; }
+.wiz-choice {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--track);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+.wiz-choice:hover { border-color: var(--border-hi); }
+.wiz-choice.selected { border-color: var(--accent); background: var(--accent-dim); }
+.wiz-choice-label { font-size: 15px; font-weight: 600; }
+.wiz-choice-desc  { font-size: 12px; color: var(--muted); }
+.wizard-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; gap: 12px; }
+.wizard-progress { display: flex; gap: 6px; }
+.wiz-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--track); transition: background 0.15s; }
+.wiz-dot.active { background: var(--accent); }
+.wiz-dot.done   { background: var(--success); }
+.wizard-nav { display: flex; gap: 8px; }
+.wizard-btn {
+  background: var(--accent); border: none; color: #fff;
+  padding: 8px 18px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: filter 0.12s;
+}
+.wizard-btn:hover { filter: brightness(1.08); }
+.wizard-btn-ghost {
+  background: transparent; border: 1px solid var(--border-hi); color: var(--muted);
+  padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 500; transition: color 0.12s, border-color 0.12s;
+}
+.wizard-btn-ghost:hover { color: var(--text); border-color: var(--text); }
+.wizard-btn-ghost:disabled { opacity: 0.4; cursor: default; }
+.io-btn.compare-on { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
 /* ── Dashboard column ────────────────────────────────────── */
 .dashboard { display: flex; flex-direction: column; gap: var(--gap); }
 
