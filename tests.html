@@ -421,6 +421,8 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
     clickEl('btn-nominal');
     clickEl('btn-tax-none');
+    clickEl('btn-strat-fixed');   // v1.8: back to fixed withdrawal
+    clickEl('btn-proj-steady');   // v1.8: back to steady chart (avoid async MC bleed)
   }
   resetBaseline();
 
@@ -738,6 +740,56 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] milestones: ${e.message}\n`; }
 
+  /* ── withdrawal strategy toggle (v1.8) ───────────────────── */
+  try {
+    group('Integration — withdrawal strategy toggle');
+    resetBaseline();
+    clickEl('btn-strat-gk');
+    assert('strategy = gk after click', s.wdStrategy === 'gk', s.wdStrategy, 'gk');
+    assert('gk button gets .active-strat', doc.getElementById('btn-strat-gk').classList.contains('active-strat'), true, true);
+    clickEl('btn-strat-vpw');
+    assert('strategy = vpw after click', s.wdStrategy === 'vpw', s.wdStrategy, 'vpw');
+    assert('fixed button loses .active-strat', !doc.getElementById('btn-strat-fixed').classList.contains('active-strat'), true, true);
+    clickEl('btn-strat-fixed');
+    assert('strategy back to fixed', s.wdStrategy === 'fixed', s.wdStrategy, 'fixed');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] strategy toggle: ${e.message}\n`; }
+
+  /* ── projection mode: Monte Carlo (v1.8) ─────────────────── */
+  try {
+    group('Integration — projection mode: Monte Carlo');
+    resetBaseline();
+    clickEl('btn-proj-mc');
+    assert('projMode = montecarlo', s.projMode === 'montecarlo', s.projMode, 'montecarlo');
+    assert('mc-success badge shown', doc.getElementById('mc-success').style.display !== 'none', true, true);
+    await new Promise(r => setTimeout(r, 350));   // debounced MC compute (250 ms)
+    const succ = text('mc-success-val');
+    assert('success readout is a percentage', /^\d+%$/.test(succ), succ, 'N%');
+    const pctNum = parseInt(succ, 10);
+    assert('success rate within 0–100', pctNum >= 0 && pctNum <= 100, pctNum, '0–100');
+    /* MC fan bands populated and ordered */
+    const mcChart = win.Chart.getChart('fi-chart');
+    assert('median band populated', mcChart.data.datasets[4].data.length > 0, mcChart.data.datasets[4].data.length, '>0');
+    assert('p10 ≤ p50 ≤ p90 mid-horizon', mcChart.data.datasets[3].data[20] <= mcChart.data.datasets[4].data[20] && mcChart.data.datasets[4].data[20] <= mcChart.data.datasets[2].data[20], true, true);
+    clickEl('btn-proj-steady');
+    assert('projMode back to steady', s.projMode === 'steady', s.projMode, 'steady');
+    assert('mc-success hidden in steady', doc.getElementById('mc-success').style.display === 'none', true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Monte Carlo: ${e.message}\n`; }
+
+  /* ── projection mode: History vintage (v1.8) ─────────────── */
+  try {
+    group('Integration — projection mode: History vintage');
+    resetBaseline();
+    clickEl('btn-proj-history');
+    assert('projMode = history', s.projMode === 'history', s.projMode, 'history');
+    assert('vintage select visible', doc.getElementById('vintage-select').style.display !== 'none', true, true);
+    const vsel = doc.getElementById('vintage-select');
+    vsel.value = '1929';
+    vsel.dispatchEvent(new win.Event('change', { bubbles: true }));
+    assert('vintageYear = 1929', s.vintageYear === 1929, s.vintageYear, 1929);
+    clickEl('btn-proj-steady');
+    assert('vintage select hidden in steady', doc.getElementById('vintage-select').style.display === 'none', true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] History vintage: ${e.message}\n`; }
+
   /* ── TER fund fee (fee drag) ─────────────────────────────── */
   try {
     group('Integration — TER fund fee (fee drag)');
@@ -869,6 +921,8 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     assert('inflation persisted to localStorage', stored.inflation === s.inflation, stored.inflation, s.inflation);
     assert('terPct persisted to localStorage', stored.terPct === s.terPct, stored.terPct, s.terPct);
     assert('pensionAge persisted to localStorage', stored.pensionAge === s.pensionAge, stored.pensionAge, s.pensionAge);
+    assert('wdStrategy persisted to localStorage', stored.wdStrategy === s.wdStrategy, stored.wdStrategy, s.wdStrategy);
+    assert('projMode persisted to localStorage', stored.projMode === s.projMode, stored.projMode, s.projMode);
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] localStorage round-trip: ${e.message}\n`; }
 

@@ -131,6 +131,32 @@ function initChart() {
           pointRadius: 0,
           pointHoverRadius: 4,
           borderWidth: 1.5,
+        },
+        // ── Monte Carlo fan bands (hidden until MC mode) ──
+        {
+          label: '_band90',                    // hidden from legend (see filter below)
+          data: [],
+          borderColor: 'rgba(14,165,233,0.30)',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 0,
+          borderWidth: 1, hidden: true,
+        },
+        {
+          label: 'Range (10–90%)',
+          data: [],
+          borderColor: 'rgba(14,165,233,0.30)',
+          backgroundColor: 'rgba(14,165,233,0.13)',
+          fill: '-1',                          // shade down to the 90th-pctile line
+          tension: 0.3, pointRadius: 0, pointHoverRadius: 0,
+          borderWidth: 1, hidden: true,
+        },
+        {
+          label: 'Median outcome',
+          data: [],
+          borderColor: '#0ea5e9',
+          backgroundColor: 'transparent',
+          fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4,
+          borderWidth: 2, hidden: true,
         }
       ]
     },
@@ -146,7 +172,8 @@ function initChart() {
             color: '#8a8a8a',
             boxWidth: 14,
             padding: 16,
-            font: { size: 12, family: 'Inter, "Segoe UI", sans-serif' }
+            font: { size: 12, family: 'Inter, "Segoe UI", sans-serif' },
+            filter: item => !String(item.text).startsWith('_'),  // hide internal band-top series
           }
         },
         tooltip: {

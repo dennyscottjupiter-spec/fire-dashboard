@@ -599,6 +599,84 @@ input[type="range"]::-moz-range-thumb {
 .lifecycle-note.ok    { color: var(--success); }
 .lifecycle-note.dry   { color: var(--warn); }
 
+/* Strategy toggle shares tax-toggle styling; active marker */
+.strat-toggle .tax-btn.active-strat {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Projection mode bar (v1.8 risk engine) ──────────────── */
+.proj-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 2px 0 10px;
+}
+.proj-toggle {
+  display: flex;
+  background: var(--track);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.proj-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+.proj-btn:not(.active-proj):hover { color: var(--text); }
+.proj-btn.active-proj {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px var(--accent-glow);
+}
+.vintage-select {
+  background: var(--track);
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: var(--sans);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+.vintage-select:focus { border-color: var(--accent); }
+
+/* Monte Carlo success badge */
+.mc-success {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+}
+.mc-success #mc-success-val {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  line-height: 1;
+}
+.mc-success.ok  #mc-success-val { color: var(--success); }
+.mc-success.mid #mc-success-val { color: var(--amber); }
+.mc-success.dry #mc-success-val { color: var(--warn); }
+.mc-success-label { font-size: 11px; color: var(--muted); }
+
 /* ── Dashboard column ────────────────────────────────────── */
 .dashboard { display: flex; flex-direction: column; gap: var(--gap); }
 

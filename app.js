@@ -28,6 +28,10 @@ const state = {
   pensionAge:    67,      // age an income stream (AOW/pension) switches on
   pensionAmount: 0,       // €/yr that stream pays in today's money (0 = off)
   events:        [],      // [{age, amount, label}] one-off cash flows
+  // ── v1.8 risk engine ──
+  wdStrategy:   'fixed',  // 'fixed' | 'gk' (Guyton-Klinger) | 'vpw' (% of pot)
+  projMode:     'steady', // 'steady' | 'montecarlo' | 'history'
+  vintageYear:   2008,    // historical replay start year
 };
 
 /* ── 2. Formatters ────────────────────────────────────────── */
@@ -93,6 +97,17 @@ const els = {
   btnAddEvent:       $('btn-add-event'),
   eventsList:        $('events-list'),
   lifecycleNote:     $('lifecycle-note'),
+  // v1.8 risk
+  btnStratFixed:  $('btn-strat-fixed'),
+  btnStratGk:     $('btn-strat-gk'),
+  btnStratVpw:    $('btn-strat-vpw'),
+  btnProjSteady:  $('btn-proj-steady'),
+  btnProjMc:      $('btn-proj-mc'),
+  btnProjHistory: $('btn-proj-history'),
+  vintageSelect:  $('vintage-select'),
+  mcSuccess:      $('mc-success'),
+  mcSuccessVal:   $('mc-success-val'),
+  mcRuns:         $('mc-runs'),
 };
 
 /* ── 5. Macro button active state ───────────────────────── */
@@ -135,7 +150,8 @@ function recalc() {
 
   refreshMacroActive();
 
-  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge } = runProjection(state);
+  const det = runProjection(state);   // deterministic path drives all KPIs
+  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge } = det;
 
   // ── KPI: FI Number
   els.kpiFI.textContent    = isFinite(fiTarget) ? eur.format(fiTarget) : '∞';
@@ -200,18 +216,8 @@ function recalc() {
   // ── Notice banner
   els.notice.classList.toggle('visible', unattainable);
 
-  // ── Chart (age x-axis; amber draw phase; event markers)
-  if (chartReady) {
-    chart.$fireYear   = (yearsToFI !== null && yearsToFI <= lastIdx) ? yearsToFI : null;
-    chart.$drawStart  = (yearsToFI !== null && yearsToFI <= lastIdx) ? yearsToFI : null;
-    chart.$events     = state.events
-      .map(e => ({ index: Math.round(e.age) - state.currentAge, amount: Number(e.amount) || 0, label: e.label || '' }))
-      .filter(e => e.index >= 1 && e.index <= lastIdx);
-    chart.data.labels            = data.map(d => `Age ${d.age}`);
-    chart.data.datasets[0].data  = data.map(d => Math.round(d.portfolio));
-    chart.data.datasets[1].data  = data.map(d => Math.round(d.fi));
-    chart.update();
-  }
+  // ── Chart — Steady / Monte Carlo / History (see renderChart)
+  renderChart(det);
 
   // ── Gauge
   updateGauge(isFinite(fiTarget) && fiTarget > 0 ? state.portfolio / fiTarget : 0);
@@ -222,6 +228,79 @@ function recalc() {
 
   // Persist every recalc (fire-and-forget, silently fails if storage unavailable)
   saveState();
+}
+
+/* ── 6b. Chart renderer — Steady / Monte Carlo / History ──── */
+const MC_RUNS = 1000, MC_SEED = 0x51fe;
+let _mcTimer = null;
+
+function eventMarkers(lastIdx) {
+  return state.events
+    .map(e => ({ index: Math.round(e.age) - state.currentAge, amount: Number(e.amount) || 0, label: e.label || '' }))
+    .filter(e => e.index >= 1 && e.index <= lastIdx);
+}
+
+function renderChart(det) {
+  if (!chartReady) return;
+  const ds = chart.data.datasets;
+
+  if (state.projMode === 'montecarlo') {
+    ds[0].hidden = true;                       // hide the single deterministic path
+    ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
+    els.mcSuccess.style.display   = 'flex';
+    els.vintageSelect.style.display = 'none';
+    scheduleMonteCarlo();                       // debounced heavy compute
+    return;
+  }
+
+  // Steady or History: one path in dataset 0, fan bands hidden.
+  ds[0].hidden = false;
+  ds[2].hidden = ds[3].hidden = ds[4].hidden = true;
+  els.mcSuccess.style.display     = 'none';
+  els.vintageSelect.style.display = (state.projMode === 'history') ? 'inline-block' : 'none';
+
+  const proj = (state.projMode === 'history') ? runHistorical(state, state.vintageYear) : det;
+  const last = proj.data.length - 1;
+  chart.$fireYear  = (proj.yearsToFI !== null && proj.yearsToFI <= last) ? proj.yearsToFI : null;
+  chart.$drawStart = chart.$fireYear;
+  chart.$events    = eventMarkers(last);
+  chart.data.labels = proj.data.map(d => `Age ${d.age}`);
+  ds[0].data = proj.data.map(d => Math.round(d.portfolio));
+  ds[1].data = proj.data.map(d => Math.round(d.fi));
+  chart.update();
+}
+
+function scheduleMonteCarlo() {
+  clearTimeout(_mcTimer);
+  _mcTimer = setTimeout(runAndDrawMonteCarlo, 250);   // keep slider-drag smooth
+}
+
+function runAndDrawMonteCarlo() {
+  if (!chartReady || state.projMode !== 'montecarlo') return;
+  const mc  = runMonteCarlo(state, MC_RUNS, MC_SEED);
+  const det = runProjection(state);              // for the FI reference line
+  const ds  = chart.data.datasets;
+  chart.$fireYear = null; chart.$drawStart = null; chart.$events = [];
+  chart.data.labels = mc.bands.map(b => `Age ${b.age}`);
+  ds[1].data = det.data.map(d => Math.round(d.fi));
+  ds[2].data = mc.bands.map(b => Math.round(b.p90));
+  ds[3].data = mc.bands.map(b => Math.round(b.p10));
+  ds[4].data = mc.bands.map(b => Math.round(b.p50));
+  const pct = Math.round(mc.successRate * 100);
+  els.mcSuccessVal.textContent = pct + '%';
+  els.mcSuccess.className = 'mc-success ' + (pct < 70 ? 'dry' : pct < 85 ? 'mid' : 'ok');
+  els.mcRuns.textContent = mc.runs.toLocaleString();
+  chart.update();
+}
+
+function populateVintages() {
+  els.vintageSelect.innerHTML = '';
+  (typeof VINTAGES !== 'undefined' ? VINTAGES : []).forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.year; opt.textContent = v.label;
+    els.vintageSelect.appendChild(opt);
+  });
+  els.vintageSelect.value = state.vintageYear;
 }
 
 /* ── 7. bindRange — syncs a slider + editable box ────────── */
@@ -358,6 +437,21 @@ function applyConfig(cfg) {
     }));
     renderEvents();
   }
+  // ── v1.8 risk fields ──
+  if (['fixed', 'gk', 'vpw'].includes(cfg.wdStrategy)) {
+    state.wdStrategy = cfg.wdStrategy;
+    [els.btnStratFixed, els.btnStratGk, els.btnStratVpw].forEach(b =>
+      b.classList.toggle('active-strat', b.dataset.strat === cfg.wdStrategy));
+  }
+  if (['steady', 'montecarlo', 'history'].includes(cfg.projMode)) {
+    state.projMode = cfg.projMode;
+    [els.btnProjSteady, els.btnProjMc, els.btnProjHistory].forEach(b =>
+      b.classList.toggle('active-proj', b.dataset.proj === cfg.projMode));
+  }
+  if (cfg.vintageYear != null) {
+    state.vintageYear      = cfg.vintageYear;
+    els.vintageSelect.value = cfg.vintageYear;
+  }
 }
 
 /* ── 8b. localStorage persistence ───────────────────────── */
@@ -370,6 +464,7 @@ const DEFAULTS = {
   inflation: 2, withdrawal: 4, mode: 'nominal',
   taxMode: 'none', taxCustomPct: 0, currentAge: 30,
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
+  wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008,
 };
 
 function saveState() {
@@ -391,6 +486,9 @@ function saveState() {
       pensionAge:    state.pensionAge,
       pensionAmount: state.pensionAmount,
       events:        state.events,
+      wdStrategy:    state.wdStrategy,
+      projMode:      state.projMode,
+      vintageYear:   state.vintageYear,
     }));
   } catch (_) {}
 }
@@ -611,6 +709,29 @@ function wireInputs() {
     els.valTaxCustom.value = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
     recalc();
   });
+
+  // Withdrawal strategy toggle
+  const stratBtns = [els.btnStratFixed, els.btnStratGk, els.btnStratVpw];
+  stratBtns.forEach(btn => btn.addEventListener('click', () => {
+    state.wdStrategy = btn.dataset.strat;
+    stratBtns.forEach(b => b.classList.toggle('active-strat', b.dataset.strat === state.wdStrategy));
+    recalc();
+  }));
+
+  // Projection mode toggle (Steady / Monte Carlo / History)
+  const projBtns = [els.btnProjSteady, els.btnProjMc, els.btnProjHistory];
+  projBtns.forEach(btn => btn.addEventListener('click', () => {
+    state.projMode = btn.dataset.proj;
+    projBtns.forEach(b => b.classList.toggle('active-proj', b.dataset.proj === state.projMode));
+    recalc();
+  }));
+
+  // Historical vintage select
+  populateVintages();
+  els.vintageSelect.addEventListener('change', () => {
+    state.vintageYear = parseInt(els.vintageSelect.value, 10) || 2008;
+    recalc();
+  });
 }
 
 /* ── 11. Export / Import ─────────────────────────────────── */
@@ -632,6 +753,9 @@ function exportConfig() {
     pensionAge:    state.pensionAge,
     pensionAmount: state.pensionAmount,
     events:        state.events,
+    wdStrategy:    state.wdStrategy,
+    projMode:      state.projMode,
+    vintageYear:   state.vintageYear,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
