@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shell preference
+
+**Prefer PowerShell; avoid the Bash tool.** Run terminal commands via PowerShell by default. Only use Bash when a task genuinely needs POSIX-only syntax that PowerShell can't express cleanly. The Bash tool is flaky on this Windows machine (fork/permission errors, zombie `bash.exe` processes).
+
 ## Running the app
 
 No build step. Open `index.html` directly in a browser. After CSS edits, use **Ctrl+Shift+R** (hard refresh) — the browser caches stylesheets aggressively on `file://`.
