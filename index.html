@@ -236,6 +236,68 @@
           </div>
         </div>
 
+        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
+
+        <!-- ── Costs & Income Timeline (v1.7 lifecycle) ────────── -->
+        <div class="control-group">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="The messy realities a flat projection ignores: the fees your funds skim off every year, income that switches on at pension age, and one-off life events. All feed the age-by-age simulation.">
+              🧾 Costs &amp; Income Timeline
+            </span>
+          </div>
+
+          <!-- Fund fee / TER -->
+          <div class="control-label" style="margin-top:2px">
+            <span class="has-tip" tabindex="0"
+                  data-tip="Total Expense Ratio: the % your funds quietly deduct each year. An index fund charges ~0.1%; an actively managed fund ~1%. Over 40 years that gap can eat a quarter of your pot — it's subtracted straight from your investment return.">
+              🪙 Fund Fee (TER)
+            </span>
+            <span class="rate-display">
+              <div class="steppers">
+                <button class="stepper-btn" data-box="val-ter" data-dir="1"  aria-label="Increase fund fee">▲</button>
+                <button class="stepper-btn" data-box="val-ter" data-dir="-1" aria-label="Decrease fund fee">▼</button>
+              </div>
+              <input type="text" inputmode="decimal" class="value-box" id="val-ter" value="0.2" />
+              <span class="pct-sign">%</span>
+            </span>
+          </div>
+          <div class="fee-impact-readout">
+            ≈ <span id="fee-impact-val">€0</span> lost to fees over your lifetime
+          </div>
+          <div class="macro-btns">
+            <button class="macro-btn" data-slider="slider-ter" data-val="0.05">Index 0.05%</button>
+            <button class="macro-btn" data-slider="slider-ter" data-val="0.2">ETF 0.2%</button>
+            <button class="macro-btn" data-slider="slider-ter" data-val="1">Active 1%</button>
+          </div>
+
+          <!-- Pension / AOW bridge -->
+          <div class="timeline-field" style="margin-top:16px">
+            <label class="timeline-label has-tip" tabindex="0" for="input-pension-age"
+                   data-tip="The age a state or workplace pension starts paying — Dutch AOW is 67. From this age the income below covers part of your spending, so your own pot only has to bridge the early-retirement years.">
+              🏛️ Pension / AOW from age
+            </label>
+            <input type="text" inputmode="numeric" class="mini-input" id="input-pension-age" value="67" autocomplete="off" />
+          </div>
+          <div class="timeline-field">
+            <label class="timeline-label has-tip" tabindex="0" for="input-pension-amount"
+                   data-tip="Yearly pension income in today's money, starting at the age above. Single-person Dutch AOW is roughly €19,000/yr. Set 0 if you don't want to count on it.">
+              💶 Pension income (€/yr)
+            </label>
+            <input type="text" inputmode="numeric" class="mini-input" id="input-pension-amount" value="0" autocomplete="off" />
+          </div>
+
+          <!-- Life events manager -->
+          <div class="events-header">
+            <span class="has-tip" tabindex="0"
+                  data-tip="One-off cash flows at a specific age: an inheritance or house sale (positive), or a house purchase, college, or sabbatical (negative). Each lands in that year before growth.">
+              🎯 Life Events
+            </span>
+            <button class="event-add-btn" id="btn-add-event" type="button">+ Add</button>
+          </div>
+          <div id="events-list" class="events-list"></div>
+        </div>
+
       </div><!-- /panel -->
 
       <p class="ls-note has-tip" tabindex="0"
@@ -290,9 +352,10 @@
       <!-- Chart -->
       <div class="chart-panel">
         <p class="panel-title has-tip" tabindex="0"
-           data-tip="Blue line = your portfolio growing over time. Dashed line = the FI target you need to hit. When the blue crosses the dashed, you're financially independent.">
+           data-tip="Blue line = your portfolio growing over time. Dashed line = the FI target you need to hit. When the blue crosses the dashed, you're financially independent. The line turns amber once you retire and start drawing the pot down.">
           📊 Portfolio Growth Projection
         </p>
+        <div id="lifecycle-note" class="lifecycle-note" aria-live="polite"></div>
         <canvas id="fi-chart"></canvas>
       </div>
 

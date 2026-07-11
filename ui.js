@@ -47,8 +47,8 @@ const crossoverPlugin = {
     ctx2.fillStyle   = '#22d3a0';
     ctx2.fill();
 
-    // Label: "🔥 Yr N"
-    const label = `🔥 Yr ${yr}`;
+    // Label: "🔥 Age N" (falls back to FI if labels absent)
+    const label = `🔥 ${ch.data.labels[yr] || 'FI'}`;
     ctx2.font        = 'bold 11px Inter, "Segoe UI", sans-serif';
     ctx2.fillStyle   = '#22d3a0';
     ctx2.textAlign   = pt.x > ch.chartArea.right - 60 ? 'right' : 'left';
@@ -56,6 +56,41 @@ const crossoverPlugin = {
     const labelX = ctx2.textAlign === 'right' ? pt.x - 8 : pt.x + 8;
     ctx2.fillText(label, labelX, pt.y - 8);
 
+    ctx2.restore();
+  }
+};
+
+// Inline plugin: marks lumpy life events (▲ inflow / ▼ outlay) on the portfolio line.
+const eventMarkerPlugin = {
+  id: 'eventMarkers',
+  afterDatasetsDraw(ch) {
+    const events = ch.$events;
+    if (!Array.isArray(events) || !events.length) return;
+    const meta = ch.getDatasetMeta(0);
+    if (!meta) return;
+    const ctx2 = ch.ctx;
+    ctx2.save();
+    for (const ev of events) {
+      const pt = meta.data[ev.index];
+      if (!pt) continue;
+      const inflow = ev.amount >= 0;
+      const color  = inflow ? '#22d3a0' : '#f43f5e';
+      const r = 5, dir = inflow ? -1 : 1;   // triangle points up for inflow, down for outlay
+      ctx2.beginPath();
+      ctx2.moveTo(pt.x, pt.y + dir * r);
+      ctx2.lineTo(pt.x - r, pt.y + dir * -r * 0.2);
+      ctx2.lineTo(pt.x + r, pt.y + dir * -r * 0.2);
+      ctx2.closePath();
+      ctx2.fillStyle = color;
+      ctx2.fill();
+      if (ev.label) {
+        ctx2.font = '600 10px Inter, "Segoe UI", sans-serif';
+        ctx2.fillStyle = color;
+        ctx2.textAlign = 'center';
+        ctx2.textBaseline = inflow ? 'bottom' : 'top';
+        ctx2.fillText(ev.label, pt.x, pt.y + dir * (r + 3));
+      }
+    }
     ctx2.restore();
   }
 };
@@ -77,6 +112,13 @@ function initChart() {
           pointRadius: 0,
           pointHoverRadius: 4,
           borderWidth: 2,
+          // Retirement (decumulation) portion of the line turns amber.
+          segment: {
+            borderColor: seg => {
+              const ds = seg.chart.$drawStart;
+              return (ds != null && seg.p0DataIndex >= ds) ? '#f5a524' : undefined;
+            }
+          },
         },
         {
           label: 'FI Target',
@@ -92,7 +134,7 @@ function initChart() {
         }
       ]
     },
-    plugins: [crossoverPlugin],
+    plugins: [crossoverPlugin, eventMarkerPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: true,

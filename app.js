@@ -23,6 +23,11 @@ const state = {
   taxMode:      'none',   // 'none' | 'box3' | 'custom'
   taxCustomPct: 0,        // % for custom tax mode
   currentAge:   30,       // for FIRE-year + Coast FI
+  // ── v1.7 lifecycle ──
+  terPct:        0.2,     // % fund fee (TER) shaved off the invested return
+  pensionAge:    67,      // age an income stream (AOW/pension) switches on
+  pensionAmount: 0,       // €/yr that stream pays in today's money (0 = off)
+  events:        [],      // [{age, amount, label}] one-off cash flows
 };
 
 /* ── 2. Formatters ────────────────────────────────────────── */
@@ -80,6 +85,14 @@ const els = {
   gaugeArc:    $('gauge-arc'),
   gaugeNeedle: $('gauge-needle'),
   gaugePct:    $('gauge-pct'),
+  // v1.7 lifecycle
+  valTer:            $('val-ter'),
+  feeImpactVal:      $('fee-impact-val'),
+  inputPensionAge:   $('input-pension-age'),
+  inputPensionAmount:$('input-pension-amount'),
+  btnAddEvent:       $('btn-add-event'),
+  eventsList:        $('events-list'),
+  lifecycleNote:     $('lifecycle-note'),
 };
 
 /* ── 5. Macro button active state ───────────────────────── */
@@ -105,18 +118,24 @@ function recalc() {
   state.investReturn  = parseFloat(els.valReturn.value)    || 0;
   state.savingsReturn = parseFloat(els.valSavings.value)   || 0;
   state.allocInvest   = parseFloat(els.sliderAlloc.value);
+  state.terPct        = Math.max(0, parseFloat(els.valTer.value) || 0);
   const a = state.allocInvest / 100;
-  state.returnRate    = a * state.investReturn + (1 - a) * state.savingsReturn;
+  // Fund fee (TER) is skimmed off the invested slice before blending; the engine
+  // sees this net return. The fee-free blend is kept for the fee-impact readout.
+  const grossReturn   = a * state.investReturn + (1 - a) * state.savingsReturn;
+  state.returnRate    = a * (state.investReturn - state.terPct) + (1 - a) * state.savingsReturn;
   els.allocInvestPct.textContent  = Math.round(state.allocInvest)       + '%';
   els.allocSavingsPct.textContent = Math.round(100 - state.allocInvest) + '%';
   els.blendedReturn.textContent   = state.returnRate.toFixed(1);
   state.inflation    = parseFloat(els.valInfl.value)      || 0;
   state.withdrawal   = parseFloat(els.valWR.value)        || 0;
   state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
+  state.pensionAge    = Math.max(1, Math.min(100, parseNum(els.inputPensionAge.value) || 67));
+  state.pensionAmount = Math.max(0, parseNum(els.inputPensionAmount.value));
 
   refreshMacroActive();
 
-  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax } = runProjection(state);
+  const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge } = runProjection(state);
 
   // ── KPI: FI Number
   els.kpiFI.textContent    = isFinite(fiTarget) ? eur.format(fiTarget) : '∞';
@@ -157,13 +176,38 @@ function recalc() {
   // ── Tax readout
   els.taxAnnualVal.textContent = eur.format(firstYearTax);
 
+  // ── Fee-drag impact: rerun fee-free, compare LIFETIME wealth at the horizon.
+  // Comparing at retirement is unreliable — the fee-free run reaches FI earlier and
+  // is already drawing down, so it can dip below the still-accumulating fee run there.
+  // At the longevity horizon the compounding gap is unambiguous (and dramatic).
+  const lastIdx     = data.length - 1;
+  const feeFreeProj = runProjection({ ...state, returnRate: grossReturn });
+  const feeLost     = Math.max(0, feeFreeProj.data[lastIdx].portfolio - data[lastIdx].portfolio);
+  els.feeImpactVal.textContent = eur.format(feeLost);
+
+  // ── Lifecycle note: does the pot survive the plan?
+  if (depleteAge !== null) {
+    els.lifecycleNote.textContent = `🔴 At this spending, your pot runs dry at age ${depleteAge}.`;
+    els.lifecycleNote.className   = 'lifecycle-note dry';
+  } else if (yearsToFI !== null) {
+    els.lifecycleNote.textContent = `🟢 Your pot lasts through age ${data[lastIdx].age}.`;
+    els.lifecycleNote.className   = 'lifecycle-note ok';
+  } else {
+    els.lifecycleNote.textContent = '';
+    els.lifecycleNote.className   = 'lifecycle-note';
+  }
+
   // ── Notice banner
   els.notice.classList.toggle('visible', unattainable);
 
-  // ── Chart
+  // ── Chart (age x-axis; amber draw phase; event markers)
   if (chartReady) {
-    chart.$fireYear              = (yearsToFI !== null && yearsToFI <= 50) ? yearsToFI : null;
-    chart.data.labels            = data.map(d => `Yr ${d.year}`);
+    chart.$fireYear   = (yearsToFI !== null && yearsToFI <= lastIdx) ? yearsToFI : null;
+    chart.$drawStart  = (yearsToFI !== null && yearsToFI <= lastIdx) ? yearsToFI : null;
+    chart.$events     = state.events
+      .map(e => ({ index: Math.round(e.age) - state.currentAge, amount: Number(e.amount) || 0, label: e.label || '' }))
+      .filter(e => e.index >= 1 && e.index <= lastIdx);
+    chart.data.labels            = data.map(d => `Age ${d.age}`);
     chart.data.datasets[0].data  = data.map(d => Math.round(d.portfolio));
     chart.data.datasets[1].data  = data.map(d => Math.round(d.fi));
     chart.update();
@@ -293,6 +337,27 @@ function applyConfig(cfg) {
     state.currentAge   = cfg.currentAge;
     els.inputAge.value = cfg.currentAge;
   }
+  // ── v1.7 lifecycle fields ──
+  if (cfg.terPct != null) {
+    state.terPct           = cfg.terPct;
+    els.valTer.value       = cfg.terPct;
+    els.valTer._lastValid  = cfg.terPct;
+  }
+  if (cfg.pensionAge != null) {
+    state.pensionAge            = cfg.pensionAge;
+    els.inputPensionAge.value   = cfg.pensionAge;
+  }
+  if (cfg.pensionAmount != null) {
+    state.pensionAmount           = cfg.pensionAmount;
+    els.inputPensionAmount.value  = numFmt.format(cfg.pensionAmount);
+  }
+  if (Array.isArray(cfg.events)) {
+    // Coerce to clean {age, amount, label} records
+    state.events = cfg.events.map(e => ({
+      age: Number(e.age) || 0, amount: Number(e.amount) || 0, label: String(e.label || '')
+    }));
+    renderEvents();
+  }
 }
 
 /* ── 8b. localStorage persistence ───────────────────────── */
@@ -304,6 +369,7 @@ const DEFAULTS = {
   investReturn: 7, savingsReturn: 2, allocInvest: 80,
   inflation: 2, withdrawal: 4, mode: 'nominal',
   taxMode: 'none', taxCustomPct: 0, currentAge: 30,
+  terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
 };
 
 function saveState() {
@@ -321,6 +387,10 @@ function saveState() {
       taxMode:       state.taxMode,
       taxCustomPct:  state.taxCustomPct,
       currentAge:    state.currentAge,
+      terPct:        state.terPct,
+      pensionAge:    state.pensionAge,
+      pensionAmount: state.pensionAmount,
+      events:        state.events,
     }));
   } catch (_) {}
 }
@@ -348,6 +418,7 @@ const RATE_CFG = {
   'val-inflation':  { slider: 'slider-inflation',  sliderMax: 10, capMin: 0,   capMax: 50  },
   'val-withdrawal': { slider: 'slider-withdrawal', sliderMax: 10, capMin: 0.5, capMax: 20  },
   'val-savings':    { slider: null,                sliderMax: 0,  capMin: 0,   capMax: 10  },
+  'val-ter':        { slider: null,                sliderMax: 0,  capMin: 0,   capMax: 5, step: 0.05 },
 };
 
 function stepRate(boxId, delta) {
@@ -360,6 +431,51 @@ function stepRate(boxId, delta) {
   box.value      = next;
   box._lastValid = next;
   if (slider) slider.value = Math.min(next, cfg.sliderMax);
+  recalc();
+}
+
+/* ── 9b. Life events manager ─────────────────────────────── */
+// Parse a €-style string that may be negative (outlays): "-50,000" → -50000.
+function parseSignedNum(str) {
+  const neg = /^\s*-/.test(String(str));
+  const n   = parseNum(str);
+  return neg ? -n : n;
+}
+
+// Rebuild the events list from state.events. Called on add/remove and restore,
+// NOT on every keystroke (editing a field mutates state in place + recalc()).
+function renderEvents() {
+  els.eventsList.innerHTML = '';
+  state.events.forEach((ev, i) => {
+    const row = document.createElement('div');
+    row.className = 'event-row';
+    const age = document.createElement('input');
+    age.type = 'text'; age.inputMode = 'numeric'; age.className = 'event-input event-age';
+    age.value = ev.age; age.placeholder = 'Age'; age.setAttribute('aria-label', 'Event age');
+    const amt = document.createElement('input');
+    amt.type = 'text'; amt.inputMode = 'numeric'; amt.className = 'event-input event-amount';
+    amt.value = ev.amount; amt.placeholder = '±€'; amt.setAttribute('aria-label', 'Event amount (negative for an outlay)');
+    const lbl = document.createElement('input');
+    lbl.type = 'text'; lbl.className = 'event-input event-label';
+    lbl.value = ev.label || ''; lbl.placeholder = 'Label'; lbl.setAttribute('aria-label', 'Event label');
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'event-remove'; del.textContent = '×';
+    del.setAttribute('aria-label', 'Remove event');
+
+    age.addEventListener('input', () => { state.events[i].age    = parseNum(age.value);       recalc(); });
+    amt.addEventListener('input', () => { state.events[i].amount = parseSignedNum(amt.value);  recalc(); });
+    lbl.addEventListener('input', () => { state.events[i].label  = lbl.value;                  recalc(); });
+    del.addEventListener('click', () => { state.events.splice(i, 1); renderEvents(); recalc(); });
+
+    row.append(age, amt, lbl, del);
+    els.eventsList.appendChild(row);
+  });
+}
+
+function addEvent() {
+  const nextAge = Math.min(94, (state.currentAge || 30) + 5);
+  state.events.push({ age: nextAge, amount: 0, label: '' });
+  renderEvents();
   recalc();
 }
 
@@ -403,21 +519,51 @@ function wireInputs() {
     recalc();
   });
 
+  // Fund fee / TER (no slider — clamp [0,5] on blur, like savings return)
+  els.valTer._lastValid = parseFloat(els.valTer.value) || 0;
+  els.valTer.addEventListener('input', recalc);
+  els.valTer.addEventListener('blur', () => {
+    const v = parseFloat(els.valTer.value);
+    const clamped = isNaN(v) ? els.valTer._lastValid : Math.min(5, Math.max(0, v));
+    els.valTer.value      = clamped;
+    els.valTer._lastValid = clamped;
+    recalc();
+  });
+
+  // Pension age + amount
+  els.inputPensionAge.addEventListener('input', recalc);
+  els.inputPensionAge.addEventListener('blur', () => {
+    els.inputPensionAge.value = Math.max(1, Math.min(100, parseNum(els.inputPensionAge.value) || 67));
+    recalc();
+  });
+  els.inputPensionAmount.addEventListener('input', recalc);
+  els.inputPensionAmount.addEventListener('blur', () => {
+    els.inputPensionAmount.value = numFmt.format(Math.max(0, parseNum(els.inputPensionAmount.value)));
+    recalc();
+  });
+
+  // Life events manager
+  els.btnAddEvent.addEventListener('click', addEvent);
+  renderEvents();
+
   // Allocation slider
   els.sliderAlloc.addEventListener('input', recalc);
 
-  // Stepper buttons (▲/▼)
+  // Stepper buttons (▲/▼) — step size is per-box (TER nudges by 0.05, rates by 0.5)
   document.querySelectorAll('.stepper-btn').forEach(btn => {
-    btn.addEventListener('click', () =>
-      stepRate(btn.dataset.box, parseFloat(btn.dataset.dir) * 0.5)
-    );
+    btn.addEventListener('click', () => {
+      const cfg  = RATE_CFG[btn.dataset.box];
+      const step = (cfg && cfg.step) || 0.5;
+      stepRate(btn.dataset.box, parseFloat(btn.dataset.dir) * step);
+    });
   });
 
   // ArrowUp/Down keyboard on each rate box
-  [els.valReturn, els.valInfl, els.valWR, els.valSavings].forEach(box => {
+  [els.valReturn, els.valInfl, els.valWR, els.valSavings, els.valTer].forEach(box => {
     box.addEventListener('keydown', e => {
-      if (e.key === 'ArrowUp')   { e.preventDefault(); stepRate(box.id, +0.5); }
-      if (e.key === 'ArrowDown') { e.preventDefault(); stepRate(box.id, -0.5); }
+      const step = (RATE_CFG[box.id] && RATE_CFG[box.id].step) || 0.5;
+      if (e.key === 'ArrowUp')   { e.preventDefault(); stepRate(box.id, +step); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); stepRate(box.id, -step); }
     });
   });
 
@@ -482,6 +628,10 @@ function exportConfig() {
     taxMode:       state.taxMode,
     taxCustomPct:  state.taxCustomPct,
     currentAge:    state.currentAge,
+    terPct:        state.terPct,
+    pensionAge:    state.pensionAge,
+    pensionAmount: state.pensionAmount,
+    events:        state.events,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -572,7 +722,7 @@ wireInputs();
 loadState();
 
 // Format seed € values that weren't overridden by loadState
-[els.portfolio, els.income, els.spending].forEach(el => {
+[els.portfolio, els.income, els.spending, els.inputPensionAmount].forEach(el => {
   if (!el.value.includes(',')) el.value = numFmt.format(parseNum(el.value));
 });
 

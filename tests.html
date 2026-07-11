@@ -366,6 +366,10 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     setVal('val-inflation',   '2');     fireBlur('val-inflation');
     setVal('val-withdrawal',  '4');     fireBlur('val-withdrawal');
     setVal('val-tax-custom',  '15');    fireBlur('val-tax-custom');
+    setVal('val-ter',         '0');     fireBlur('val-ter');   // fee off → blend == gross
+    setVal('input-pension-age',    '67'); fireBlur('input-pension-age');
+    setVal('input-pension-amount', '0');  fireBlur('input-pension-amount');
+    win._state.events.length = 0;                              // clear any life events
     doc.getElementById('slider-alloc').value = '80';
     doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
     clickEl('btn-nominal');
@@ -687,6 +691,81 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] milestones: ${e.message}\n`; }
 
+  /* ── TER fund fee (fee drag) ─────────────────────────────── */
+  try {
+    group('Integration — TER fund fee (fee drag)');
+    resetBaseline();
+    doc.getElementById('slider-alloc').value = '100';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    setVal('val-return', '7'); fireBlur('val-return');
+    setVal('val-ter', '1'); fireBlur('val-ter');
+    assert('terPct = 1 accepted', s.terPct === 1, s.terPct, 1);
+    assert('net blended return = 6.0 at 100% invest (7 − 1 fee)', near(s.returnRate, 6), s.returnRate, 6);
+    assert('blended-return DOM shows net 6.0', text('blended-return') === '6.0', text('blended-return'), '6.0');
+    assert('fee-impact readout is non-zero under 1% fee', text('fee-impact-val') !== '€0', text('fee-impact-val'), '!= €0');
+    setVal('val-ter', '99'); fireBlur('val-ter');
+    assert('TER clamps to cap 5 on blur', s.terPct === 5, s.terPct, 5);
+    setVal('val-ter', '0'); fireBlur('val-ter');
+    assert('fee-impact = €0 when TER = 0', text('fee-impact-val') === '€0', text('fee-impact-val'), '€0');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] TER fee: ${e.message}\n`; }
+
+  /* ── pension bridge inputs ───────────────────────────────── */
+  try {
+    group('Integration — pension bridge inputs');
+    resetBaseline();
+    setVal('input-pension-age', '65'); fireBlur('input-pension-age');
+    assert('pensionAge = 65', s.pensionAge === 65, s.pensionAge, 65);
+    setVal('input-pension-amount', '20000'); fireBlur('input-pension-amount');
+    assert('pensionAmount = 20000', s.pensionAmount === 20000, s.pensionAmount, 20000);
+    assert('pension-amount formats with comma on blur', val('input-pension-amount') === '20,000', val('input-pension-amount'), '20,000');
+    setVal('input-pension-amount', '0'); fireBlur('input-pension-amount');
+    setVal('input-pension-age', '67'); fireBlur('input-pension-age');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] pension: ${e.message}\n`; }
+
+  /* ── lifecycle depletion note ────────────────────────────── */
+  try {
+    group('Integration — lifecycle depletion note');
+    resetBaseline();
+    setVal('input-portfolio', '500000'); fireBlur('input-portfolio');
+    setVal('input-income',    '0');      fireBlur('input-income');
+    setVal('input-spending',  '100000'); fireBlur('input-spending');
+    setVal('val-withdrawal',  '20');     fireBlur('val-withdrawal');
+    assert('depletion note has .dry class', doc.getElementById('lifecycle-note').classList.contains('dry'), true, true);
+    assert('depletion note text mentions running dry', text('lifecycle-note').toLowerCase().includes('dry'), text('lifecycle-note'), '~runs dry');
+    /* well-funded retiree survives to horizon */
+    setVal('input-portfolio', '2000000'); fireBlur('input-portfolio');
+    setVal('input-spending',  '40000');   fireBlur('input-spending');
+    setVal('val-withdrawal',  '4');       fireBlur('val-withdrawal');
+    assert('survival note has .ok class for well-funded retiree', doc.getElementById('lifecycle-note').classList.contains('ok'), true, true);
+    resetBaseline();
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] lifecycle note: ${e.message}\n`; }
+
+  /* ── life events manager ─────────────────────────────────── */
+  try {
+    group('Integration — life events manager');
+    resetBaseline();
+    const before = s.events.length;
+    clickEl('btn-add-event');
+    assert('add event → a row appears', doc.querySelectorAll('#events-list .event-row').length === before + 1,
+      doc.querySelectorAll('#events-list .event-row').length, before + 1);
+    assert('add event → state.events grew', s.events.length === before + 1, s.events.length, before + 1);
+    const row = doc.querySelector('#events-list .event-row:last-child');
+    const amtInput = row.querySelector('.event-amount');
+    amtInput.value = '100000';
+    amtInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert('event amount recorded in state', s.events[s.events.length - 1].amount === 100000,
+      s.events[s.events.length - 1].amount, 100000);
+    /* negative outlay parses as negative */
+    amtInput.value = '-50000';
+    amtInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    assert('negative event amount parses as −50000', s.events[s.events.length - 1].amount === -50000,
+      s.events[s.events.length - 1].amount, -50000);
+    row.querySelector('.event-remove').click();
+    assert('remove event → row gone', doc.querySelectorAll('#events-list .event-row').length === before,
+      doc.querySelectorAll('#events-list .event-row').length, before);
+    assert('remove event → state.events shrank', s.events.length === before, s.events.length, before);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] life events: ${e.message}\n`; }
+
   /* ── import guards ───────────────────────────────────────── */
   try {
     group('Integration — import size / type guards');
@@ -741,12 +820,18 @@ assert('Coast FI with negativeReturn > fi',       coastFiTarget(fi, 30, -0.01) >
     const stored = JSON.parse(win.localStorage.getItem(win._LS_KEY || 'fire-dashboard-state') || '{}');
     assert('portfolio 88888 persisted to localStorage', stored.portfolio === 88888, stored.portfolio, 88888);
     assert('inflation persisted to localStorage', stored.inflation === s.inflation, stored.inflation, s.inflation);
+    assert('terPct persisted to localStorage', stored.terPct === s.terPct, stored.terPct, s.terPct);
+    assert('pensionAge persisted to localStorage', stored.pensionAge === s.pensionAge, stored.pensionAge, s.pensionAge);
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] localStorage round-trip: ${e.message}\n`; }
 
   /* ── Reset button (two-step confirm) ─────────────────────── */
   try {
     group('Integration — Reset saved data button (two-step confirm)');
+    // Flush any pending FileReader onload from the import tests above: a late
+    // callback fires recalc()→saveState() and would re-write the LS key right
+    // after reset removes it. Draining here keeps the LS-null assertion stable.
+    await new Promise(r => setTimeout(r, 250));
     resetBaseline();
     setVal('input-portfolio', '99999'); fireBlur('input-portfolio');
     const lsKey = win._LS_KEY || 'fire-dashboard-state';
