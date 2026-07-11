@@ -45,6 +45,24 @@ function customTax(gain, pct) {
   return (pct / 100) * Math.max(0, gain);
 }
 
+/* ── Box-1 pension income tax (NL, post-AOW, simplified 2026) ─ */
+// A workplace/private pension pot (pijler 2/3) is Box 1, NOT Box 3: it grows
+// untaxed as wealth, then its payout is taxed as income at the post-AOW rates
+// (retirees pay no AOW premium, so the first bracket is ~19.07%).
+const BOX1 = {
+  bracket:  38441,   // 2026 first-bracket cap (approx, €)
+  lowRate:  0.1907,  // post-AOW rate in the first bracket
+  highRate: 0.37,    // simplified higher-bracket rate
+};
+
+// Progressive Box-1 tax on a gross annual pension payout.
+function box1Tax(income) {
+  if (income <= 0) return 0;
+  const low  = Math.min(income, BOX1.bracket) * BOX1.lowRate;
+  const high = Math.max(0, income - BOX1.bracket) * BOX1.highRate;
+  return low + high;
+}
+
 /* ── Projection engine (two-phase lifecycle) ──────────────── */
 // Accumulates until the portfolio reaches the FI target, then RETIRES:
 // income stops, spending is withdrawn each year, and the pot is drawn down
@@ -66,6 +84,13 @@ function customTax(gain, pct) {
 //   s.wdStrategy – 'fixed' (default) | 'vpw' (% of current pot) | 'gk' (Guyton-Klinger
 //                  guardrails: skip the inflation raise after a loss year; cut/raise
 //                  spending 10% when the current rate drifts ±20% off the initial rate).
+//
+// v1.9 NL tax layering (default-guarded):
+//   s.pensionPot / s.pensionContrib – a Box-1 pension pot (pijler 2/3): grows locked and
+//                  Box-3-free, then annuitizes over 20 yrs from AOW age (s.pensionAge),
+//                  each payout taxed via box1Tax. Net annuity + AOW (s.pensionAmount) fund
+//                  spending first; the taxable Box-3 pool covers only the remainder. Each
+//                  data point carries `pp` (the pot balance that year).
 function runProjection(s) {
   const rConst    = s.returnRate / 100;
   const inflConst = s.inflation  / 100;
@@ -78,6 +103,8 @@ function runProjection(s) {
   const events       = Array.isArray(s.events) ? s.events : [];
   const seq          = Array.isArray(s.sequence) ? s.sequence : null;
   const strat        = s.wdStrategy || 'fixed';
+  const pensionContrib = s.pensionContrib || 0;   // €/yr into the Box-1 pot (gross)
+  const ANNUITY_YEARS  = 20;                       // pot pays out over 20 yrs from AOW
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
@@ -102,18 +129,20 @@ function runProjection(s) {
   const data = [];
   let P  = s.portfolio;
   let FI = fiTarget;
+  let PP = s.pensionPot || 0;      // Box-1 pension pot (locked until AOW; untaxed by Box 3)
   let cumInfl = 1;                 // running Π(1+infl); nominal spending/FI scale by this
   let prevRet = rConst;           // last year's return, for the GK loss-year check
   let yearsToFI    = null;
   let firstYearTax = 0;
   let depleteAge   = null;
   let gkSpend = 0, initialWR = 0, gkInit = false;  // Guyton-Klinger carried state
+  let annuityGross = 0, annuityLeft = 0, ppAnnuitized = false;  // Box-1 payout state
 
   // Already FI at t=0 → retire immediately.
   let retired = isFinite(fiTarget) && P >= fiTarget;
   if (retired) yearsToFI = 0;
 
-  data.push({ year: 0, age: currentAge, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
+  data.push({ year: 0, age: currentAge, portfolio: P, fi: FI, pp: PP, phase: retired ? 'draw' : 'grow' });
 
   for (let t = 1; t <= MAX_YEARS; t++) {
     const age = currentAge + t;
@@ -124,6 +153,22 @@ function runProjection(s) {
     const growthRate = useReal ? (1 + yr) / (1 + yinfl) - 1 : yr;
     const investGain = prevP * growthRate;
     const grown      = prevP + investGain;
+
+    // ── Box-1 pension pot: grows locked & Box-3-free, annuitizes at AOW age ──
+    if (!ppAnnuitized) {
+      PP = PP * (1 + growthRate) + (useReal ? pensionContrib / cumInfl : pensionContrib);
+      if (age >= pensionAge) {
+        annuityGross = PP / ANNUITY_YEARS;     // level payout over 20 yrs
+        annuityLeft  = ANNUITY_YEARS;
+        ppAnnuitized = true;
+        PP = 0;                                // pot converted to an income stream
+      }
+    }
+    let annuityNet = 0;                        // Box-1 pension income, net of tax, this year
+    if (ppAnnuitized && annuityLeft > 0) {
+      annuityNet = annuityGross - box1Tax(annuityGross);
+      annuityLeft--;
+    }
 
     // Custom tax is always on the year's gain; Box 3 is on year-end wealth.
     let taxBase, tax;
@@ -147,8 +192,10 @@ function runProjection(s) {
       } else {
         gross = useReal ? s.spending : s.spending * cumInfl;         // fixed real amount
       }
-      const pension = age >= pensionAge ? (useReal ? pensionAmt : pensionAmt * cumInfl) : 0;
-      const netDraw = Math.max(0, gross - pension);
+      // Drawdown order: AOW income + Box-1 annuity cover spending first; the
+      // taxable Box-3 pool funds only the remainder (and shrinks, lowering Box 3).
+      const aow     = age >= pensionAge ? (useReal ? pensionAmt : pensionAmt * cumInfl) : 0;
+      const netDraw = Math.max(0, gross - aow - annuityNet);
       taxBase = grown;
       tax = s.taxMode === 'box3'
         ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
@@ -169,7 +216,7 @@ function runProjection(s) {
     if (t === 1) firstYearTax = tax;
     prevRet = yr;
 
-    data.push({ year: t, age, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
+    data.push({ year: t, age, portfolio: P, fi: FI, pp: PP, phase: retired ? 'draw' : 'grow' });
 
     // Cross into FI this year → accumulate through it, retire from next year.
     if (!retired && yearsToFI === null && P >= FI) { yearsToFI = t; retired = true; }

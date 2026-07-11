@@ -25,8 +25,10 @@ const state = {
   currentAge:   30,       // for FIRE-year + Coast FI
   // ── v1.7 lifecycle ──
   terPct:        0.2,     // % fund fee (TER) shaved off the invested return
-  pensionAge:    67,      // age an income stream (AOW/pension) switches on
-  pensionAmount: 0,       // €/yr that stream pays in today's money (0 = off)
+  pensionAge:    67,      // AOW age — income streams switch on here
+  pensionAmount: 0,       // AOW / state income €/yr in today's money (0 = off)
+  pensionPot:    0,       // Box-1 workplace pension pot today (grows tax-free, locked)
+  pensionContrib:0,       // €/yr gross added to the Box-1 pot
   events:        [],      // [{age, amount, label}] one-off cash flows
   // ── v1.8 risk engine ──
   wdStrategy:   'fixed',  // 'fixed' | 'gk' (Guyton-Klinger) | 'vpw' (% of pot)
@@ -94,6 +96,8 @@ const els = {
   feeImpactVal:      $('fee-impact-val'),
   inputPensionAge:   $('input-pension-age'),
   inputPensionAmount:$('input-pension-amount'),
+  inputPensionPot:   $('input-pension-pot'),
+  inputPensionContrib:$('input-pension-contrib'),
   btnAddEvent:       $('btn-add-event'),
   eventsList:        $('events-list'),
   lifecycleNote:     $('lifecycle-note'),
@@ -145,8 +149,10 @@ function recalc() {
   state.inflation    = parseFloat(els.valInfl.value)      || 0;
   state.withdrawal   = parseFloat(els.valWR.value)        || 0;
   state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
-  state.pensionAge    = Math.max(1, Math.min(100, parseNum(els.inputPensionAge.value) || 67));
-  state.pensionAmount = Math.max(0, parseNum(els.inputPensionAmount.value));
+  state.pensionAge     = Math.max(1, Math.min(100, parseNum(els.inputPensionAge.value) || 67));
+  state.pensionAmount  = Math.max(0, parseNum(els.inputPensionAmount.value));
+  state.pensionPot     = Math.max(0, parseNum(els.inputPensionPot.value));
+  state.pensionContrib = Math.max(0, parseNum(els.inputPensionContrib.value));
 
   refreshMacroActive();
 
@@ -247,6 +253,7 @@ function renderChart(det) {
   if (state.projMode === 'montecarlo') {
     ds[0].hidden = true;                       // hide the single deterministic path
     ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
+    ds[5].hidden = true;                        // pension-pot line off in MC view
     els.mcSuccess.style.display   = 'flex';
     els.vintageSelect.style.display = 'none';
     scheduleMonteCarlo();                       // debounced heavy compute
@@ -267,6 +274,10 @@ function renderChart(det) {
   chart.data.labels = proj.data.map(d => `Age ${d.age}`);
   ds[0].data = proj.data.map(d => Math.round(d.portfolio));
   ds[1].data = proj.data.map(d => Math.round(d.fi));
+  // Box-1 pension-pot line — only when a pot is configured
+  const showPot = state.pensionPot > 0 || state.pensionContrib > 0;
+  ds[5].hidden = !showPot;
+  if (showPot) ds[5].data = proj.data.map(d => Math.round(d.pp || 0));
   chart.update();
 }
 
@@ -430,6 +441,14 @@ function applyConfig(cfg) {
     state.pensionAmount           = cfg.pensionAmount;
     els.inputPensionAmount.value  = numFmt.format(cfg.pensionAmount);
   }
+  if (cfg.pensionPot != null) {
+    state.pensionPot          = cfg.pensionPot;
+    els.inputPensionPot.value = numFmt.format(cfg.pensionPot);
+  }
+  if (cfg.pensionContrib != null) {
+    state.pensionContrib          = cfg.pensionContrib;
+    els.inputPensionContrib.value = numFmt.format(cfg.pensionContrib);
+  }
   if (Array.isArray(cfg.events)) {
     // Coerce to clean {age, amount, label} records
     state.events = cfg.events.map(e => ({
@@ -464,6 +483,7 @@ const DEFAULTS = {
   inflation: 2, withdrawal: 4, mode: 'nominal',
   taxMode: 'none', taxCustomPct: 0, currentAge: 30,
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
+  pensionPot: 0, pensionContrib: 0,
   wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008,
 };
 
@@ -485,6 +505,8 @@ function saveState() {
       terPct:        state.terPct,
       pensionAge:    state.pensionAge,
       pensionAmount: state.pensionAmount,
+      pensionPot:    state.pensionPot,
+      pensionContrib:state.pensionContrib,
       events:        state.events,
       wdStrategy:    state.wdStrategy,
       projMode:      state.projMode,
@@ -639,6 +661,11 @@ function wireInputs() {
     els.inputPensionAmount.value = numFmt.format(Math.max(0, parseNum(els.inputPensionAmount.value)));
     recalc();
   });
+  // Box-1 pension pot + yearly contribution
+  [els.inputPensionPot, els.inputPensionContrib].forEach(el => {
+    el.addEventListener('input', recalc);
+    el.addEventListener('blur', () => { el.value = numFmt.format(Math.max(0, parseNum(el.value))); recalc(); });
+  });
 
   // Life events manager
   els.btnAddEvent.addEventListener('click', addEvent);
@@ -752,6 +779,8 @@ function exportConfig() {
     terPct:        state.terPct,
     pensionAge:    state.pensionAge,
     pensionAmount: state.pensionAmount,
+    pensionPot:    state.pensionPot,
+    pensionContrib:state.pensionContrib,
     events:        state.events,
     wdStrategy:    state.wdStrategy,
     projMode:      state.projMode,
@@ -846,7 +875,8 @@ wireInputs();
 loadState();
 
 // Format seed € values that weren't overridden by loadState
-[els.portfolio, els.income, els.spending, els.inputPensionAmount].forEach(el => {
+[els.portfolio, els.income, els.spending, els.inputPensionAmount,
+ els.inputPensionPot, els.inputPensionContrib].forEach(el => {
   if (!el.value.includes(',')) el.value = numFmt.format(parseNum(el.value));
 });
 

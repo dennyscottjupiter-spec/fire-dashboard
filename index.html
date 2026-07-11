@@ -296,10 +296,24 @@
           </div>
           <div class="timeline-field">
             <label class="timeline-label has-tip" tabindex="0" for="input-pension-amount"
-                   data-tip="Yearly pension income in today's money, starting at the age above. Single-person Dutch AOW is roughly €19,000/yr. Set 0 if you don't want to count on it.">
-              💶 Pension income (€/yr)
+                   data-tip="Flat state-pension income in today's money, starting at the age above. Single-person Dutch AOW is roughly €19,000/yr. Set 0 if you don't want to count on it.">
+              💶 AOW / state income (€/yr)
             </label>
             <input type="text" inputmode="numeric" class="mini-input" id="input-pension-amount" value="0" autocomplete="off" />
+          </div>
+          <div class="timeline-field">
+            <label class="timeline-label has-tip" tabindex="0" for="input-pension-pot"
+                   data-tip="Your workplace / private pension pot today (pijler 2/3). It grows tax-FREE as wealth — no Box 3 — locked until AOW age, then pays out over 20 years with each payout taxed as Box 1 income. Simplified model, not tax advice.">
+              🇳🇱 Pension pot today (€)
+            </label>
+            <input type="text" inputmode="numeric" class="mini-input" id="input-pension-pot" value="0" autocomplete="off" />
+          </div>
+          <div class="timeline-field">
+            <label class="timeline-label has-tip" tabindex="0" for="input-pension-contrib"
+                   data-tip="Gross € added to your workplace pension pot every year (you + employer). Builds the Box-1 pot that bridges the years after AOW age.">
+              🇳🇱 Pension added (€/yr)
+            </label>
+            <input type="text" inputmode="numeric" class="mini-input" id="input-pension-contrib" value="0" autocomplete="off" />
           </div>
 
           <!-- Life events manager -->

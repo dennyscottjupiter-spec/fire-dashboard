@@ -316,6 +316,37 @@ const fxH = runHistorical({ ...gkVint, wdStrategy: 'fixed' }, 1966);
 assert('GK diverges from fixed under a volatile vintage', gkH.data[20].portfolio !== fxH.data[20].portfolio, true, true);
 assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 1].portfolio), true, true);
 
+/* ── Box-1 pension pot (v1.9 NL tax layering) ────────────── */
+group('box1Tax — progressive post-AOW');
+assert('box1Tax(0) = 0', box1Tax(0) === 0, box1Tax(0), 0);
+assert('box1Tax(20000) = 20000 × 19.07%', near(box1Tax(20000), 20000 * 0.1907, 0.01), box1Tax(20000).toFixed(2), (20000 * 0.1907).toFixed(2));
+const b1exp = 38441 * 0.1907 + (50000 - 38441) * 0.37;
+assert('box1Tax(50000) uses both brackets', near(box1Tax(50000), b1exp, 0.01), box1Tax(50000).toFixed(2), b1exp.toFixed(2));
+assert('box1Tax is progressive (higher income → higher effective rate)',
+  box1Tax(60000) / 60000 > box1Tax(20000) / 20000, true, true);
+
+group('runProjection — Box-1 pension pot');
+const potBase = { portfolio: 800000, income: 0, spending: 40000, withdrawal: 5, returnRate: 6, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, pensionAge: 67, allocInvest: 100 };
+const noPot   = runProjection(potBase);
+const withPot = runProjection({ ...potBase, pensionPot: 400000 });
+assert('pension pot grows before AOW (t=5 > seed)', withPot.data[5].pp > 400000, Math.round(withPot.data[5].pp), '> 400000');
+assert('pension pot is 0 after annuitization (t=20)', withPot.data[20].pp === 0, withPot.data[20].pp, 0);
+assert('no-pot scenario carries pp = 0', noPot.data[5].pp === 0, noPot.data[5].pp, 0);
+assert('taxable pool identical BEFORE AOW (pot is separate)', near(withPot.data[5].portfolio, noPot.data[5].portfolio, 1), Math.round(withPot.data[5].portfolio), Math.round(noPot.data[5].portfolio));
+assert('taxable pool HIGHER after AOW (annuity offsets withdrawals)', withPot.data[25].portfolio > noPot.data[25].portfolio, Math.round(withPot.data[25].portfolio), '> ' + Math.round(noPot.data[25].portfolio));
+
+group('runProjection — pension pot is Box-3 free + backward compatible');
+// Same pot, with Box 3 on: the pot itself is never hit by wealth tax (only the taxable pool is).
+const potBox3 = runProjection({ ...potBase, pensionPot: 400000, taxMode: 'box3' });
+assert('pension pot grows the same under Box 3 (untaxed as wealth)', near(potBox3.data[5].pp, withPot.data[5].pp, 1), Math.round(potBox3.data[5].pp), Math.round(withPot.data[5].pp));
+// pensionPot=0 & pensionContrib=0 must be byte-identical to omitting them
+const compatA = runProjection(s1);
+const compatB = runProjection({ ...s1, pensionPot: 0, pensionContrib: 0 });
+assert('pensionPot=0 leaves the projection unchanged (backward compat)', compatA.data[30].portfolio === compatB.data[30].portfolio, compatB.data[30].portfolio, compatA.data[30].portfolio);
+// contributions build the pot
+const contribPot = runProjection({ ...potBase, pensionContrib: 10000 });
+assert('pensionContrib builds the pot', contribPot.data[5].pp > 0, Math.round(contribPot.data[5].pp), '> 0');
+
 /* ══════════════════════════════════════════════════════════
    INTEGRATION TESTS  (async — iframe drives the real app)
    ══════════════════════════════════════════════════════════ */
@@ -416,6 +447,8 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     setVal('val-ter',         '0');     fireBlur('val-ter');   // fee off → blend == gross
     setVal('input-pension-age',    '67'); fireBlur('input-pension-age');
     setVal('input-pension-amount', '0');  fireBlur('input-pension-amount');
+    setVal('input-pension-pot',    '0');  fireBlur('input-pension-pot');
+    setVal('input-pension-contrib','0');  fireBlur('input-pension-contrib');
     win._state.events.length = 0;                              // clear any life events
     doc.getElementById('slider-alloc').value = '80';
     doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
@@ -865,6 +898,22 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     assert('remove event → state.events shrank', s.events.length === before, s.events.length, before);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] life events: ${e.message}\n`; }
 
+  /* ── Box-1 pension pot (v1.9) ────────────────────────────── */
+  try {
+    group('Integration — Box-1 pension pot');
+    resetBaseline();
+    const chartOf = () => win.Chart.getChart('fi-chart');
+    setVal('input-pension-pot', '300000'); fireBlur('input-pension-pot');
+    assert('pensionPot = 300000', s.pensionPot === 300000, s.pensionPot, 300000);
+    assert('pension-pot formats with comma on blur', val('input-pension-pot') === '300,000', val('input-pension-pot'), '300,000');
+    assert('pension-pot chart line shown when pot > 0', chartOf().data.datasets[5].hidden === false, chartOf().data.datasets[5].hidden, false);
+    setVal('input-pension-contrib', '8000'); fireBlur('input-pension-contrib');
+    assert('pensionContrib = 8000', s.pensionContrib === 8000, s.pensionContrib, 8000);
+    setVal('input-pension-pot', '0');     fireBlur('input-pension-pot');
+    setVal('input-pension-contrib', '0'); fireBlur('input-pension-contrib');
+    assert('pot line hidden when pot & contrib are 0', chartOf().data.datasets[5].hidden === true, chartOf().data.datasets[5].hidden, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] pension pot: ${e.message}\n`; }
+
   /* ── import guards ───────────────────────────────────────── */
   try {
     group('Integration — import size / type guards');
@@ -923,6 +972,7 @@ assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 
     assert('pensionAge persisted to localStorage', stored.pensionAge === s.pensionAge, stored.pensionAge, s.pensionAge);
     assert('wdStrategy persisted to localStorage', stored.wdStrategy === s.wdStrategy, stored.wdStrategy, s.wdStrategy);
     assert('projMode persisted to localStorage', stored.projMode === s.projMode, stored.projMode, s.projMode);
+    assert('pensionPot persisted to localStorage', stored.pensionPot === s.pensionPot, stored.pensionPot, s.pensionPot);
     setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] localStorage round-trip: ${e.message}\n`; }
 
