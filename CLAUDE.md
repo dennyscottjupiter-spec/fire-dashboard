@@ -16,24 +16,28 @@ A **Content-Security-Policy** `<meta>` restricts scripts to `'self' + cdn.jsdeli
 
 **Typography** — Inter variable font (rsms/inter v4.1, SIL OFL) is self-hosted in `fonts/InterVariable.woff2`. Both `--sans` and `--mono` CSS tokens point to Inter; Segoe UI / system-ui are fallbacks. `font-variant-numeric: tabular-nums` keeps numbers aligned without a separate monospace face.
 
-Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (99, synchronous) run on `file://` too — including the v1.8 risk engine and the v1.9 Box-1 pension pot. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, the annual tax readout, the v1.7 lifecycle controls, the v1.8 risk UI, the v1.9 pension pot, and the v2.0 cockpit (A/B compare, onboarding wizard). Full suite is **253 tests**; the integration watchdog is 45 s. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
+Open `tests/tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests/tests.html`. Engine unit tests (99, synchronous) run on `file://` too — including the v1.8 risk engine and the v1.9 Box-1 pension pot. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, the annual tax readout, the v1.7 lifecycle controls, the v1.8 risk UI, the v1.9 pension pot, and the v2.0 cockpit (A/B compare, onboarding wizard). Full suite is **253 tests**; the integration watchdog is 45 s. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
 
-> **Dev caching gotcha:** Chrome heuristic-caches `file://`-style local resources; the plain `python -m http.server` sends no `Cache-Control`, so edited `engine.js`/`app.js` can be served stale (undefined fields, old test counts). Fix once with a hard reload (Ctrl+Shift+R evicts the poisoned entries), or serve with `Cache-Control: no-store` during a build session.
+**Test file layout (v2.1)** — the suite is split out of the HTML into modules under `tests/`: `tests.html` is a thin shell that loads `harness.js` (assert/group/near/`renderSummary`/watchdog) → `engine.test.js` (99 unit tests) → `integration.test.js` (154 iframe tests). `renderSummary()` also writes a machine-readable one-liner (`PASS 253/253` / `FAIL n/253`) to a `#test-summary` element **and** `document.title` — so a headless reader can grab the verdict without parsing the whole log. The 99 engine tests can also be run headlessly under Node via a stdlib `vm` DOM-shim (no npm); integration self-skips there because `location.protocol` reads `file:`.
+
+> **Dev caching gotcha:** Chrome heuristic-caches `file://`-style local resources; the plain `python -m http.server` sends no `Cache-Control`, so edited `js/engine.js`/`js/app.js` can be served stale (undefined fields, old test counts). Fix once with a hard reload (Ctrl+Shift+R evicts the poisoned entries), or serve with `Cache-Control: no-store` during a build session.
 
 ## Architecture
 
-Seven files:
+Files are organized into folders (v2.1) — `index.html` stays at repo root (double-click still works); JS in `js/`, CSS in `css/`, the test suite in `tests/`:
 
-- `index.html` — markup only; all IDs wired to `els` in app.js
-- `styles.css` — design tokens in `:root`, `@font-face` for Inter, no preprocessor
-- `fonts/InterVariable.woff2` — self-hosted Inter variable font (rsms/inter v4.1, SIL OFL)
-- `data.js` — **vendored historical dataset** (no DOM): `HIST` (S&P 500 total return + US CPI, 1926–2023) and `VINTAGES` (infamous crash start years). Load **before** engine.js.
-- `engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `box1Tax`, `customTax`, `coastFiTarget`, plus the risk engine `mulberry32`, `runMonteCarlo`, `runHistorical`. `runProjection` is a **two-phase lifecycle sim** (accumulate → decumulate to `longevityAge`, default 95) that also accepts an injected `sequence` and `wdStrategy`. Load before `ui.js` and `app.js`.
-- `ui.js` — **view layer only** (no state, no persistence): `initChart`, `crossoverPlugin`, `buildGauge`, `updateGauge`, `MILESTONES`, `updateMilestones`. Reads `eur` and `els` from `app.js` globals (safe: only invoked at boot, after those consts initialize). Load after `engine.js`, before `app.js`.
-- `app.js` — **controller**: state, DOM refs, `recalc()`, `bindRange`, rate steppers, `applyConfig`, localStorage, export/import, two-step reset confirm, boot. Load last.
-- `tests.html` — in-browser assertions; open via http server for integration tests.
+- `index.html` — markup only; all IDs wired to `els` in `js/app.js`. Links `css/base.css` + `css/components.css`; loads `js/{data,engine,ui,store,app}.js`.
+- `css/base.css` — foundation: `@font-face` for Inter, design tokens in `:root`, reset, typography, app shell, header chrome, main grid, panels. Loaded **before** components.
+- `css/components.css` — widget layer: tooltips, inputs, sliders, toggles, timeline, projection bar, compare readout, wizard, KPIs, chart, milestones, gauge, allocation. Loaded **after** base; the cut is contiguous so the cascade equals the old single stylesheet.
+- `fonts/InterVariable.woff2` — self-hosted Inter variable font (rsms/inter v4.1, SIL OFL). CSS `@font-face` references it as `../fonts/…`.
+- `js/data.js` — **vendored historical dataset** (no DOM): `HIST` (S&P 500 total return + US CPI, 1926–2023) and `VINTAGES` (infamous crash start years). Load **before** engine.js.
+- `js/engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `box1Tax`, `customTax`, `coastFiTarget`, plus the risk engine `mulberry32`, `runMonteCarlo`, `runHistorical`. `runProjection` is a **two-phase lifecycle sim** (accumulate → decumulate to `longevityAge`, default 95) that also accepts an injected `sequence` and `wdStrategy`. Load before `ui.js` and `app.js`.
+- `js/ui.js` — **view layer only** (no state, no persistence): `initChart`, `crossoverPlugin`, `buildGauge`, `updateGauge`, `MILESTONES`, `updateMilestones`. Reads `eur` and `els` from `app.js` globals (safe: only invoked at boot, after those consts initialize). Load after `engine.js`, before `store.js`/`app.js`.
+- `js/store.js` — **state + persistence** (v2.1 split from app.js): the `state` object, `DEFAULTS`, `LS_KEY`, `applyConfig` (shared restore), `saveState`/`loadState`/`resetSavedData`, `exportConfig`/`importConfig`/`showImportError`. Pure definitions — they resolve `els`/`numFmt`/`recalc`/`renderEvents` from `app.js` only at call time (same boot-time forward-reference pattern as ui.js). Load after `ui.js`, before `app.js`.
+- `js/app.js` — **controller**: DOM refs (`els`), formatters, `recalc()`, chart/gauge render, A/B compare, onboarding wizard, `bindRange`, rate steppers, life events, input wiring, two-step reset confirm, boot. Load last.
+- `tests/` — the split suite: `tests.html` (thin shell) + `harness.js` + `engine.test.js` + `integration.test.js`. Open `tests.html` via http server for integration tests.
 
-Load order: `data.js` → `engine.js` → `ui.js` → `app.js` (classic scripts, one shared global scope).
+Load order: `js/data.js` → `js/engine.js` → `js/ui.js` → `js/store.js` → `js/app.js` (classic scripts, one shared global scope).
 
 ### Data flow (app.js)
 
@@ -96,9 +100,9 @@ input event
 
 Private repo: `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints.
 
-Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0` (lifecycle engine) ` → v1.8.0` (risk engine: Monte Carlo, historical replay, GK/VPW) ` → v1.9.0` (NL tax layering: Box-1 pension pot + drawdown order) ` → v2.0.0` (cockpit UX: A/B scenario compare + onboarding wizard).
+Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0` (lifecycle engine) ` → v1.8.0` (risk engine: Monte Carlo, historical replay, GK/VPW) ` → v1.9.0` (NL tax layering: Box-1 pension pot + drawdown order) ` → v2.0.0` (cockpit UX: A/B scenario compare + onboarding wizard) ` → v2.1.0` (repo restructure: `js/` + `css/` folders, test suite split into `tests/`, `app.js` → `store.js` + `app.js`, `styles.css` → `base.css` + `components.css`; no behavior change).
 
-**v2.0 "Reality Engine" is complete** — four stacked feature branches (`feature/v1.7-lifecycle` → `v1.8-risk` → `v1.9-tax` → `v2.0-cockpit`), each tagged, none merged to master (awaiting user review). `feature/v2.0-cockpit` @ `v2.0.0` is the cumulative build to test.
+**v2.0 "Reality Engine" is complete** — four stacked feature branches (`feature/v1.7-lifecycle` → `v1.8-risk` → `v1.9-tax` → `v2.0-cockpit`), each tagged, none merged to master (awaiting user review). **v2.1 "structure"** (`feature/v2.1-structure` @ `v2.1.0`) stacks on top: a pure structural refactor (folders + file splits, zero behavior change) — the cumulative build to test. None merged to master.
 
 ## v2.0 "Reality Engine" roadmap (in progress)
 
