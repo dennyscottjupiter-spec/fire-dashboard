@@ -12,7 +12,9 @@ A **Content-Security-Policy** `<meta>` restricts scripts to `'self' + cdn.jsdeli
 
 **Typography** — Inter variable font (rsms/inter v4.1, SIL OFL) is self-hosted in `fonts/InterVariable.woff2`. Both `--sans` and `--mono` CSS tokens point to Inter; Segoe UI / system-ui are fallbacks. `font-variant-numeric: tabular-nums` keeps numbers aligned without a separate monospace face.
 
-Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (54, synchronous) run on `file://` too. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, and the annual tax readout (Box 3 split-deemed-return). The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
+Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (66, synchronous) run on `file://` too. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, the annual tax readout, and the v1.7 lifecycle controls (TER fee drag, pension bridge, life-events manager, depletion note). Full suite is **178 tests**. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
+
+> **Dev caching gotcha:** Chrome heuristic-caches `file://`-style local resources; the plain `python -m http.server` sends no `Cache-Control`, so edited `engine.js`/`app.js` can be served stale (undefined fields, old test counts). Fix once with a hard reload (Ctrl+Shift+R evicts the poisoned entries), or serve with `Cache-Control: no-store` during a build session.
 
 ## Architecture
 
@@ -21,7 +23,7 @@ Six files:
 - `index.html` — markup only; all IDs wired to `els` in app.js
 - `styles.css` — design tokens in `:root`, `@font-face` for Inter, no preprocessor
 - `fonts/InterVariable.woff2` — self-hosted Inter variable font (rsms/inter v4.1, SIL OFL)
-- `engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `customTax`, `coastFiTarget`. Load before `ui.js` and `app.js`.
+- `engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `customTax`, `coastFiTarget`. `runProjection` is a **two-phase lifecycle sim** (accumulate → decumulate to `longevityAge`, default 95). Load before `ui.js` and `app.js`.
 - `ui.js` — **view layer only** (no state, no persistence): `initChart`, `crossoverPlugin`, `buildGauge`, `updateGauge`, `MILESTONES`, `updateMilestones`. Reads `eur` and `els` from `app.js` globals (safe: only invoked at boot, after those consts initialize). Load after `engine.js`, before `app.js`.
 - `app.js` — **controller**: state, DOM refs, `recalc()`, `bindRange`, rate steppers, `applyConfig`, localStorage, export/import, two-step reset confirm, boot. Load last.
 - `tests.html` — in-browser assertions; open via http server for integration tests.
@@ -35,8 +37,9 @@ Single `state` object → **`recalc()`** is the only heartbeat. Every input even
 ```
 input event
   → update state fields (parseNum for € fields, parseFloat for rate boxes)
-  → compute blend: state.returnRate = (allocInvest/100)·investReturn + (1-allocInvest/100)·savingsReturn
-  → runProjection(state) → { savings, fiTarget, yearsToFI, data[], firstYearTax }
+  → compute blend (fee-adjusted): returnRate = a·(investReturn − terPct) + (1−a)·savingsReturn
+  → runProjection(state) → { savings, fiTarget, yearsToFI, data[], firstYearTax, depleteAge }
+  → fee-impact readout (rerun fee-free, compare terminal wealth) + lifecycle note
   → write KPIs + FIRE-year pill + notice banner + #tax-annual-val readout
   → updateGauge(portfolio / fiTarget)
   → chart.update() + crossover marker plugin
@@ -60,6 +63,8 @@ input event
 
 **Tax** — `state.taxMode` is `'none' | 'box3' | 'custom'`. Box 3 (NL 2026 model): split deemed returns — investments 6.0%, savings 1.28%, flat 36% rate, €59,357 threshold (single). Uses the *proportional method*: `deemed = P·a·6.0% + P·(1−a)·1.28%`; `taxableShare = (P−allowance)/P`; tax = `0.36 × deemed × taxableShare`. `box3Tax(P, t, infl, isReal, allocInvest)` — `allocInvest` param passes `state.allocInvest` from `runProjection`; omitting it defaults to 100% invest (backward-compat). Allowance is deflated in Real mode. Custom: `taxCustomPct`% applied to that year's investment gain only. Tax is subtracted *after* growth + contributions each year, inside `runProjection`. `runProjection` returns `firstYearTax` (year-1 tax under the active mode) → rendered to `#tax-annual-val` readout as "≈ €X est. tax this year".
 
+**Lifecycle (v1.7)** — `runProjection` runs to `longevityAge` (95), retires at the FI crossing (accumulate → `phase:'draw'`), and returns `depleteAge` (age the pot first hits €0 in retirement, else null). Each `data` point carries `{year, age, portfolio, fi, phase}`. New default-guarded state: `currentAge`, `pensionAge`/`pensionAmount` (age-triggered income net off the withdrawal), `events[{age,amount,label}]` (one-off cash flows applied before growth), `terPct` (fund fee). **Fee drag** is applied in `recalc()` — `returnRate = a·(investReturn − terPct) + (1−a)·savingsReturn` — so `engine.js` stays fee-agnostic; the "lost to fees over your lifetime" readout reruns fee-free and compares **terminal** wealth (comparing at retirement inverts because the fee-free run retires earlier and is already drawing down). Life events: `renderEvents()` rebuilds `#events-list` on add/remove/restore (never per keystroke); `parseSignedNum` allows negative outlays. Chart: x-axis is age; draw phase colours amber via `dataset.segment.borderColor` reading `chart.$drawStart`; `eventMarkerPlugin` draws ▲/▼ markers from `chart.$events`. `#lifecycle-note` shows survive/deplete.
+
 **Macro buttons** — each has `data-slider` and `data-val` attributes. On click, set both the slider, the box, and `box._lastValid`. `refreshMacroActive()` compares against the box value (not the slider).
 
 **Pure-CSS tooltips** — `.has-tip[data-tip]` uses `::after` (frosted card, `backdrop-filter: blur(10px)`) + `::before` (arrow) triggered on `:hover`/`:focus`. No JS. Add `tabindex="0"` to non-interactive elements. Use `.tip-right` near the right edge. KPI elements have `aria-live="polite"`; the notice banner has `role="status" aria-live="assertive"`.
@@ -80,4 +85,8 @@ input event
 
 Private repo: `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints.
 
-Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0`.
+Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0` (lifecycle engine: decumulation, TER fee drag, pension bridge, life events).
+
+## v2.0 "Reality Engine" roadmap (in progress)
+
+Four stacked feature branches, each shippable and tagged, **not merged to master** (branch off the previous level): `feature/v1.7-lifecycle` (v1.7.0, lifecycle) → `feature/v1.8-risk` (v1.8.0, Monte Carlo + historical replay + Guyton-Klinger/VPW withdrawals, `data.js` dataset) → `feature/v1.9-tax` (v1.9.0, NL Box 1 pension pot + drawdown order) → `feature/v2.0-cockpit` (v2.0.0, A/B scenarios + onboarding wizard). Load order gains `data.js` before `engine.js` at Level 2.
