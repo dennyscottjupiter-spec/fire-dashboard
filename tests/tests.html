@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FIRE Dashboard — Tests</title>
+  <style>
+    body { font-family: ui-monospace, "SF Mono", monospace; background: #1a1a1b; color: #f0f0f0; padding: 28px; font-size: 13px; line-height: 1.6; }
+    h1   { color: #0ea5e9; margin-bottom: 4px; font-size: 18px; }
+    p    { color: #8a8a8a; margin: 0 0 20px; font-size: 12px; }
+    h2   { color: #8a8a8a; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0 6px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 14px; }
+    .pass { color: #22d3a0; }
+    .fail { color: #f43f5e; }
+    #summary { margin-top: 24px; font-size: 14px; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1>🔬 FIRE Dashboard — Test Suite</h1>
+<p>Open via a local http server. Engine tests run synchronously; integration tests load index.html in a hidden iframe.</p>
+<pre id="out"></pre>
+<div id="summary">⏳ Running tests…</div>
+
+<!-- engine sources (at repo root) -->
+<script src="../data.js"></script>
+<script src="../engine.js"></script>
+<!-- test harness + suites -->
+<script src="harness.js"></script>
+<script src="engine.test.js"></script>
+<script src="integration.test.js"></script>
+</body>
+</html>
