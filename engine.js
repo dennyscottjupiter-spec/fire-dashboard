@@ -59,16 +59,25 @@ function customTax(gain, pct) {
 //   events        – [{age, amount}] one-off cash flows (+inheritance / −outlay)
 //
 // Returns depleteAge: the age the pot first hits €0 in retirement (else null).
+//
+// v1.8 extensions (default-guarded, deterministic path unchanged):
+//   s.sequence   – [{ret, infl}] per-year rates for Monte Carlo / historical replay.
+//                  When present the sim runs in NOMINAL terms (real toggle ignored).
+//   s.wdStrategy – 'fixed' (default) | 'vpw' (% of current pot) | 'gk' (Guyton-Klinger
+//                  guardrails: skip the inflation raise after a loss year; cut/raise
+//                  spending 10% when the current rate drifts ±20% off the initial rate).
 function runProjection(s) {
-  const r    = s.returnRate / 100;
-  const infl = s.inflation  / 100;
-  const wr   = s.withdrawal / 100;
+  const rConst    = s.returnRate / 100;
+  const inflConst = s.inflation  / 100;
+  const wr        = s.withdrawal / 100;
 
   const currentAge   = s.currentAge   || 30;
   const longevityAge = s.longevityAge || 95;
   const pensionAge   = s.pensionAge   || 67;
   const pensionAmt   = s.pensionAmount || 0;
   const events       = Array.isArray(s.events) ? s.events : [];
+  const seq          = Array.isArray(s.sequence) ? s.sequence : null;
+  const strat        = s.wdStrategy || 'fixed';
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
@@ -76,8 +85,7 @@ function runProjection(s) {
   const unattainable = savings <= 0 && s.portfolio < fiTarget;
 
   const MAX_YEARS = Math.max(1, Math.round(longevityAge - currentAge));
-  const isReal    = s.mode === 'real';
-  const realReturn = (1 + r) / (1 + infl) - 1;
+  const useReal   = (s.mode === 'real') && !seq;  // sequences always run nominal
 
   // Net one-off cash flow scheduled for a given age (nominal / today's € as entered).
   function eventAt(age) {
@@ -85,13 +93,21 @@ function runProjection(s) {
     for (const e of events) if (Math.round(e.age) === age) sum += Number(e.amount) || 0;
     return sum;
   }
+  // Return + inflation for year t (1-based): from the injected sequence, else constant.
+  function yearRates(t) {
+    if (seq) { const row = seq[(t - 1) % seq.length]; return { r: row.ret, infl: row.infl }; }
+    return { r: rConst, infl: inflConst };
+  }
 
   const data = [];
   let P  = s.portfolio;
   let FI = fiTarget;
+  let cumInfl = 1;                 // running Π(1+infl); nominal spending/FI scale by this
+  let prevRet = rConst;           // last year's return, for the GK loss-year check
   let yearsToFI    = null;
   let firstYearTax = 0;
   let depleteAge   = null;
+  let gkSpend = 0, initialWR = 0, gkInit = false;  // Guyton-Klinger carried state
 
   // Already FI at t=0 → retire immediately.
   let retired = isFinite(fiTarget) && P >= fiTarget;
@@ -100,39 +116,58 @@ function runProjection(s) {
   data.push({ year: 0, age: currentAge, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
 
   for (let t = 1; t <= MAX_YEARS; t++) {
-    const age   = currentAge + t;
-    const prevP = P + eventAt(age);          // life events land before growth
-    const investGain = prevP * (isReal ? realReturn : r);
-    const grown = prevP + investGain;
+    const age = currentAge + t;
+    const { r: yr, infl: yinfl } = yearRates(t);
+    cumInfl *= (1 + yinfl);
 
-    // Custom tax is always on the year's gain; Box 3 is on year-end wealth,
-    // whose base differs by phase (contributions add, withdrawals subtract).
+    const prevP      = P + eventAt(age);       // life events land before growth
+    const growthRate = useReal ? (1 + yr) / (1 + yinfl) - 1 : yr;
+    const investGain = prevP * growthRate;
+    const grown      = prevP + investGain;
+
+    // Custom tax is always on the year's gain; Box 3 is on year-end wealth.
     let taxBase, tax;
     if (retired) {
-      // ── Decumulation: stop income, withdraw spending net of any pension ──
-      const spendNeed = isReal ? s.spending : s.spending * Math.pow(1 + infl, t);
-      const pension   = age >= pensionAge
-        ? (isReal ? pensionAmt : pensionAmt * Math.pow(1 + infl, t))
-        : 0;
-      const netDraw = Math.max(0, spendNeed - pension);
-      taxBase = grown;                         // wealth before drawdown
+      // ── Decumulation: gross spend by strategy, net of any pension income ──
+      let gross;
+      if (strat === 'vpw') {
+        gross = wr * grown;                    // fixed % of the CURRENT pot
+      } else if (strat === 'gk') {
+        if (!gkInit) {                         // seed at the first retirement year
+          gkSpend   = useReal ? s.spending : s.spending * cumInfl;
+          initialWR = grown > 0 ? gkSpend / grown : 0;
+          gkInit    = true;
+        } else {
+          if (prevRet >= 0) gkSpend *= (1 + (useReal ? 0 : yinfl)); // raise, skip after loss
+          const curWR = grown > 0 ? gkSpend / grown : Infinity;
+          if      (curWR > initialWR * 1.2) gkSpend *= 0.9;         // upper guardrail: cut
+          else if (curWR < initialWR * 0.8) gkSpend *= 1.1;         // lower guardrail: raise
+        }
+        gross = gkSpend;
+      } else {
+        gross = useReal ? s.spending : s.spending * cumInfl;         // fixed real amount
+      }
+      const pension = age >= pensionAge ? (useReal ? pensionAmt : pensionAmt * cumInfl) : 0;
+      const netDraw = Math.max(0, gross - pension);
+      taxBase = grown;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, infl, isReal, s.allocInvest)
+        ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = grown - netDraw - tax;
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
     } else {
       // ── Accumulation: add contributions (deflated in real mode) ──
-      const contrib = isReal ? savings / Math.pow(1 + infl, t) : savings;
-      taxBase = grown + contrib;               // wealth incl. this year's savings
+      const contrib = useReal ? savings / cumInfl : savings;
+      taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, infl, isReal, s.allocInvest)
+        ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = Math.max(0, grown + contrib - tax);
     }
 
-    if (!isReal) FI = FI * (1 + infl);         // nominal FI target inflates
+    if (!useReal) FI = fiTarget * cumInfl;     // nominal FI target inflates; real stays fixed
     if (t === 1) firstYearTax = tax;
+    prevRet = yr;
 
     data.push({ year: t, age, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
 
@@ -141,6 +176,68 @@ function runProjection(s) {
   }
 
   return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge };
+}
+
+/* ── Risk engine: Monte Carlo + historical replay (v1.8) ──── */
+
+// Tiny seedable PRNG (mulberry32) so Monte Carlo runs are reproducible in tests.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Bootstrap Monte Carlo: resample historical years (with replacement) N times,
+// run the full lifecycle sim on each, and report the survival rate + fan bands.
+// Returns { successRate (0–1), bands:[{age,p10,p50,p90}], runs }.
+function runMonteCarlo(s, N, seed) {
+  N = N || 1000;
+  const rand    = mulberry32(seed || 0x9e3779b9);
+  const horizon = Math.max(1, Math.round((s.longevityAge || 95) - (s.currentAge || 30)));
+  const H = HIST.length;
+  const cols = [];
+  for (let t = 0; t <= horizon; t++) cols.push([]);
+  const ages = [];
+  let successes = 0;
+
+  for (let run = 0; run < N; run++) {
+    const sequence = [];
+    for (let t = 0; t < horizon; t++) {
+      const row = HIST[(rand() * H) | 0];
+      sequence.push({ ret: row.ret, infl: row.infl });
+    }
+    const proj = runProjection({ ...s, sequence });
+    if (proj.depleteAge === null) successes++;     // survived to the horizon
+    for (let t = 0; t < proj.data.length; t++) {
+      cols[t].push(proj.data[t].portfolio);
+      if (run === 0) ages.push(proj.data[t].age);
+    }
+  }
+
+  const bands = cols.map((vals, t) => {
+    vals.sort((a, b) => a - b);
+    const q = p => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
+    return { age: ages[t], p10: q(0.10), p50: q(0.50), p90: q(0.90) };
+  });
+  return { successRate: successes / N, bands, runs: N };
+}
+
+// Historical replay: run the exact return/inflation sequence starting at `startYear`,
+// wrapping back to the start of the dataset if the horizon runs past the last year.
+function runHistorical(s, startYear) {
+  const horizon = Math.max(1, Math.round((s.longevityAge || 95) - (s.currentAge || 30)));
+  let idx0 = HIST.findIndex(h => h.year === startYear);
+  if (idx0 < 0) idx0 = 0;
+  const sequence = [];
+  for (let t = 0; t < horizon; t++) {
+    const row = HIST[(idx0 + t) % HIST.length];
+    sequence.push({ ret: row.ret, infl: row.infl });
+  }
+  return runProjection({ ...s, sequence });
 }
 
 /* ── Coast FI target ─────────────────────────────────────── */
