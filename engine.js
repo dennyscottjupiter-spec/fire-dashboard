@@ -45,66 +45,102 @@ function customTax(gain, pct) {
   return (pct / 100) * Math.max(0, gain);
 }
 
-/* ── Projection engine ────────────────────────────────────── */
+/* ── Projection engine (two-phase lifecycle) ──────────────── */
+// Accumulates until the portfolio reaches the FI target, then RETIRES:
+// income stops, spending is withdrawn each year, and the pot is drawn down
+// until the longevity horizon (default age 95). Age-triggered pension/AOW
+// income and lumpy life-event cash flows are layered in during both phases.
+//
+// New optional state fields (all default-guarded for backward compatibility):
+//   currentAge    – age today (default 30); horizon runs to longevityAge
+//   longevityAge  – end of the plan (default 95)
+//   pensionAge    – age an income stream switches on (default 67)
+//   pensionAmount – €/yr that stream pays in today's money (default 0 = off)
+//   events        – [{age, amount}] one-off cash flows (+inheritance / −outlay)
+//
+// Returns depleteAge: the age the pot first hits €0 in retirement (else null).
 function runProjection(s) {
   const r    = s.returnRate / 100;
   const infl = s.inflation  / 100;
   const wr   = s.withdrawal / 100;
+
+  const currentAge   = s.currentAge   || 30;
+  const longevityAge = s.longevityAge || 95;
+  const pensionAge   = s.pensionAge   || 67;
+  const pensionAmt   = s.pensionAmount || 0;
+  const events       = Array.isArray(s.events) ? s.events : [];
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
   const fiTarget    = wr > 0 ? s.spending / wr : Infinity;
   const unattainable = savings <= 0 && s.portfolio < fiTarget;
 
-  const MAX_YEARS = 50;
+  const MAX_YEARS = Math.max(1, Math.round(longevityAge - currentAge));
+  const isReal    = s.mode === 'real';
+  const realReturn = (1 + r) / (1 + infl) - 1;
+
+  // Net one-off cash flow scheduled for a given age (nominal / today's € as entered).
+  function eventAt(age) {
+    let sum = 0;
+    for (const e of events) if (Math.round(e.age) === age) sum += Number(e.amount) || 0;
+    return sum;
+  }
+
   const data = [];
   let P  = s.portfolio;
   let FI = fiTarget;
-  let yearsToFI   = null;
+  let yearsToFI    = null;
   let firstYearTax = 0;
+  let depleteAge   = null;
 
-  data.push({ year: 0, portfolio: P, fi: FI });
-  if (P >= fiTarget) yearsToFI = 0;
+  // Already FI at t=0 → retire immediately.
+  let retired = isFinite(fiTarget) && P >= fiTarget;
+  if (retired) yearsToFI = 0;
 
-  const isReal = s.mode === 'real';
+  data.push({ year: 0, age: currentAge, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
 
   for (let t = 1; t <= MAX_YEARS; t++) {
-    const prevP = P;
+    const age   = currentAge + t;
+    const prevP = P + eventAt(age);          // life events land before growth
+    const investGain = prevP * (isReal ? realReturn : r);
+    const grown = prevP + investGain;
 
-    if (isReal) {
-      const realReturn  = (1 + r) / (1 + infl) - 1;
-      // Deflate nominal contributions so they stay in today's purchasing power
-      const realSavings = savings / Math.pow(1 + infl, t);
-      const investGain  = prevP * realReturn;
-
-      const tax = s.taxMode === 'box3'
-        ? box3Tax(prevP + investGain + realSavings, t, infl, true, s.allocInvest)
-        : s.taxMode === 'custom'
-          ? customTax(investGain, s.taxCustomPct || 0)
-          : 0;
-
-      if (t === 1) firstYearTax = tax;
-      P = Math.max(0, prevP + investGain + realSavings - tax);
-      // FI stays fixed in real-terms mode
+    // Custom tax is always on the year's gain; Box 3 is on year-end wealth,
+    // whose base differs by phase (contributions add, withdrawals subtract).
+    let taxBase, tax;
+    if (retired) {
+      // ── Decumulation: stop income, withdraw spending net of any pension ──
+      const spendNeed = isReal ? s.spending : s.spending * Math.pow(1 + infl, t);
+      const pension   = age >= pensionAge
+        ? (isReal ? pensionAmt : pensionAmt * Math.pow(1 + infl, t))
+        : 0;
+      const netDraw = Math.max(0, spendNeed - pension);
+      taxBase = grown;                         // wealth before drawdown
+      tax = s.taxMode === 'box3'
+        ? box3Tax(taxBase, t, infl, isReal, s.allocInvest)
+        : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
+      P = grown - netDraw - tax;
+      if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
     } else {
-      const investGain = prevP * r;
-
-      const tax = s.taxMode === 'box3'
-        ? box3Tax(prevP + investGain + savings, t, infl, false, s.allocInvest)
-        : s.taxMode === 'custom'
-          ? customTax(investGain, s.taxCustomPct || 0)
-          : 0;
-
-      if (t === 1) firstYearTax = tax;
-      P  = Math.max(0, prevP + investGain + savings - tax);
-      FI = FI * (1 + infl);
+      // ── Accumulation: add contributions (deflated in real mode) ──
+      const contrib = isReal ? savings / Math.pow(1 + infl, t) : savings;
+      taxBase = grown + contrib;               // wealth incl. this year's savings
+      tax = s.taxMode === 'box3'
+        ? box3Tax(taxBase, t, infl, isReal, s.allocInvest)
+        : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
+      P = Math.max(0, grown + contrib - tax);
     }
 
-    data.push({ year: t, portfolio: P, fi: FI });
-    if (yearsToFI === null && P >= FI) yearsToFI = t;
+    if (!isReal) FI = FI * (1 + infl);         // nominal FI target inflates
+    if (t === 1) firstYearTax = tax;
+
+    data.push({ year: t, age, portfolio: P, fi: FI, phase: retired ? 'draw' : 'grow' });
+
+    // Cross into FI this year → accumulate through it, retire from next year.
+    if (!retired && yearsToFI === null && P >= FI) { yearsToFI = t; retired = true; }
   }
 
-  return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax };
+  return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge };
 }
 
 /* ── Coast FI target ─────────────────────────────────────── */

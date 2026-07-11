@@ -117,8 +117,9 @@ assert('FI target = spending / (wr/100)',  near(r1.fiTarget, 750000),   r1.fiTar
 assert('savings = income − spending',      r1.savings === 30000,         r1.savings,    30000);
 assert('savingsRate = 50%',               near(r1.savingsRate, 50),     r1.savingsRate, 50);
 assert('yearsToFI is finite and > 0',     r1.yearsToFI > 0,            r1.yearsToFI,  '>0');
-assert('data length = 51 (yr 0–50)',      r1.data.length === 51,        r1.data.length, 51);
+assert('data length = 66 (age 30→95 lifecycle horizon)', r1.data.length === 66, r1.data.length, 66);
 assert('yr-0 portfolio = initial',        r1.data[0].portfolio === 50000, r1.data[0].portfolio, 50000);
+assert('yr-0 age = currentAge default 30', r1.data[0].age === 30,        r1.data[0].age, 30);
 
 /* ── runProjection — already FI ──────────────────────────── */
 group('runProjection — already FI');
@@ -154,15 +155,17 @@ const rZeroIncome = runProjection({ ...s1, income: 0, spending: 0 });
 assert('income=0 spending=0 → savingsRate=0', rZeroIncome.savingsRate === 0, rZeroIncome.savingsRate, 0);
 
 /* ── runProjection — Real mode ───────────────────────────── */
+// Compared during accumulation (yr-10, pre-FI) where the deflated-contributions
+// semantic is clean; post-retirement contributions stop, so the property is age-scoped.
 group('runProjection — Real mode vs Nominal (deflated contributions)');
 const r4nom = runProjection({ ...s1, mode: 'nominal' });
 const r4rl  = runProjection({ ...s1, mode: 'real' });
-assert('Real yr-50 portfolio < Nominal yr-50 (deflated contributions)',
-  r4rl.data[50].portfolio < r4nom.data[50].portfolio,
-  Math.round(r4rl.data[50].portfolio), '< ' + Math.round(r4nom.data[50].portfolio));
-assert('Real yr-50 portfolio is finite and positive',
-  Number.isFinite(r4rl.data[50].portfolio) && r4rl.data[50].portfolio > 0,
-  r4rl.data[50].portfolio.toFixed(0), '>0');
+assert('Real yr-10 portfolio < Nominal yr-10 (deflated contributions)',
+  r4rl.data[10].portfolio < r4nom.data[10].portfolio,
+  Math.round(r4rl.data[10].portfolio), '< ' + Math.round(r4nom.data[10].portfolio));
+assert('Real yr-10 portfolio is finite and positive',
+  Number.isFinite(r4rl.data[10].portfolio) && r4rl.data[10].portfolio > 0,
+  r4rl.data[10].portfolio.toFixed(0), '>0');
 
 /* ── runProjection — high inflation real mode stays finite ── */
 group('runProjection — high inflation real mode stays finite and ≥ 0');
@@ -194,10 +197,65 @@ assert('Custom-20% yr-20 portfolio < no-tax yr-20',
   Math.round(r6custom.data[20].portfolio), '< ' + Math.round(r5notax.data[20].portfolio));
 
 /* ── runProjection — Custom tax real mode ─────────────────── */
+// Compared at yr-10 (pre-FI): both real scenarios are still accumulating, so the
+// tax purely subtracts. Post-FI the taxed run retires a year or two later, and the
+// retirement-crossover timing can invert a same-year comparison.
 group('runProjection — Custom tax in real mode');
 const r6customReal = runProjection({ ...s1, taxMode: 'custom', taxCustomPct: 20, mode: 'real' });
-assert('Custom-20% real yr-20 < no-tax real yr-20',
-  r6customReal.data[20].portfolio < r4rl.data[20].portfolio, true, true);
+assert('Custom-20% real yr-10 < no-tax real yr-10',
+  r6customReal.data[10].portfolio < r4rl.data[10].portfolio,
+  Math.round(r6customReal.data[10].portfolio), '< ' + Math.round(r4rl.data[10].portfolio));
+
+/* ── Lifecycle — decumulation & depletion ────────────────── */
+group('runProjection — lifecycle decumulation & depleteAge');
+// Already-FI overspender: 20% WR depletes the pot before the horizon.
+const rDeplete = runProjection({ portfolio: 500000, income: 0, spending: 100000,
+  returnRate: 3, inflation: 2, withdrawal: 20, mode: 'nominal', taxMode: 'none', currentAge: 50 });
+assert('overspending retiree retires at t=0', rDeplete.yearsToFI === 0, rDeplete.yearsToFI, 0);
+assert('depleteAge is set when pot runs dry', rDeplete.depleteAge !== null, rDeplete.depleteAge, '!= null');
+assert('depleteAge within horizon (≤ 95)', rDeplete.depleteAge <= 95, rDeplete.depleteAge, '≤ 95');
+// Sustainable retiree: 2% effective WR never depletes.
+const rSustain = runProjection({ portfolio: 2000000, income: 0, spending: 40000,
+  returnRate: 7, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', currentAge: 50 });
+assert('sustainable retiree never depletes (depleteAge null)', rSustain.depleteAge === null, rSustain.depleteAge, null);
+assert('final data point reaches longevity age 95', rSustain.data[rSustain.data.length - 1].age === 95, rSustain.data[rSustain.data.length - 1].age, 95);
+assert('retirement year is phase "draw"', rSustain.data[1].phase === 'draw', rSustain.data[1].phase, 'draw');
+
+/* ── Lifecycle — TER fee-drag mechanism ──────────────────── */
+// The TER subtraction lives in app.js (returnRate − terPct); here we verify the
+// engine responds monotonically: a lower net return yields lower terminal wealth.
+group('runProjection — fee drag (lower net return → less wealth)');
+const rNoFee  = runProjection({ ...s1, returnRate: 7.0 });
+const rWithFee = runProjection({ ...s1, returnRate: 6.8 }); // 0.2% TER shaved off
+assert('0.2% fee drag lowers yr-10 portfolio', rWithFee.data[10].portfolio < rNoFee.data[10].portfolio,
+  Math.round(rWithFee.data[10].portfolio), '< ' + Math.round(rNoFee.data[10].portfolio));
+
+/* ── Lifecycle — pension/AOW bridge ──────────────────────── */
+group('runProjection — pension bridge reduces post-age withdrawals');
+const pensBase = { portfolio: 1000000, income: 0, spending: 50000, returnRate: 5,
+  inflation: 2, withdrawal: 5, mode: 'nominal', taxMode: 'none', currentAge: 60, pensionAge: 67 };
+const rNoPens = runProjection({ ...pensBase, pensionAmount: 0 });
+const rPens   = runProjection({ ...pensBase, pensionAmount: 30000 });
+assert('pension income lifts terminal wealth',
+  rPens.data[rPens.data.length - 1].portfolio > rNoPens.data[rNoPens.data.length - 1].portfolio,
+  Math.round(rPens.data[rPens.data.length - 1].portfolio), '> ' + Math.round(rNoPens.data[rNoPens.data.length - 1].portfolio));
+assert('no difference before pension age (age 65, t=5)',
+  near(rPens.data[5].portfolio, rNoPens.data[5].portfolio, 1),
+  Math.round(rPens.data[5].portfolio), Math.round(rNoPens.data[5].portfolio));
+
+/* ── Lifecycle — lumpy life events ───────────────────────── */
+group('runProjection — lumpy life events shift the pot');
+const evBase  = { ...s1, currentAge: 30 };
+const rInherit = runProjection({ ...evBase, events: [{ age: 35, amount: 100000 }] });
+const rBaseEv  = runProjection(evBase);
+// age 35 = t=5; event lands before growth so it contributes >€100k that year
+assert('€100k inheritance at age 35 raises that year by > €100k',
+  rInherit.data[5].portfolio - rBaseEv.data[5].portfolio > 100000,
+  Math.round(rInherit.data[5].portfolio - rBaseEv.data[5].portfolio), '> 100000');
+const rOutlay = runProjection({ ...evBase, events: [{ age: 35, amount: -50000 }] });
+assert('−€50k outlay at age 35 lowers that year',
+  rOutlay.data[5].portfolio < rBaseEv.data[5].portfolio,
+  Math.round(rOutlay.data[5].portfolio), '< ' + Math.round(rBaseEv.data[5].portfolio));
 
 /* ── coastFiTarget ───────────────────────────────────────── */
 group('coastFiTarget');
