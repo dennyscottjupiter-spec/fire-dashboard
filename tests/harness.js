@@ -28,6 +28,12 @@ function renderSummary() {
   document.getElementById('summary').innerHTML =
     `${total} tests — <span class="pass">${pass} passed</span>` +
     (fail > 0 ? `, <span class="fail">${fail} failed</span>` : ' — all green 🎉');
+  /* machine-readable one-liner — lets an automated reader grab the verdict
+     from a single element or the tab title without parsing the whole page. */
+  const line = fail === 0 ? `PASS ${pass}/${total}` : `FAIL ${fail}/${total} (passed ${pass})`;
+  const sumEl = document.getElementById('test-summary');
+  if (sumEl) sumEl.textContent = line;
+  document.title = `${line} — FIRE Tests`;
 }
 
 /* global error/rejection → count as failed test, always resolve */

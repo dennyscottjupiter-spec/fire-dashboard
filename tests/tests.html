@@ -11,6 +11,8 @@
     .pass { color: #22d3a0; }
     .fail { color: #f43f5e; }
     #summary { margin-top: 24px; font-size: 14px; font-weight: bold; }
+    /* machine-readable verdict — stable single line for automated readers */
+    #test-summary { margin-top: 6px; font-size: 12px; color: #6b7280; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -18,6 +20,7 @@
 <p>Open via a local http server. Engine tests run synchronously; integration tests load index.html in a hidden iframe.</p>
 <pre id="out"></pre>
 <div id="summary">⏳ Running tests…</div>
+<div id="test-summary" aria-live="polite"></div>
 
 <!-- engine sources (at repo root) -->
 <script src="../data.js"></script>
