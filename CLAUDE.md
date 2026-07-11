@@ -12,23 +12,24 @@ A **Content-Security-Policy** `<meta>` restricts scripts to `'self' + cdn.jsdeli
 
 **Typography** — Inter variable font (rsms/inter v4.1, SIL OFL) is self-hosted in `fonts/InterVariable.woff2`. Both `--sans` and `--mono` CSS tokens point to Inter; Segoe UI / system-ui are fallbacks. `font-variant-numeric: tabular-nums` keeps numbers aligned without a separate monospace face.
 
-Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (66, synchronous) run on `file://` too. Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, the annual tax readout, and the v1.7 lifecycle controls (TER fee drag, pension bridge, life-events manager, depletion note). Full suite is **178 tests**. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
+Open `tests.html` **via a local http server** to run the full test suite — integration tests need a same-origin iframe (file:// blocks cross-frame access). Quick start: `python -m http.server 8000` → open `http://localhost:8000/tests.html`. Engine unit tests (87, synchronous) run on `file://` too — including the v1.8 risk engine (RNG determinism, Monte Carlo reproducibility + success rates, historical replay, GK/VPW strategies). Integration tests drive every input, the gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, the annual tax readout, the v1.7 lifecycle controls, and the v1.8 risk UI (strategy toggle, Monte Carlo badge + fan bands, History vintage). Full suite is **218 tests**. The harness is bulletproof: file:// early-exit, try/catch/finally + 25 s watchdog + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
 
 > **Dev caching gotcha:** Chrome heuristic-caches `file://`-style local resources; the plain `python -m http.server` sends no `Cache-Control`, so edited `engine.js`/`app.js` can be served stale (undefined fields, old test counts). Fix once with a hard reload (Ctrl+Shift+R evicts the poisoned entries), or serve with `Cache-Control: no-store` during a build session.
 
 ## Architecture
 
-Six files:
+Seven files:
 
 - `index.html` — markup only; all IDs wired to `els` in app.js
 - `styles.css` — design tokens in `:root`, `@font-face` for Inter, no preprocessor
 - `fonts/InterVariable.woff2` — self-hosted Inter variable font (rsms/inter v4.1, SIL OFL)
-- `engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `customTax`, `coastFiTarget`. `runProjection` is a **two-phase lifecycle sim** (accumulate → decumulate to `longevityAge`, default 95). Load before `ui.js` and `app.js`.
+- `data.js` — **vendored historical dataset** (no DOM): `HIST` (S&P 500 total return + US CPI, 1926–2023) and `VINTAGES` (infamous crash start years). Load **before** engine.js.
+- `engine.js` — **pure math only** (no DOM, no Chart): `parseNum`, `runProjection`, `box3Tax`, `customTax`, `coastFiTarget`, plus the risk engine `mulberry32`, `runMonteCarlo`, `runHistorical`. `runProjection` is a **two-phase lifecycle sim** (accumulate → decumulate to `longevityAge`, default 95) that also accepts an injected `sequence` and `wdStrategy`. Load before `ui.js` and `app.js`.
 - `ui.js` — **view layer only** (no state, no persistence): `initChart`, `crossoverPlugin`, `buildGauge`, `updateGauge`, `MILESTONES`, `updateMilestones`. Reads `eur` and `els` from `app.js` globals (safe: only invoked at boot, after those consts initialize). Load after `engine.js`, before `app.js`.
 - `app.js` — **controller**: state, DOM refs, `recalc()`, `bindRange`, rate steppers, `applyConfig`, localStorage, export/import, two-step reset confirm, boot. Load last.
 - `tests.html` — in-browser assertions; open via http server for integration tests.
 
-Load order: `engine.js` → `ui.js` → `app.js` (classic scripts, one shared global scope).
+Load order: `data.js` → `engine.js` → `ui.js` → `app.js` (classic scripts, one shared global scope).
 
 ### Data flow (app.js)
 
@@ -65,6 +66,8 @@ input event
 
 **Lifecycle (v1.7)** — `runProjection` runs to `longevityAge` (95), retires at the FI crossing (accumulate → `phase:'draw'`), and returns `depleteAge` (age the pot first hits €0 in retirement, else null). Each `data` point carries `{year, age, portfolio, fi, phase}`. New default-guarded state: `currentAge`, `pensionAge`/`pensionAmount` (age-triggered income net off the withdrawal), `events[{age,amount,label}]` (one-off cash flows applied before growth), `terPct` (fund fee). **Fee drag** is applied in `recalc()` — `returnRate = a·(investReturn − terPct) + (1−a)·savingsReturn` — so `engine.js` stays fee-agnostic; the "lost to fees over your lifetime" readout reruns fee-free and compares **terminal** wealth (comparing at retirement inverts because the fee-free run retires earlier and is already drawing down). Life events: `renderEvents()` rebuilds `#events-list` on add/remove/restore (never per keystroke); `parseSignedNum` allows negative outlays. Chart: x-axis is age; draw phase colours amber via `dataset.segment.borderColor` reading `chart.$drawStart`; `eventMarkerPlugin` draws ▲/▼ markers from `chart.$events`. `#lifecycle-note` shows survive/deplete.
 
+**Risk engine (v1.8)** — `runProjection` accepts `s.sequence` (`[{ret,infl}]` per-year rates; runs nominal, ignores the real toggle) and `s.wdStrategy` (`'fixed'`|`'gk'`|`'vpw'`). The deterministic path (no sequence, `'fixed'`) is byte-for-byte unchanged. `cumInfl` unifies nominal spending/FI scaling. **Guyton-Klinger** (`gk`): skip the inflation raise after a loss year; cut/raise spending 10% when the current rate drifts ±20% off the initial rate. **VPW** (`vpw`): withdraw `wr%` of the current pot (never depletes). `mulberry32(seed)` → reproducible `runMonteCarlo(s,N,seed)` (bootstrap-resample `HIST`, returns `{successRate, bands:[{age,p10,p50,p90}]}`) and `runHistorical(s,startYear)` (exact replay, wraps past 2023). **`recalc()` always computes the deterministic `det` for KPIs/gauge/milestones**; `renderChart(det)` switches the chart by `state.projMode`: steady/history draw one path in dataset 0 (bands hidden); Monte Carlo hides dataset 0, reveals the p90/p10(fill:'-1')/p50 band datasets, shows the `#mc-success` badge, and runs the debounced (250 ms) `runAndDrawMonteCarlo`. The `_band90` series is hidden from the legend via a label filter.
+
 **Macro buttons** — each has `data-slider` and `data-val` attributes. On click, set both the slider, the box, and `box._lastValid`. `refreshMacroActive()` compares against the box value (not the slider).
 
 **Pure-CSS tooltips** — `.has-tip[data-tip]` uses `::after` (frosted card, `backdrop-filter: blur(10px)`) + `::before` (arrow) triggered on `:hover`/`:focus`. No JS. Add `tabindex="0"` to non-interactive elements. Use `.tip-right` near the right edge. KPI elements have `aria-live="polite"`; the notice banner has `role="status" aria-live="assertive"`.
@@ -85,7 +88,7 @@ input event
 
 Private repo: `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints.
 
-Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0` (lifecycle engine: decumulation, TER fee drag, pension bridge, life events).
+Tag history: `css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0` (lifecycle engine) ` → v1.8.0` (risk engine: Monte Carlo fan chart, historical replay, Guyton-Klinger/VPW withdrawals).
 
 ## v2.0 "Reality Engine" roadmap (in progress)
 
