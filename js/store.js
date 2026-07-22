@@ -36,6 +36,10 @@ const state = {
   wdStrategy:   'fixed',  // 'fixed' | 'gk' (Guyton-Klinger) | 'vpw' (% of pot)
   projMode:     'steady', // 'steady' | 'montecarlo' | 'history'
   vintageYear:   2008,    // historical replay start year
+  // ── v2.2 net-worth CAGR ──
+  growthModel:   'income', // 'income' | 'cagr'
+  cagrPct:       10,       // % net-worth CAGR (gross — tax & TER still apply)
+  targetFireAge: 45,       // reverse-solver input
 };
 
 /* ── localStorage keys + seed defaults ────────────────────── */
@@ -50,6 +54,7 @@ const DEFAULTS = {
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
   pensionPot: 0, pensionContrib: 0,
   wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008,
+  growthModel: 'income', cagrPct: 10, targetFireAge: 45,
 };
 
 /* ── applyConfig — shared restore logic ──────────────────── */
@@ -169,6 +174,23 @@ function applyConfig(cfg) {
     state.vintageYear      = cfg.vintageYear;
     els.vintageSelect.value = cfg.vintageYear;
   }
+  // ── v2.2 net-worth CAGR fields ──
+  if (['income', 'cagr'].includes(cfg.growthModel)) {
+    state.growthModel = cfg.growthModel;
+    [els.btnModelIncome, els.btnModelCagr].forEach(b =>
+      b.classList.toggle('active-model', b.dataset.model === cfg.growthModel));
+    applyGrowthModelUI();
+  }
+  if (cfg.cagrPct != null) {
+    state.cagrPct            = cfg.cagrPct;
+    els.valCagr.value        = cfg.cagrPct;
+    els.valCagr._lastValid   = cfg.cagrPct;
+    els.sliderCagr.value     = Math.min(cfg.cagrPct, 25);
+  }
+  if (cfg.targetFireAge != null) {
+    state.targetFireAge     = cfg.targetFireAge;
+    els.inputTargetAge.value = cfg.targetFireAge;
+  }
 }
 
 /* ── localStorage persistence ────────────────────────────── */
@@ -196,6 +218,9 @@ function saveState() {
       wdStrategy:    state.wdStrategy,
       projMode:      state.projMode,
       vintageYear:   state.vintageYear,
+      growthModel:   state.growthModel,
+      cagrPct:       state.cagrPct,
+      targetFireAge: state.targetFireAge,
     }));
   } catch (_) {}
 }
@@ -239,6 +264,9 @@ function exportConfig() {
     wdStrategy:    state.wdStrategy,
     projMode:      state.projMode,
     vintageYear:   state.vintageYear,
+    growthModel:   state.growthModel,
+    cagrPct:       state.cagrPct,
+    targetFireAge: state.targetFireAge,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
