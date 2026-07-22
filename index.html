@@ -76,7 +76,7 @@
         </div>
 
         <!-- Income -->
-        <div class="control-group">
+        <div class="control-group" id="group-income">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
                   data-tip="Money you take home per year, after all taxes. The gross you see on your contract minus what the taxman keeps.">
@@ -113,6 +113,59 @@
 
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
+        <!-- Growth Model (v2.2) -->
+        <div class="control-group" id="group-growth-model">
+          <div class="control-label">
+            <span class="has-tip" tabindex="0"
+                  data-tip="Two ways to reach FIRE. 'Income &amp; Return' builds your pot from what you save each year plus market growth. 'Net Worth CAGR' skips all that — you just tell it how fast your total net worth grows per year, savings included.">
+              🌱 Growth Model
+            </span>
+          </div>
+          <div class="tax-toggle model-toggle" role="group" aria-label="Growth model">
+            <button class="tax-btn active-model" id="btn-model-income" data-model="income">💵 Income &amp; Return</button>
+            <button class="tax-btn"              id="btn-model-cagr"   data-model="cagr">📊 Net Worth CAGR</button>
+          </div>
+
+          <!-- Shown only in CAGR mode -->
+          <div id="cagr-block" style="display:none">
+            <div class="control-label">
+              <span class="has-tip" tabindex="0"
+                    data-tip="How fast your total net worth compounds each year — this already includes the money you save, so income and spending contributions are switched off. This is a gross rate: your chosen tax mode and fund fee still apply on top.">
+                📊 Net Worth CAGR
+              </span>
+              <span class="rate-display">
+                <div class="steppers">
+                  <button class="stepper-btn" data-box="val-cagr" data-dir="1"  aria-label="Increase CAGR">▲</button>
+                  <button class="stepper-btn" data-box="val-cagr" data-dir="-1" aria-label="Decrease CAGR">▼</button>
+                </div>
+                <input type="text" inputmode="decimal" class="value-box" id="val-cagr" value="10" />
+                <span class="pct-sign">%</span>
+              </span>
+            </div>
+            <input type="range" id="slider-cagr" min="0" max="25" step="0.5" value="10" />
+            <div class="macro-btns">
+              <button class="macro-btn" data-slider="slider-cagr" data-val="7">Steady 7%</button>
+              <button class="macro-btn" data-slider="slider-cagr" data-val="12">Strong 12%</button>
+              <button class="macro-btn" data-slider="slider-cagr" data-val="20">Aggressive 20%</button>
+            </div>
+
+            <!-- Reverse solver -->
+            <div class="cagr-solve-row">
+              <span class="cagr-solve-label has-tip" tabindex="0"
+                    data-tip="Work it backwards: name the age you want to be financially independent, and this shows the yearly net-worth growth you'd need to get there.">
+                🎯 FIRE by age
+              </span>
+              <input type="text" inputmode="numeric" class="value-box cagr-age-box" id="input-target-age" value="45" />
+              <span class="cagr-solve-result" id="cagr-solve-result">→ —</span>
+              <button type="button" class="cagr-apply-btn" id="btn-apply-cagr"
+                      aria-label="Use this CAGR">Use ✓</button>
+            </div>
+          </div>
+
+          <!-- Always visible: the bridge between the two models -->
+          <div class="cagr-implied" id="cagr-implied"></div>
+        </div>
+
         <!-- Asset Allocation (sits above Investment Return — sets the mix first) -->
         <div class="control-group">
           <div class="control-label">
@@ -126,7 +179,7 @@
             <span>🏦 Savings <span id="alloc-savings-pct">20%</span></span>
           </div>
           <input type="range" id="slider-alloc" min="0" max="100" step="1" value="80" />
-          <div class="control-label alloc-savings-label">
+          <div class="control-label alloc-savings-label" id="group-savings-label">
             <span class="has-tip" tabindex="0"
                   data-tip="The annual rate your cash savings or money-market account earns. Typically 1–4%, much lower than equities.">
               🏦 Savings Return
@@ -146,7 +199,7 @@
         </div>
 
         <!-- Return Rate -->
-        <div class="control-group">
+        <div class="control-group" id="group-return">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
                   data-tip="How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
