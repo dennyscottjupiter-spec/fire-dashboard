@@ -61,6 +61,7 @@ const els = {
   allocInvestPct:  $('alloc-invest-pct'),
   allocSavingsPct: $('alloc-savings-pct'),
   blendedReturn:   $('blended-return'),
+  blendedSuffix:   $('blended-suffix'),
   // Gauge
   gaugeArc:    $('gauge-arc'),
   gaugeNeedle: $('gauge-needle'),
@@ -96,6 +97,19 @@ const els = {
   wizardBack:     $('wizard-back'),
   wizardNext:     $('wizard-next'),
   wizardSkip:     $('wizard-skip'),
+  // v2.2 net-worth CAGR
+  btnModelIncome:  $('btn-model-income'),
+  btnModelCagr:    $('btn-model-cagr'),
+  cagrBlock:       $('cagr-block'),
+  valCagr:         $('val-cagr'),
+  sliderCagr:      $('slider-cagr'),
+  inputTargetAge:  $('input-target-age'),
+  cagrSolveResult: $('cagr-solve-result'),
+  btnApplyCagr:    $('btn-apply-cagr'),
+  cagrImplied:     $('cagr-implied'),
+  groupIncome:      $('group-income'),
+  groupReturn:      $('group-return'),
+  groupSavingsLabel:$('group-savings-label'),
 };
 
 /* ── A/B scenario compare state (module-level, not in saved config) ── */
@@ -127,14 +141,27 @@ function recalc() {
   state.savingsReturn = parseFloat(els.valSavings.value)   || 0;
   state.allocInvest   = parseFloat(els.sliderAlloc.value);
   state.terPct        = Math.max(0, parseFloat(els.valTer.value) || 0);
+  state.cagrPct       = Math.max(0, parseFloat(els.valCagr.value) || 0);
+  state.targetFireAge = Math.max(1, Math.min(100, parseNum(els.inputTargetAge.value) || 45));
   const a = state.allocInvest / 100;
   // Fund fee (TER) is skimmed off the invested slice before blending; the engine
   // sees this net return. The fee-free blend is kept for the fee-impact readout.
-  const grossReturn   = a * state.investReturn + (1 - a) * state.savingsReturn;
-  state.returnRate    = a * (state.investReturn - state.terPct) + (1 - a) * state.savingsReturn;
+  // In CAGR mode the typed rate replaces the blend entirely (allocation still
+  // drives the Box 3 deemed-return split, so the slider stays live either way).
+  let grossReturn;
+  if (state.growthModel === 'cagr') {
+    grossReturn      = state.cagrPct;
+    state.returnRate = state.cagrPct - state.terPct;
+  } else {
+    grossReturn      = a * state.investReturn + (1 - a) * state.savingsReturn;
+    state.returnRate = a * (state.investReturn - state.terPct) + (1 - a) * state.savingsReturn;
+  }
   els.allocInvestPct.textContent  = Math.round(state.allocInvest)       + '%';
   els.allocSavingsPct.textContent = Math.round(100 - state.allocInvest) + '%';
-  els.blendedReturn.textContent   = state.returnRate.toFixed(1);
+  els.blendedReturn.textContent   = (state.growthModel === 'cagr' ? state.cagrPct : state.returnRate).toFixed(1);
+  els.blendedSuffix.textContent   = state.growthModel === 'cagr'
+    ? '% net-worth CAGR · mix drives Box 3 only'
+    : '% blended return';
   state.inflation    = parseFloat(els.valInfl.value)      || 0;
   state.withdrawal   = parseFloat(els.valWR.value)        || 0;
   state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
@@ -176,13 +203,17 @@ function recalc() {
     els.kpiFireYear.style.display = 'none';
   }
 
-  const srLabel      = savingsRate > 0 ? savingsRate.toFixed(1) + '%' : '0%';
-  const savingsLabel = savings > 0
-    ? `Saving ${eur.format(savings)}/yr`
-    : savings < 0
-      ? `Deficit ${eur.format(-savings)}/yr`
-      : 'No savings';
-  els.kpiYearsSub.textContent = `SR: ${srLabel} · ${savingsLabel}`;
+  if (state.growthModel === 'cagr') {
+    els.kpiYearsSub.textContent = `Net worth compounding at ${state.cagrPct.toFixed(1)}%/yr`;
+  } else {
+    const srLabel      = savingsRate > 0 ? savingsRate.toFixed(1) + '%' : '0%';
+    const savingsLabel = savings > 0
+      ? `Saving ${eur.format(savings)}/yr`
+      : savings < 0
+        ? `Deficit ${eur.format(-savings)}/yr`
+        : 'No savings';
+    els.kpiYearsSub.textContent = `SR: ${srLabel} · ${savingsLabel}`;
+  }
 
   // ── Tax readout
   els.taxAnnualVal.textContent = eur.format(firstYearTax);
@@ -221,6 +252,23 @@ function recalc() {
   // ── Milestones (at t=0, mode-independent)
   const realReturn = (1 + state.returnRate / 100) / (1 + state.inflation / 100) - 1;
   updateMilestones(state.portfolio, fiTarget, state.currentAge, realReturn);
+
+  // ── CAGR reverse solver + implied-CAGR bridge (v2.2)
+  if (state.growthModel === 'cagr') {
+    const g = solveCagrForAge(state, state.targetFireAge);
+    els.cagrSolveResult.textContent = g === null ? '→ not reachable ❌' : `→ ${g.toFixed(1)}%/yr`;
+    els.cagrSolveResult.classList.toggle('unreachable', g === null);
+    els.btnApplyCagr.disabled = (g === null);
+    els.cagrSolveResult._solved = g;
+  }
+  // Implied CAGR is always shown — the bridge between the two models.
+  const incomeProj = state.growthModel === 'cagr'
+    ? runProjection({ ...state, growthModel: 'income' })
+    : det;
+  const imp = impliedCagr(incomeProj, state.portfolio);
+  els.cagrImplied.textContent = imp === null
+    ? ''
+    : `💡 Your income & return plan compounds at ≈ ${imp.toFixed(1)}%/yr`;
 
   // Persist every recalc (fire-and-forget, silently fails if storage unavailable)
   saveState();
@@ -314,6 +362,27 @@ function populateVintages() {
   els.vintageSelect.value = state.vintageYear;
 }
 
+/* ── 6b2. Growth Model UI (v2.2) ──────────────────────────── */
+// Shows/hides the CAGR block, dims the Income + Investment Return groups
+// (Asset Allocation stays live — it still drives the Box 3 split), and
+// disables Monte Carlo / History (they inject a sequence that would
+// silently override the typed CAGR).
+function applyGrowthModelUI() {
+  const isCagr = state.growthModel === 'cagr';
+  els.cagrBlock.style.display = isCagr ? 'block' : 'none';
+  [els.groupIncome, els.groupReturn, els.groupSavingsLabel].forEach(g =>
+    g.classList.toggle('model-dimmed', isCagr));
+
+  [els.btnProjMc, els.btnProjHistory].forEach(b => { b.disabled = isCagr; });
+  els.btnProjMc.title      = isCagr ? 'Disabled in Net Worth CAGR mode — it would override your typed rate' : '';
+  els.btnProjHistory.title = isCagr ? 'Disabled in Net Worth CAGR mode — it would override your typed rate' : '';
+  if (isCagr && state.projMode !== 'steady') {
+    state.projMode = 'steady';
+    const projBtns = [els.btnProjSteady, els.btnProjMc, els.btnProjHistory];
+    projBtns.forEach(b => b.classList.toggle('active-proj', b.dataset.proj === state.projMode));
+  }
+}
+
 /* ── 6c. A/B scenario compare ────────────────────────────── */
 // Deterministic snapshot of the plan (returnRate is already fee-adjusted).
 function snapshotState() {
@@ -325,6 +394,7 @@ function snapshotState() {
     terPct: state.terPct, pensionAge: state.pensionAge, pensionAmount: state.pensionAmount,
     pensionPot: state.pensionPot, pensionContrib: state.pensionContrib, events: state.events,
     wdStrategy: state.wdStrategy,
+    growthModel: state.growthModel, cagrPct: state.cagrPct,
   }));
 }
 
@@ -503,6 +573,7 @@ const RATE_CFG = {
   'val-withdrawal': { slider: 'slider-withdrawal', sliderMax: 10, capMin: 0.5, capMax: 20  },
   'val-savings':    { slider: null,                sliderMax: 0,  capMin: 0,   capMax: 10  },
   'val-ter':        { slider: null,                sliderMax: 0,  capMin: 0,   capMax: 5, step: 0.05 },
+  'val-cagr':       { slider: 'slider-cagr',        sliderMax: 25, capMin: 0,   capMax: 100 },
 };
 
 function stepRate(boxId, delta) {
@@ -648,7 +719,7 @@ function wireInputs() {
   });
 
   // ArrowUp/Down keyboard on each rate box
-  [els.valReturn, els.valInfl, els.valWR, els.valSavings, els.valTer].forEach(box => {
+  [els.valReturn, els.valInfl, els.valWR, els.valSavings, els.valTer, els.valCagr].forEach(box => {
     box.addEventListener('keydown', e => {
       const step = (RATE_CFG[box.id] && RATE_CFG[box.id].step) || 0.5;
       if (e.key === 'ArrowUp')   { e.preventDefault(); stepRate(box.id, +step); }
@@ -723,6 +794,32 @@ function wireInputs() {
     state.vintageYear = parseInt(els.vintageSelect.value, 10) || 2008;
     recalc();
   });
+
+  // Growth Model toggle (v2.2) + CAGR block wiring
+  const modelBtns = [els.btnModelIncome, els.btnModelCagr];
+  modelBtns.forEach(btn => btn.addEventListener('click', () => {
+    state.growthModel = btn.dataset.model;
+    modelBtns.forEach(b => b.classList.toggle('active-model', b.dataset.model === state.growthModel));
+    applyGrowthModelUI();
+    recalc();
+  }));
+  bindRange(els.sliderCagr, els.valCagr, 25, [0, 100]);
+  els.inputTargetAge.addEventListener('input', recalc);
+  els.inputTargetAge.addEventListener('blur', () => {
+    const v = parseNum(els.inputTargetAge.value);
+    els.inputTargetAge.value = Math.max(1, Math.min(100, v || 45));
+    recalc();
+  });
+  els.btnApplyCagr.addEventListener('click', () => {
+    const g = els.cagrSolveResult._solved;
+    if (g == null) return;
+    const rounded = Math.round(g * 10) / 10;
+    els.valCagr.value      = rounded;
+    els.valCagr._lastValid = rounded;
+    els.sliderCagr.value   = Math.min(rounded, 25);
+    recalc();
+  });
+  applyGrowthModelUI();
 
   // A/B scenario compare
   els.btnCompare.addEventListener('click', toggleCompare);
