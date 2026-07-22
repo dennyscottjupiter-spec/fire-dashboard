@@ -112,6 +112,9 @@
     clickEl('btn-tax-none');
     clickEl('btn-strat-fixed');   // v1.8: back to fixed withdrawal
     clickEl('btn-proj-steady');   // v1.8: back to steady chart (avoid async MC bleed)
+    setVal('val-cagr', '10');            fireBlur('val-cagr');
+    setVal('input-target-age', '45');    fireBlur('input-target-age');
+    clickEl('btn-model-income');  // v2.2: back to Income & Return model
   }
   resetBaseline();
 
@@ -712,6 +715,155 @@
       out.innerHTML += `<span class="fail">❌</span>  Reset button (#btn-reset) not found in DOM\n`;
     }
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] reset button: ${e.message}\n`; }
+
+  /* ── Growth Model toggle + dimming (v2.2) ────────────────── */
+  try {
+    group('Integration — Growth Model toggle + dimming');
+    resetBaseline();
+    assert('boots on income model', s.growthModel === 'income', s.growthModel, 'income');
+    assert('cagr-block hidden in income model', style('cagr-block').display === 'none', style('cagr-block').display, 'none');
+    clickEl('btn-model-cagr');
+    assert('growthModel = cagr after click', s.growthModel === 'cagr', s.growthModel, 'cagr');
+    assert('btn-model-cagr gets .active-model', doc.getElementById('btn-model-cagr').classList.contains('active-model'), true, true);
+    assert('btn-model-income loses .active-model', !doc.getElementById('btn-model-income').classList.contains('active-model'), true, true);
+    assert('cagr-block visible in CAGR model', style('cagr-block').display === 'block', style('cagr-block').display, 'block');
+    assert('group-income gets .model-dimmed', doc.getElementById('group-income').classList.contains('model-dimmed'), true, true);
+    assert('group-return gets .model-dimmed', doc.getElementById('group-return').classList.contains('model-dimmed'), true, true);
+    assert('group-savings-label gets .model-dimmed', doc.getElementById('group-savings-label').classList.contains('model-dimmed'), true, true);
+    clickEl('btn-model-income');
+    assert('growthModel back to income', s.growthModel === 'income', s.growthModel, 'income');
+    assert('group-income loses .model-dimmed', !doc.getElementById('group-income').classList.contains('model-dimmed'), true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] growth model toggle: ${e.message}\n`; }
+
+  /* ── CAGR mode drives Years-to-FIRE + FIRE-year pill ─────── */
+  try {
+    group('Integration — CAGR rate drives Years to FIRE');
+    resetBaseline();
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+    setVal('input-spending', '30000');  fireBlur('input-spending');
+    setVal('val-withdrawal', '4');      fireBlur('val-withdrawal');
+    clickEl('btn-model-cagr');
+    setVal('val-cagr', '5'); fireBlur('val-cagr');
+    const yearsLo = text('kpi-years');
+    setVal('val-cagr', '25'); fireBlur('val-cagr');
+    const yearsHi = text('kpi-years');
+    assert('a higher CAGR reaches FIRE sooner', yearsLo !== yearsHi, `${yearsLo} vs ${yearsHi}`, 'different');
+    assert('KPI sub-line shows compounding readout in CAGR mode',
+      text('kpi-years-sub').includes('compounding'), text('kpi-years-sub'), '~compounding at');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] CAGR drives KPIs: ${e.message}\n`; }
+
+  /* ── CAGR reverse solver + Use✓ button ────────────────────── */
+  try {
+    group('Integration — CAGR reverse solver + Use button');
+    resetBaseline();
+    setVal('input-age', '30'); fireBlur('input-age');
+    clickEl('btn-model-cagr');
+    setVal('input-target-age', '45'); fireBlur('input-target-age');
+    assert('solver readout renders a %/yr value', /→ [\d.]+%\/yr/.test(text('cagr-solve-result')), text('cagr-solve-result'), '~→ N.N%/yr');
+    assert('Use button enabled for a reachable target', !doc.getElementById('btn-apply-cagr').disabled, false, false);
+    clickEl('btn-apply-cagr');
+    assert('Use button copies the solved rate into #val-cagr',
+      near(parseFloat(val('val-cagr')), s.cagrPct, 0.05), val('val-cagr'), s.cagrPct);
+    const fireYearsAfterApply = s.growthModel === 'cagr' ? true : false;
+    assert('growthModel stays cagr after applying', fireYearsAfterApply, true, true);
+
+    /* unreachable target: 1 year out with a huge FI gap */
+    setVal('input-spending', '5000000'); fireBlur('input-spending');
+    setVal('input-target-age', '31');    fireBlur('input-target-age');
+    assert('unreachable target shows "not reachable"', text('cagr-solve-result').includes('not reachable'), text('cagr-solve-result'), '~not reachable ❌');
+    assert('cagr-solve-result gets .unreachable class', doc.getElementById('cagr-solve-result').classList.contains('unreachable'), true, true);
+    assert('Use button disabled when unreachable', doc.getElementById('btn-apply-cagr').disabled, true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] CAGR reverse solver: ${e.message}\n`; }
+
+  /* ── Implied-CAGR bridge readout (both models) ───────────── */
+  try {
+    group('Integration — implied-CAGR bridge readout');
+    resetBaseline();
+    assert('implied readout shows in income model', text('cagr-implied').includes('%/yr'), text('cagr-implied'), '~compounds at N%/yr');
+    clickEl('btn-model-cagr');
+    assert('implied readout still shows in CAGR model', text('cagr-implied').includes('%/yr'), text('cagr-implied'), '~compounds at N%/yr');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] implied CAGR: ${e.message}\n`; }
+
+  /* ── Monte Carlo / History disabled in CAGR mode ─────────── */
+  try {
+    group('Integration — Monte Carlo / History disabled in CAGR mode');
+    resetBaseline();
+    assert('MC button enabled in income model', !doc.getElementById('btn-proj-mc').disabled, false, false);
+    assert('History button enabled in income model', !doc.getElementById('btn-proj-history').disabled, false, false);
+    clickEl('btn-proj-history');
+    assert('projMode = history before switching model', s.projMode === 'history', s.projMode, 'history');
+    clickEl('btn-model-cagr');
+    assert('MC button disabled in CAGR mode', doc.getElementById('btn-proj-mc').disabled, true, true);
+    assert('History button disabled in CAGR mode', doc.getElementById('btn-proj-history').disabled, true, true);
+    assert('projMode forced to steady entering CAGR mode', s.projMode === 'steady', s.projMode, 'steady');
+    clickEl('btn-model-income');
+    assert('MC button re-enabled back in income model', !doc.getElementById('btn-proj-mc').disabled, false, false);
+    assert('History button re-enabled back in income model', !doc.getElementById('btn-proj-history').disabled, false, false);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] MC/History disablement: ${e.message}\n`; }
+
+  /* ── localStorage round-trip for CAGR fields ─────────────── */
+  try {
+    group('Integration — localStorage round-trip (CAGR fields)');
+    resetBaseline();
+    clickEl('btn-model-cagr');
+    setVal('val-cagr', '17.5'); fireBlur('val-cagr');
+    setVal('input-target-age', '50'); fireBlur('input-target-age');
+    const lsKey = win._LS_KEY || 'fire-dashboard-state';
+    const stored = JSON.parse(win.localStorage.getItem(lsKey) || '{}');
+    assert('growthModel persisted to localStorage', stored.growthModel === 'cagr', stored.growthModel, 'cagr');
+    assert('cagrPct persisted to localStorage', near(stored.cagrPct, 17.5, 0.01), stored.cagrPct, 17.5);
+    assert('targetFireAge persisted to localStorage', stored.targetFireAge === 50, stored.targetFireAge, 50);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] CAGR localStorage round-trip: ${e.message}\n`; }
+
+  /* ── Export/Import round-trip for CAGR fields ────────────── */
+  try {
+    group('Integration — export/import round-trip (CAGR fields)');
+    resetBaseline();
+    clickEl('btn-model-cagr');
+    setVal('val-cagr', '13'); fireBlur('val-cagr');
+    setVal('input-target-age', '52'); fireBlur('input-target-age');
+    // exportConfig() serialises `state` the same way saveState() does — reuse
+    // state directly as the "exported" payload (avoids driving a real file download).
+    const exported = JSON.parse(JSON.stringify({
+      growthModel: s.growthModel, cagrPct: s.cagrPct, targetFireAge: s.targetFireAge,
+    }));
+    resetBaseline();  // back to income model, defaults
+    win.applyConfig(exported);
+    win.recalc();
+    assert('imported growthModel restores cagr', s.growthModel === 'cagr', s.growthModel, 'cagr');
+    assert('imported cagrPct restores 13', near(s.cagrPct, 13, 0.01), s.cagrPct, 13);
+    assert('imported targetFireAge restores 52', s.targetFireAge === 52, s.targetFireAge, 52);
+    assert('cagr-block visible after import restores cagr model', style('cagr-block').display === 'block', style('cagr-block').display, 'block');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] CAGR export/import: ${e.message}\n`; }
+
+  /* ── Old config (no growthModel) stays backward-compatible ── */
+  try {
+    group('Integration — old config (no growthModel) stays on income model');
+    resetBaseline();
+    clickEl('btn-model-cagr');  // start from CAGR to prove the old import doesn't touch it either way
+    clickEl('btn-model-income');
+    const oldCfg = JSON.stringify({ portfolio: 77000, returnRate: 6 });
+    win.importConfig(new File([oldCfg], 'old.json', { type: 'application/json' }));
+    await new Promise(r => setTimeout(r, 150));
+    assert('old config import leaves growthModel on income', s.growthModel === 'income', s.growthModel, 'income');
+    assert('old config import still applies portfolio', s.portfolio === 77000, s.portfolio, 77000);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] old config backward compat: ${e.message}\n`; }
+
+  /* ── Reset returns to income model ───────────────────────── */
+  try {
+    group('Integration — Reset returns to Growth Model default');
+    resetBaseline();
+    clickEl('btn-model-cagr');
+    setVal('val-cagr', '22'); fireBlur('val-cagr');
+    const resetBtn = doc.getElementById('btn-reset');
+    resetBtn.click();                              // arm
+    await new Promise(r => setTimeout(r, 50));
+    resetBtn.click();                              // confirm
+    await new Promise(r => setTimeout(r, 50));
+    assert('Reset restores growthModel to income', s.growthModel === 'income', s.growthModel, 'income');
+    assert('Reset restores cagrPct to default (10)', s.cagrPct === 10, s.cagrPct, 10);
+    assert('Reset hides the cagr-block again', style('cagr-block').display === 'none', style('cagr-block').display, 'none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] reset growth model: ${e.message}\n`; }
 
   /* cleanup */
   safeClearLS();

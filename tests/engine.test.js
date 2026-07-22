@@ -280,3 +280,77 @@ assert('pensionPot=0 leaves the projection unchanged (backward compat)', compatA
 // contributions build the pot
 const contribPot = runProjection({ ...potBase, pensionContrib: 10000 });
 assert('pensionContrib builds the pot', contribPot.data[5].pp > 0, Math.round(contribPot.data[5].pp), '> 0');
+
+/* ── Net-Worth CAGR mode (v2.2) ───────────────────────────── */
+group('runProjection — CAGR mode regression guard (byte-for-byte income model)');
+const cagrRegA = runProjection(s1);
+const cagrRegB = runProjection({ ...s1, growthModel: 'income' });
+assert('omitting growthModel === explicit "income" (deep-equal data[])',
+  JSON.stringify(cagrRegA.data) === JSON.stringify(cagrRegB.data), true, true);
+
+group('runProjection — CAGR mode ignores contributions');
+const cagrBase = { portfolio: 100000, income: 60000, spending: 30000, returnRate: 10,
+  inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', currentAge: 30, growthModel: 'cagr' };
+const cagrHiIncome = runProjection({ ...cagrBase, income: 200000 });
+const cagrLoIncome = runProjection({ ...cagrBase, income: 60000 });
+assert('CAGR mode: differing income produces identical data[]',
+  JSON.stringify(cagrHiIncome.data) === JSON.stringify(cagrLoIncome.data), true, true);
+
+group('runProjection — CAGR closed-form check (no tax, no fee, nominal mode)');
+// Nominal mode: growthRate === rConst directly (real mode instead converts the
+// typed rate via (1+r)/(1+i)-1, which is exercised separately below).
+const cagrClosed = runProjection({ portfolio: 100000, income: 60000, spending: 30000,
+  returnRate: 8, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', terPct: 0,
+  currentAge: 30, growthModel: 'cagr' });
+const expectedT10 = 100000 * Math.pow(1.08, 10);
+assert('P(t=10) ≈ P0·(1+g)^10 in nominal mode with no tax/fee',
+  near(cagrClosed.data[10].portfolio, expectedT10, 1),
+  Math.round(cagrClosed.data[10].portfolio), Math.round(expectedT10));
+
+group('runProjection — CAGR mode still honours lifecycle features');
+const cagrLifecycle = runProjection({ portfolio: 800000, income: 0, spending: 40000,
+  returnRate: 6, inflation: 2, withdrawal: 5, mode: 'nominal', taxMode: 'none',
+  currentAge: 55, pensionAge: 67, pensionAmount: 20000, pensionPot: 100000,
+  events: [{ age: 60, amount: 50000 }], growthModel: 'cagr' });
+assert('CAGR mode still reaches FI (already funded) → yearsToFI=0', cagrLifecycle.yearsToFI === 0, cagrLifecycle.yearsToFI, 0);
+assert('CAGR mode still tracks the Box-1 pension pot', cagrLifecycle.data[5].pp > 0, Math.round(cagrLifecycle.data[5].pp), '> 0');
+assert('CAGR mode still runs to the longevity horizon', cagrLifecycle.data[cagrLifecycle.data.length - 1].age === 95, cagrLifecycle.data[cagrLifecycle.data.length - 1].age, 95);
+
+group('runProjection — CAGR unattainable redefinition');
+const cagrNeverNom = runProjection({ portfolio: 10000, income: 0, spending: 30000,
+  returnRate: 2, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', currentAge: 30, growthModel: 'cagr' });
+assert('nominal: r ≤ inflation → unattainable', cagrNeverNom.unattainable === true, cagrNeverNom.unattainable, true);
+const cagrNeverReal = runProjection({ portfolio: 10000, income: 0, spending: 30000,
+  returnRate: 0, inflation: 2, withdrawal: 4, mode: 'real', taxMode: 'none', currentAge: 30, growthModel: 'cagr' });
+assert('real: r ≤ 0 → unattainable', cagrNeverReal.unattainable === true, cagrNeverReal.unattainable, true);
+const cagrReaches = runProjection({ portfolio: 10000, income: 0, spending: 30000,
+  returnRate: 15, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', currentAge: 30, growthModel: 'cagr' });
+assert('nominal: r > inflation and P < FI → attainable', cagrReaches.unattainable === false, cagrReaches.unattainable, false);
+
+group('solveCagrForAge — reverse solver');
+const solveBase = { portfolio: 50000, income: 0, spending: 30000, inflation: 2, withdrawal: 4,
+  mode: 'nominal', taxMode: 'none', terPct: 0.2, currentAge: 30 };
+const solvedG = solveCagrForAge(solveBase, 45);
+assert('solveCagrForAge returns a plausible rate (0–100)', solvedG !== null && solvedG > 0 && solvedG <= 100, solvedG, '0–100');
+const roundTrip = runProjection({ ...solveBase, growthModel: 'cagr', returnRate: solvedG - solveBase.terPct });
+assert('round-trip: solved rate reaches FI at/before targetAge (15 yrs)', roundTrip.yearsToFI !== null && roundTrip.yearsToFI <= 15, roundTrip.yearsToFI, '≤15');
+assert('solveCagrForAge(targetAge ≤ currentAge) → null', solveCagrForAge(solveBase, 30) === null, solveCagrForAge(solveBase, 30), null);
+assert('solveCagrForAge — impossible target (age 31, huge FI gap) → null',
+  solveCagrForAge({ ...solveBase, portfolio: 100, spending: 1000000 }, 31) === null,
+  solveCagrForAge({ ...solveBase, portfolio: 100, spending: 1000000 }, 31), null);
+const solvedNoTax = solveCagrForAge({ ...solveBase, taxMode: 'none' }, 45);
+const solvedBox3  = solveCagrForAge({ ...solveBase, taxMode: 'box3' }, 45);
+assert('Box 3 on requires a higher (or equal) solved CAGR than no tax', solvedBox3 >= solvedNoTax, solvedBox3, '>= ' + solvedNoTax);
+
+group('impliedCagr — bridge readout');
+const impliedProj = runProjection(s1);
+const impliedRate = impliedCagr(impliedProj, s1.portfolio);
+assert('impliedCagr recovers a plausible rate for the default income plan', impliedRate !== null && impliedRate > 0 && impliedRate < 50, impliedRate, '0–50');
+assert('impliedCagr returns null for portfolio=0', impliedCagr(impliedProj, 0) === null, impliedCagr(impliedProj, 0), null);
+// Closed-form sanity: a pure CAGR run's implied rate should recover the typed rate
+// (nominal mode, so growthRate === rConst with no real/nominal conversion in the way).
+const pureCagrProj = runProjection({ portfolio: 100000, income: 60000, spending: 30000,
+  returnRate: 9, inflation: 2, withdrawal: 4, mode: 'nominal', taxMode: 'none', terPct: 0,
+  currentAge: 30, growthModel: 'cagr' });
+const impliedPure = impliedCagr(pureCagrProj, 100000);
+assert('impliedCagr recovers the exact typed rate for a pure CAGR run', near(impliedPure, 9, 0.01), impliedPure.toFixed(2), 9);
