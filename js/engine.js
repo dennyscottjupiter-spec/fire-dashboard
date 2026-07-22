@@ -105,11 +105,16 @@ function runProjection(s) {
   const strat        = s.wdStrategy || 'fixed';
   const pensionContrib = s.pensionContrib || 0;   // €/yr into the Box-1 pot (gross)
   const ANNUITY_YEARS  = 20;                       // pot pays out over 20 yrs from AOW
+  const growthModel    = s.growthModel || 'income'; // 'income' | 'cagr' (v2.2)
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
   const fiTarget    = wr > 0 ? s.spending / wr : Infinity;
-  const unattainable = savings <= 0 && s.portfolio < fiTarget;
+  // CAGR mode has no contributions, so "never catches up" means growth can't
+  // outrun the FI target's own inflation (nominal: r ≤ i; real: FI is fixed, r ≤ 0).
+  const unattainable = growthModel === 'cagr'
+    ? (s.portfolio < fiTarget && ((s.mode === 'real' && !seq) ? rConst <= 0 : rConst <= inflConst))
+    : (savings <= 0 && s.portfolio < fiTarget);
 
   const MAX_YEARS = Math.max(1, Math.round(longevityAge - currentAge));
   const useReal   = (s.mode === 'real') && !seq;  // sequences always run nominal
@@ -204,7 +209,9 @@ function runProjection(s) {
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
     } else {
       // ── Accumulation: add contributions (deflated in real mode) ──
-      const contrib = useReal ? savings / cumInfl : savings;
+      // CAGR mode already bundles savings into the growth rate, so contributions
+      // are switched off to avoid double-counting them.
+      const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings / cumInfl : savings);
       taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
         ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
@@ -223,6 +230,40 @@ function runProjection(s) {
   }
 
   return { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge };
+}
+
+/* ── Net-Worth CAGR mode (v2.2) ───────────────────────────── */
+
+// Reverse solver: the lowest gross CAGR (0–100%) that reaches FI by targetAge.
+// Bisection on the real sim (not a closed form) because tax + TER stay active
+// on top of the typed rate, per the user's choice — reaching FI is monotonic
+// in the growth rate, so bisection is sound. Returns null if unreachable or
+// if targetAge is not in the future.
+function solveCagrForAge(s, targetAge) {
+  const t = Math.round(targetAge - (s.currentAge || 30));
+  if (t <= 0) return null;
+  const reaches = g => {
+    const p = runProjection({ ...s, growthModel: 'cagr',
+                              returnRate: g - (s.terPct || 0), sequence: null });
+    return p.yearsToFI !== null && p.yearsToFI <= t;
+  };
+  if (!reaches(100)) return null;
+  if (reaches(0))    return 0;
+  let lo = 0, hi = 100;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; reaches(mid) ? hi = mid : lo = mid; }
+  return hi;
+}
+
+// Bridge readout: the compound annual growth rate the income model's own
+// accumulation phase implies, so the two growth models can be sanity-checked
+// against each other. Returns null when it can't be derived.
+function impliedCagr(proj, startPortfolio) {
+  const last = proj.data.length - 1;
+  const n    = (proj.yearsToFI !== null && proj.yearsToFI > 0) ? proj.yearsToFI : last;
+  if (n <= 0 || startPortfolio <= 0) return null;
+  const end = proj.data[Math.min(n, last)].portfolio;
+  if (end <= 0) return null;
+  return (Math.pow(end / startPortfolio, 1 / n) - 1) * 100;
 }
 
 /* ── Risk engine: Monte Carlo + historical replay (v1.8) ──── */
