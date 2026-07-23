@@ -158,22 +158,14 @@ function initChart() {
           fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4,
           borderWidth: 2, hidden: true,
         },
-        // ── Scenario A (A/B compare, v2.0), muted; shown only in compare mode ──
+        // ── Scenario A (A/B compare, v2.0), shown only in compare mode ──
         {
-          label: 'A · Portfolio',
+          label: 'Scenario A',
           data: [],
-          borderColor: 'rgba(148,163,184,0.85)',
+          borderColor: '#a78bfa',
           backgroundColor: 'transparent',
           fill: false, tension: 0.35, pointRadius: 0, pointHoverRadius: 4,
           borderWidth: 2, borderDash: [7, 4], hidden: true,
-        },
-        {
-          label: '_A_FI',                       // hidden from legend
-          data: [],
-          borderColor: 'rgba(148,163,184,0.4)',
-          backgroundColor: 'transparent',
-          fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 0,
-          borderWidth: 1, borderDash: [3, 3], hidden: true,
         }
       ]
     },

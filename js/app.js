@@ -291,7 +291,7 @@ function renderChart(det) {
   if (state.projMode === 'montecarlo') {
     ds[0].hidden = true;                       // hide the single deterministic path
     ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
-    ds[5].hidden = ds[6].hidden = true;         // scenario-A off in MC view
+    ds[5].hidden = true;                        // scenario-A off in MC view
     els.mcSuccess.style.display   = 'flex';
     els.vintageSelect.style.display = 'none';
     scheduleMonteCarlo();                       // debounced heavy compute
@@ -313,14 +313,16 @@ function renderChart(det) {
   ds[0].data = proj.data.map(d => Math.round(d.portfolio));
   ds[1].data = proj.data.map(d => Math.round(d.fi));
 
-  // Scenario A overlay (A/B compare mode)
+  // Scenario A overlay (A/B compare mode) — relabel the live line "Scenario B"
+  // so the two plans read as clearly distinct series, not portfolio-vs-overlay.
   if (compareOn && scenarioA) {
+    ds[0].label = 'Scenario B';
     const projA = runProjection(scenarioA);
     ds[5].data = projA.data.map(d => Math.round(d.portfolio));
-    ds[6].data = projA.data.map(d => Math.round(d.fi));
-    ds[5].hidden = ds[6].hidden = false;
+    ds[5].hidden = false;
   } else {
-    ds[5].hidden = ds[6].hidden = true;
+    ds[0].label = 'Portfolio Value';
+    ds[5].hidden = true;
   }
   chart.update();
 }
