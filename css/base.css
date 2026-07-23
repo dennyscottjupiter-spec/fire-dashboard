@@ -90,6 +90,28 @@ header h1 .brand { color: var(--accent); }
   flex-wrap: wrap;
 }
 
+/* ── Pinned Years-to-FIRE readout (shown when its KPI card scrolls out of view) ── */
+.years-fire-pin {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: var(--track);
+  border: 1px solid var(--border-hi);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  animation: pin-fade-in 0.18s ease;
+}
+.years-fire-pin.visible { display: flex; }
+.years-fire-pin .pin-fire-year { color: var(--muted); font-weight: 500; }
+@keyframes pin-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Mode Toggle ─────────────────────────────────────────── */
 .mode-toggle {
   display: flex;

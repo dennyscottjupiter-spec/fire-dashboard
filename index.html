@@ -16,6 +16,12 @@
   <header>
     <h1>🔥 <span class="brand">FIRE</span> Dashboard</h1>
     <div class="header-right">
+      <!-- Pinned Years-to-FIRE readout, shown once the KPI card scrolls out of view -->
+      <div id="years-fire-pin" class="years-fire-pin" aria-live="polite">
+        <span>⏳</span>
+        <span id="pin-kpi-years">—</span>
+        <span id="pin-kpi-fire-year" class="pin-fire-year"></span>
+      </div>
       <!-- Real / Nominal toggle -->
       <div class="mode-toggle" role="group" aria-label="Calculation mode">
         <button id="btn-real" data-mode="real"
@@ -430,7 +436,7 @@
           <div class="gauge-pct" id="gauge-pct" aria-live="polite">0%</div>
           <div class="gauge-readiness-label">Readiness</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpi-years-card">
           <div class="kpi-label has-tip tip-right" tabindex="0"
                data-tip="How many years until your pot reaches the FI Number at your current savings pace and expected return. Also shows your savings rate (SR) — a key FIRE metric.">
             ⏳ Years to FIRE
