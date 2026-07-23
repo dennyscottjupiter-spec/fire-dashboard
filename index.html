@@ -50,6 +50,10 @@
               data-tip="Load a previously exported JSON file to restore your saved settings.">
         ⬆ Import
       </button>
+      <button class="io-btn has-tip tip-right" id="btn-help" tabindex="0"
+              data-tip="Open the full explainer: every section of the dashboard, in plain language.">
+        ❓ Help
+      </button>
       <button class="io-btn io-btn-reset has-tip tip-right" id="btn-reset" tabindex="0"
               data-tip="Clears your saved inputs from this browser's local storage and resets all values to the defaults. Your data is stored only in this browser — never uploaded anywhere.">
         🗑 Reset
@@ -169,8 +173,11 @@
           </div>
 
           <!-- Always visible: the bridge between the two models -->
-          <div class="cagr-implied has-tip" id="cagr-implied" tabindex="0"
-               data-tip="The single equivalent annual growth rate implied by your Income & Return plan — yearly savings plus market growth combined into one compound rate. Compare it against the rate you type into the Net Worth CAGR model to sanity-check the two against each other."></div>
+          <div class="cagr-implied-row">
+            <div class="cagr-implied has-tip" id="cagr-implied" tabindex="0"
+                 data-tip="The single equivalent annual growth rate implied by your Income & Return plan — yearly savings plus market growth combined into one compound rate. Compare it against the rate you type into the Net Worth CAGR model to sanity-check the two against each other."></div>
+            <button class="help-learn-more" data-help-tab="growth">Learn more →</button>
+          </div>
         </div>
 
         <!-- Asset Allocation (sits above Investment Return — sets the mix first) -->
@@ -452,6 +459,7 @@
         <p class="panel-title has-tip" tabindex="0"
            data-tip="Blue line = your portfolio growing over time. Green dashed line = the FI target you need to hit. When blue crosses green, you're financially independent. The line turns amber once you retire and start drawing the pot down — if it flattens at €0, your money ran out under this plan (see the note above the chart). In Monte Carlo mode, the shaded band shows the 10th-90th percentile range of outcomes and the blue line inside it is the median.">
           📊 Portfolio Growth Projection
+          <button class="help-learn-more" data-help-tab="chart">Learn more →</button>
         </p>
         <div class="proj-mode-bar">
           <div class="proj-toggle" role="group" aria-label="Projection mode">
@@ -469,8 +477,11 @@
           </div>
         </div>
         <div id="compare-readout" class="compare-readout" style="display:none" aria-live="polite"></div>
-        <div id="lifecycle-note" class="lifecycle-note has-tip" aria-live="polite" tabindex="0"
-             data-tip="The projection spends your pot down through retirement to age 95 (your longevity horizon). 'Runs dry at age N' means the model expects your money to reach €0 at that age, given today's spending, returns and withdrawal strategy — it's a warning signal, not a hard failure."></div>
+        <div class="lifecycle-note-row">
+          <div id="lifecycle-note" class="lifecycle-note has-tip" aria-live="polite" tabindex="0"
+               data-tip="The projection spends your pot down through retirement to age 95 (your longevity horizon). 'Runs dry at age N' means the model expects your money to reach €0 at that age, given today's spending, returns and withdrawal strategy — it's a warning signal, not a hard failure."></div>
+          <button class="help-learn-more" data-help-tab="chart">Learn more →</button>
+        </div>
         <canvas id="fi-chart"></canvas>
       </div>
 
@@ -555,6 +566,20 @@
           <button id="wizard-back" class="wizard-btn-ghost">← Back</button>
           <button id="wizard-next" class="wizard-btn">Next →</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Help modal (v2.3) ────────────────────────────────── -->
+  <div id="help-overlay" class="help-overlay" style="display:none">
+    <div class="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-head">
+        <h2 id="help-title">❓ Help &amp; Explainers</h2>
+        <button id="help-close" class="wizard-skip" aria-label="Close help">Close ✕</button>
+      </div>
+      <div class="help-layout">
+        <div id="help-tabs" class="help-tabs" role="tablist"></div>
+        <div id="help-panel" class="help-panel" role="tabpanel"></div>
       </div>
     </div>
   </div>
