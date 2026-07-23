@@ -66,9 +66,11 @@ Controlled by `state.mode`.
 
 `state.taxMode` is `'none' | 'box3' | 'custom'`.
 
-- Box 3 (NL 2026 model): split deemed returns — investments 6.0%, savings 1.28%, flat 36% rate, €59,357 threshold (single).
-- Uses the *proportional method*: `deemed = P·a·6.0% + P·(1−a)·1.28%`; `taxableShare = (P−allowance)/P`; tax = `0.36 × deemed × taxableShare`.
-- `box3Tax(P, t, infl, isReal, allocInvest)` — the `allocInvest` param passes `state.allocInvest` from `runProjection`; omitting it defaults to 100% invest (backward-compat). Allowance deflated in Real mode.
+- Box 3 (NL 2026 model, v2.3 three-bucket): split deemed returns — investments 6.0%, savings 1.28%, deductible debts −2.70%, flat 36% rate, €59,357 threshold (single).
+- **Decoupled from `state.allocInvest`** (the return-blend slider) — driven instead by three dedicated €-denominated inputs: `state.box3Savings`, `state.box3Investments`, `state.box3Debts`. `runProjection` derives fixed *ratios* from them once (`savingsRatio`/`investRatio` = each bucket ÷ (savings+investments); `debtRatio` = debts ÷ (savings+investments)) and re-applies those ratios to the grown taxable pool `P` every year — the same "fixed % of a growing P" pattern the old `allocInvest`-based method used, just from 3 buckets instead of 1 slider.
+- Uses the *proportional method*: `savings=P·savingsRatio`, `investments=P·investRatio`, `debts=P·debtRatio`; `netWorth = savings+investments−debts`; `deemed = savings·1.28% + investments·6.0% − debts·2.70%`; `taxableShare = (netWorth−allowance)/netWorth`; tax = `0.36 × max(0,deemed) × taxableShare` (0 if `netWorth ≤ allowance`).
+- `box3Tax(P, t, infl, isReal, ratios)` — `ratios = {savingsRatio, investRatio, debtRatio}`; omitting it defaults to `{0, 1, 0}` (100% invest, no debt — backward-compat with pre-v2.3 configs/tests). Allowance deflated in Real mode.
+- Because Box 3 no longer reads `allocInvest`, Asset Allocation is now genuinely inert in CAGR mode (it never affected the CAGR return itself) — `applyGrowthModelUI()` dims `#group-alloc` there too, alongside Income/Investment Return.
 - Custom: `taxCustomPct`% applied to that year's investment gain only.
 - Tax is subtracted *after* growth + contributions each year, inside `runProjection`, which returns `firstYearTax` (year-1 tax under the active mode) → rendered to the `#tax-annual-val` readout as "≈ €X est. tax this year".
 
@@ -109,7 +111,7 @@ Controlled by `state.mode`.
 - `state.growthModel` (`'income'` | `'cagr'`) lets the user type a single compound annual growth rate instead of decomposing income/spending/return.
 - In `runProjection`, CAGR mode zeroes the accumulation-phase `contrib` (a CAGR already bundles savings — adding `income − spending` on top would double-count it); `unattainable` is redefined as "growth can't outrun the FI target's own inflation" (`r ≤ inflation` nominal, `r ≤ 0` real), since there are no contributions to fall back on.
 - Deterministic income-model path byte-for-byte unchanged when `growthModel` is absent or `'income'`.
-- Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation stays live even in CAGR mode, because it still drives the Box 3 deemed-return split.
+- Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode since v2.3 — Box 3 now uses its own dedicated Savings/Investments/Debts split (see **Tax**), so the allocation slider has no effect on either the return or the tax in this mode.
 - `solveCagrForAge(s, targetAge)`: 40-step bisection on the real sim (not a closed form, so it stays correct under tax/TER) finding the minimum CAGR reaching FI by a target age — powers the "🎯 FIRE by age" reverse-solver row and its `Use ✓` button.
 - `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other.
 - Monte Carlo and History are disabled in CAGR mode (their injected `sequence` would silently override the typed rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.

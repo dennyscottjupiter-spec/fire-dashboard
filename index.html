@@ -187,7 +187,7 @@
         </div>
 
         <!-- Asset Allocation (sits above Investment Return — sets the mix first) -->
-        <div class="control-group">
+        <div class="control-group" id="group-alloc">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
                   data-tip="How your money is split between growth investments and lower-risk savings. Both slices always sum to 100% — move the slider to change the mix.">
@@ -322,7 +322,30 @@
             ≈ <span id="tax-annual-val">€0</span> est. tax this year
           </div>
           <div id="tax-box3-info" class="tax-info" style="display:none">
-            NL 2026: 36% on a deemed return of 6.0% (investments) + 1.28% (savings), on net assets above €59,357 — proportional method.
+            NL 2026: 36% on a deemed return of 6.0% (investments) + 1.28% (savings) − 2.70% (deductible debts), on net assets above €59,357 — proportional method.
+          </div>
+          <div id="tax-box3-inputs" class="tax-box3-inputs" style="display:none">
+            <div class="tax-box3-field">
+              <span class="has-tip" tabindex="0"
+                    data-tip="Bank and savings balances — taxed at the lower deemed yield of 1.28%/yr. Enter today's amount; it's kept as a fixed share of your portfolio as it grows.">
+                Savings &amp; bank balances (€)
+              </span>
+              <input type="text" inputmode="numeric" class="value-box" id="input-box3-savings" value="10000" />
+            </div>
+            <div class="tax-box3-field">
+              <span class="has-tip" tabindex="0"
+                    data-tip="Stocks, ETFs, crypto, real estate and other investments — taxed at the higher deemed yield of 6.00%/yr.">
+                Investments &amp; other assets (€)
+              </span>
+              <input type="text" inputmode="numeric" class="value-box" id="input-box3-investments" value="40000" />
+            </div>
+            <div class="tax-box3-field">
+              <span class="has-tip" tabindex="0"
+                    data-tip="Personal loans or a non-primary-residence mortgage — deductible debt reduces your taxable Box 3 base at a deemed rate of 2.70%/yr.">
+                Deductible debts (€)
+              </span>
+              <input type="text" inputmode="numeric" class="value-box" id="input-box3-debts" value="0" />
+            </div>
           </div>
           <div id="tax-custom-row" class="tax-custom-row" style="display:none">
             <span class="tax-custom-label">Effective rate on annual gains:</span>

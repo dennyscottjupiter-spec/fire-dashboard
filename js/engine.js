@@ -17,27 +17,34 @@ const BOX3 = {
   allowance:     59357,  // heffingvrij vermogen 2026, single filer (€)
   deemedInvest:  0.060,  // fictitious return on investments (provisional 2026)
   deemedSavings: 0.0128, // fictitious return on savings (2026)
+  deemedDebt:    0.027,  // fictitious rate that deductible debts reduce the base by
   taxRate:       0.36,   // flat 36% on the total deemed return
 };
 
-// Annual Box-3 tax on portfolio P using the NL 2026 proportional method.
-// allocInvest (0–100): % of P held in investments; remainder is savings.
+// Annual Box-3 tax on portfolio P using the NL 2026 three-bucket proportional method.
+// `ratios` = { savingsRatio, investRatio, debtRatio } — fixed shares of P, derived ONCE
+// (in runProjection, from the user's today's-€ Savings/Investments/Debts split) and
+// re-applied to the grown P every year, the same way the old single allocInvest% was.
 // In real mode, allowance is deflated so it stays comparable to a real-terms P.
-// Proportional method: deemed return × (taxable fraction of P).
 //
-//   Example — P=€300k, 80% invest, single:
-//     deemed = 240k×6.0% + 60k×1.28% = 15,168
+//   Example — P=€300k, ratios from €60k savings / €240k investments / €0 debt (today):
+//     savings=60k, investments=240k, debts=0 → netWorth=300k
+//     deemed = 240k×6.0% + 60k×1.28% − 0 = 15,168
 //     taxable share = (300k − 59,357) / 300k = 0.8021
 //     tax = 0.36 × 15,168 × 0.8021 ≈ €4,380
-function box3Tax(P, t, infl, isReal, allocInvest) {
+function box3Tax(P, t, infl, isReal, ratios) {
   const allowance = isReal
     ? BOX3.allowance / Math.pow(1 + infl, t)
     : BOX3.allowance;
-  if (P <= allowance) return 0;
-  const a = (allocInvest == null ? 100 : allocInvest) / 100;
-  const deemed = P * a * BOX3.deemedInvest + P * (1 - a) * BOX3.deemedSavings;
-  const taxableShare = (P - allowance) / P;
-  return BOX3.taxRate * deemed * taxableShare;
+  const r = ratios || { savingsRatio: 0, investRatio: 1, debtRatio: 0 }; // back-compat: 100% invested, no debt
+  const savings     = P * r.savingsRatio;
+  const investments = P * r.investRatio;
+  const debts       = P * r.debtRatio;
+  const netWorth = savings + investments - debts;
+  if (netWorth <= allowance) return 0;
+  const deemed = savings * BOX3.deemedSavings + investments * BOX3.deemedInvest - debts * BOX3.deemedDebt;
+  const taxableShare = (netWorth - allowance) / netWorth;
+  return BOX3.taxRate * Math.max(0, deemed) * taxableShare;
 }
 
 // Capital-gains tax: pct% of that year's investment gain only.
@@ -106,6 +113,16 @@ function runProjection(s) {
   const pensionContrib = s.pensionContrib || 0;   // €/yr into the Box-1 pot (gross)
   const ANNUITY_YEARS  = 20;                       // pot pays out over 20 yrs from AOW
   const growthModel    = s.growthModel || 'income'; // 'income' | 'cagr' (v2.2)
+
+  // Box-3 three-bucket split (v2.3) — fixed ratios of P, derived once from today's
+  // €-denominated Savings/Investments/Debts inputs, decoupled from allocInvest.
+  const box3SavingsAmt = s.box3Savings     || 0;
+  const box3InvestAmt  = s.box3Investments != null ? s.box3Investments : s.portfolio;
+  const box3DebtAmt    = s.box3Debts       || 0;
+  const box3AssetTotal = box3SavingsAmt + box3InvestAmt;
+  const box3Ratios = box3AssetTotal > 0
+    ? { savingsRatio: box3SavingsAmt / box3AssetTotal, investRatio: box3InvestAmt / box3AssetTotal, debtRatio: box3DebtAmt / box3AssetTotal }
+    : { savingsRatio: 0, investRatio: 1, debtRatio: 0 };
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
@@ -203,7 +220,7 @@ function runProjection(s) {
       const netDraw = Math.max(0, gross - aow - annuityNet);
       taxBase = grown;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
+        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = grown - netDraw - tax;
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
@@ -214,7 +231,7 @@ function runProjection(s) {
       const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings / cumInfl : savings);
       taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, s.allocInvest)
+        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = Math.max(0, grown + contrib - tax);
     }

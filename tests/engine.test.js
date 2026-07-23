@@ -18,23 +18,53 @@ assert('parseNum("007")',       parseNum('007')       === 7,       parseNum('007
 assert('parseNum("9999999")',   parseNum('9999999')   === 9999999, parseNum('9999999'),   9999999);
 
 /* ── box3Tax (NL 2026) ─────────────────────────────────────── */
-group('box3Tax — NL 2026 proportional method');
+group('box3Tax — NL 2026 three-bucket proportional method');
+const allInvest  = { savingsRatio: 0, investRatio: 1, debtRatio: 0 };
+const allSavings = { savingsRatio: 1, investRatio: 0, debtRatio: 0 };
 assert('no tax below allowance (€50k < €59,357)', box3Tax(50000, 0, 0.02, false) === 0, box3Tax(50000, 0, 0.02, false), 0);
 assert('no tax exactly at allowance (€59,357)', box3Tax(59357, 0, 0.02, false) === 0, box3Tax(59357, 0, 0.02, false), 0);
 // 100% invest, P=100k: deemed=100k×6.0%=6000; taxableShare=(100k-59357)/100k=0.40643; tax=0.36×6000×0.40643
 const expected3 = 0.36 * (100000 * 1.0 * 0.060) * ((100000 - 59357) / 100000);
-assert('tax above allowance, 100% invest (t=0)', near(box3Tax(100000, 0, 0.02, false, 100), expected3, 0.1), box3Tax(100000, 0, 0.02, false, 100).toFixed(2), expected3.toFixed(2));
+assert('tax above allowance, 100% invest (t=0)', near(box3Tax(100000, 0, 0.02, false, allInvest), expected3, 0.1), box3Tax(100000, 0, 0.02, false, allInvest).toFixed(2), expected3.toFixed(2));
 // 100% savings, same P: deemed=100k×1.28%=1280 — much less than invest
 const expected3sav = 0.36 * (100000 * 1.0 * 0.0128) * ((100000 - 59357) / 100000);
-assert('100% savings pays less tax than 100% invest', expected3sav < expected3, expected3sav.toFixed(2), '< ' + expected3.toFixed(2));
-assert('100% savings tax is non-negative', expected3sav >= 0, expected3sav >= 0, true);
-const box3Real = box3Tax(100000, 5, 0.02, true, 100);
-const box3Nom  = box3Tax(100000, 5, 0.02, false, 100);
+assert('100% savings pays less tax than 100% invest', near(box3Tax(100000, 0, 0.02, false, allSavings), expected3sav, 0.1), box3Tax(100000, 0, 0.02, false, allSavings).toFixed(2), expected3sav.toFixed(2));
+assert('100% savings tax is non-negative', box3Tax(100000, 0, 0.02, false, allSavings) >= 0, box3Tax(100000, 0, 0.02, false, allSavings) >= 0, true);
+const box3Real = box3Tax(100000, 5, 0.02, true, allInvest);
+const box3Nom  = box3Tax(100000, 5, 0.02, false, allInvest);
 assert('real-mode allowance deflates → larger tax than nominal at t=5', box3Real > box3Nom, box3Real.toFixed(4), '> ' + box3Nom.toFixed(4));
-assert('real-mode at t=0 equals nominal', near(box3Tax(100000, 0, 0.02, true, 100), box3Tax(100000, 0, 0.02, false, 100), 0.001), true, true);
+assert('real-mode at t=0 equals nominal', near(box3Tax(100000, 0, 0.02, true, allInvest), box3Tax(100000, 0, 0.02, false, allInvest), 0.001), true, true);
 assert('box3Tax result is non-negative for P=0', box3Tax(0, 0, 0.02, false) === 0, box3Tax(0, 0, 0.02, false), 0);
-// backward-compat: omitting allocInvest defaults to 100% invest
-assert('omitting allocInvest defaults to 100% invest', near(box3Tax(100000, 0, 0.02, false), box3Tax(100000, 0, 0.02, false, 100), 0.001), true, true);
+// backward-compat: omitting ratios defaults to 100% invest, no debt
+assert('omitting ratios defaults to 100% invest', near(box3Tax(100000, 0, 0.02, false), box3Tax(100000, 0, 0.02, false, allInvest), 0.001), true, true);
+
+/* ── box3Tax three-bucket: deductible debts (v2.3) ───────────── */
+group('box3Tax — deductible debts bucket');
+// P=300k, 20% savings/80% invest, no debt: deemed = 60k×1.28% + 240k×6.0% = 15,168
+const mix8020 = { savingsRatio: 0.2, investRatio: 0.8, debtRatio: 0 };
+const expectedMix = 0.36 * (60000 * 0.0128 + 240000 * 0.060) * ((300000 - 59357) / 300000);
+assert('three-bucket mix matches hand-computed example', near(box3Tax(300000, 0, 0.02, false, mix8020), expectedMix, 0.1), box3Tax(300000, 0, 0.02, false, mix8020).toFixed(2), expectedMix.toFixed(2));
+// Same mix, +10% of P as deductible debt: reduces both the deemed return and the taxable net worth
+const mixWithDebt = { savingsRatio: 0.2, investRatio: 0.8, debtRatio: 0.1 };
+const debtTax = box3Tax(300000, 0, 0.02, false, mixWithDebt);
+assert('adding deductible debt lowers the tax vs no debt', debtTax < expectedMix, debtTax.toFixed(2), '< ' + expectedMix.toFixed(2));
+// Debt heavy enough to push net worth below the allowance → no tax at all
+const heavyDebt = { savingsRatio: 0.2, investRatio: 0.8, debtRatio: 0.9 };
+assert('heavy debt can push net worth below the allowance (no tax)', box3Tax(300000, 0, 0.02, false, heavyDebt) === 0, box3Tax(300000, 0, 0.02, false, heavyDebt), 0);
+
+/* ── runProjection — Box 3 wiring to box3Savings/Investments/Debts (v2.3) ── */
+group('runProjection — Box 3 three-bucket wiring');
+const box3Base = { portfolio: 300000, income: 60000, spending: 30000, investReturn: 0, savingsReturn: 0,
+  allocInvest: 100, returnRate: 0, inflation: 2, withdrawal: 4, mode: 'nominal', currentAge: 30, taxMode: 'box3' };
+const projDefaultInvest = runProjection({ ...box3Base }); // no box3* fields → back-compat 100% invest
+const projAllSavings    = runProjection({ ...box3Base, box3Savings: 300000, box3Investments: 0, box3Debts: 0 });
+assert('all-savings Box3 split pays less first-year tax than default all-invest', projAllSavings.firstYearTax < projDefaultInvest.firstYearTax, projAllSavings.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
+const projWithDebt = runProjection({ ...box3Base, box3Savings: 60000, box3Investments: 240000, box3Debts: 100000 });
+assert('declared debt lowers first-year Box3 tax vs no debt', projWithDebt.firstYearTax < projDefaultInvest.firstYearTax, projWithDebt.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
+assert('Box 3 no longer keys off allocInvest', near(
+  runProjection({ ...box3Base, allocInvest: 0,   box3Savings: 0, box3Investments: 300000 }).firstYearTax,
+  runProjection({ ...box3Base, allocInvest: 100, box3Savings: 0, box3Investments: 300000 }).firstYearTax, 0.01
+), true, true);
 
 /* ── customTax ─────────────────────────────────────────────── */
 group('customTax');
