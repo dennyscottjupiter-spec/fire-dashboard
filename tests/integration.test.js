@@ -864,6 +864,24 @@
     assert('Reset hides the cagr-block again', style('cagr-block').display === 'none', style('cagr-block').display, 'none');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] reset growth model: ${e.message}\n`; }
 
+  /* ── Help modal (v2.3) ────────────────────────────────────── */
+  try {
+    group('Integration — Help modal');
+    resetBaseline();
+    clickEl('btn-help');
+    assert('Help opens on btn-help click', style('help-overlay').display === 'flex', style('help-overlay').display, 'flex');
+    assert('Help defaults to first (Inputs) tab', doc.querySelector('.help-tab-btn.active')?.dataset.tab === 'inputs', doc.querySelector('.help-tab-btn.active')?.dataset.tab, 'inputs');
+    doc.querySelector('[data-tab="chart"]').click();
+    assert('Clicking a tab switches the active tab', doc.querySelector('.help-tab-btn.active')?.dataset.tab === 'chart', doc.querySelector('.help-tab-btn.active')?.dataset.tab, 'chart');
+    assert('Panel content updates with the tab', text('help-panel').includes('Monte Carlo'), text('help-panel').slice(0, 20), '~Monte Carlo');
+    keyDown('help-overlay', 'Escape');
+    assert('Escape closes the Help modal', style('help-overlay').display === 'none', style('help-overlay').display, 'none');
+    doc.querySelector('[data-help-tab="growth"]').click();
+    assert('Learn-more link opens Help on the matching tab', doc.querySelector('.help-tab-btn.active')?.dataset.tab === 'growth', doc.querySelector('.help-tab-btn.active')?.dataset.tab, 'growth');
+    clickEl('help-close');
+    assert('Close button closes the Help modal', style('help-overlay').display === 'none', style('help-overlay').display, 'none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] help modal: ${e.message}\n`; }
+
   /* cleanup */
   safeClearLS();
 
