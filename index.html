@@ -42,10 +42,16 @@
               data-tip="Snapshot your current plan as Scenario A, then keep editing as Scenario B — both are drawn on the chart so you can compare them side by side. Click again to clear.">
         📊 Compare
       </button>
-      <button class="io-btn has-tip tip-right" id="btn-export" tabindex="0"
-              data-tip="Download your current settings as a JSON file. Share it or reload it later with Import.">
-        ⬇ Export
-      </button>
+      <div class="io-btn-wrap">
+        <button class="io-btn has-tip tip-right" id="btn-export" tabindex="0"
+                data-tip="Download your settings as JSON, or a one-page PDF snapshot of your plan.">
+          ⬇ Export
+        </button>
+        <div id="export-menu" class="export-menu" style="display:none" role="menu">
+          <button type="button" class="export-menu-item" id="export-json" role="menuitem">📄 JSON (settings file)</button>
+          <button type="button" class="export-menu-item" id="export-pdf" role="menuitem">🖨️ PDF (one-page snapshot)</button>
+        </div>
+      </div>
       <button class="io-btn has-tip tip-right" id="btn-import" tabindex="0"
               data-tip="Load a previously exported JSON file to restore your saved settings.">
         ⬆ Import
@@ -582,6 +588,20 @@
         <div id="help-panel" class="help-panel" role="tabpanel"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ── Print-only PDF snapshot (v2.3) — shown only via @media print ── -->
+  <div id="print-snapshot" class="print-snapshot">
+    <h1>🔥 FIRE Dashboard — Plan Snapshot</h1>
+    <div id="print-date" class="print-date"></div>
+    <div class="print-kpis">
+      <div><span>Years to FIRE</span><strong id="print-kpi-years"></strong></div>
+      <div><span>FI Number</span><strong id="print-kpi-fi"></strong></div>
+      <div><span>Savings Rate</span><strong id="print-kpi-sr"></strong></div>
+    </div>
+    <img id="print-chart-img" alt="Portfolio growth projection chart" />
+    <h2>Key Assumptions</h2>
+    <ul id="print-assumptions"></ul>
   </div>
 </div>
 

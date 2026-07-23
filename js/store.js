@@ -277,6 +277,36 @@ function exportConfig() {
   URL.revokeObjectURL(url);
 }
 
+// One-page PDF snapshot (v2.3) — print-optimized view + window.print(), no PDF library.
+function buildPrintSnapshot() {
+  const det = runProjection(state);
+  els.printDate.textContent    = `Generated ${new Date().toLocaleDateString()}`;
+  els.printKpiYears.textContent = els.kpiYears.textContent;
+  els.printKpiFi.textContent    = els.kpiFI.textContent;
+  els.printKpiSr.textContent    = det.savingsRate > 0 ? det.savingsRate.toFixed(1) + '%' : '0%';
+  els.printChartImg.src = (typeof chartReady !== 'undefined' && chartReady) ? chart.toBase64Image() : '';
+
+  const growthLabel = state.growthModel === 'cagr'
+    ? `Net Worth CAGR: ${state.cagrPct}%/yr`
+    : `Investment Return: ${state.investReturn}%/yr · Savings Return: ${state.savingsReturn}%/yr`;
+  const taxLabel = state.taxMode === 'box3'   ? 'Box 3 (NL wealth tax)'
+                  : state.taxMode === 'custom' ? `Custom (${state.taxCustomPct}%/yr on gains)`
+                  : 'None';
+  els.printAssumptions.innerHTML = [
+    growthLabel,
+    `Asset Allocation: ${state.allocInvest}% invested / ${100 - state.allocInvest}% savings`,
+    `Expected Inflation: ${state.inflation}%/yr`,
+    `Safe Withdrawal Rate: ${state.withdrawal}%`,
+    `Tax Mode: ${taxLabel}`,
+    `Calculation Mode: ${state.mode === 'real' ? 'Real Terms (inflation-adjusted)' : 'Nominal'}`,
+  ].map(t => `<li>${t}</li>`).join('');
+}
+
+function printSnapshot() {
+  buildPrintSnapshot();
+  window.print();
+}
+
 const MAX_IMPORT_BYTES = 100 * 1024;
 
 function showImportError(msg) {

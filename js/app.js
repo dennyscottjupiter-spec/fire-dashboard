@@ -51,6 +51,15 @@ const els = {
   btnExport:    $('btn-export'),
   btnImport:    $('btn-import'),
   fileInput:    $('file-input'),
+  exportMenu:      $('export-menu'),
+  exportJson:      $('export-json'),
+  exportPdf:       $('export-pdf'),
+  printDate:       $('print-date'),
+  printKpiYears:   $('print-kpi-years'),
+  printKpiFi:      $('print-kpi-fi'),
+  printKpiSr:      $('print-kpi-sr'),
+  printChartImg:   $('print-chart-img'),
+  printAssumptions:$('print-assumptions'),
   // Tax
   btnTaxNone:   $('btn-tax-none'),
   btnTaxBox3:   $('btn-tax-box3'),
@@ -980,8 +989,25 @@ function wireInputs() {
 }
 
 /* ── 11. Export / Import — logic (exportConfig / importConfig /
-   showImportError) lives in store.js; button wiring below ───── */
-els.btnExport.addEventListener('click', exportConfig);
+   showImportError / buildPrintSnapshot / printSnapshot) lives in
+   store.js; button wiring below ───── */
+function closeExportMenu() {
+  els.exportMenu.style.display = 'none';
+  els.btnExport.classList.remove('menu-open');
+}
+els.btnExport.addEventListener('click', e => {
+  e.stopPropagation();
+  const opening = els.exportMenu.style.display === 'none';
+  els.exportMenu.style.display = opening ? 'flex' : 'none';
+  els.btnExport.classList.toggle('menu-open', opening);
+});
+els.exportJson.addEventListener('click', () => { closeExportMenu(); exportConfig(); });
+els.exportPdf.addEventListener('click',  () => { closeExportMenu(); printSnapshot(); });
+document.addEventListener('click', e => {
+  if (els.exportMenu.style.display !== 'none' && !els.exportMenu.contains(e.target) && e.target !== els.btnExport) {
+    closeExportMenu();
+  }
+});
 els.btnImport.addEventListener('click', () => els.fileInput.click());
 els.fileInput.addEventListener('change', e => {
   if (e.target.files[0]) importConfig(e.target.files[0]);
