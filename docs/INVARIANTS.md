@@ -81,6 +81,7 @@ Controlled by `state.mode`.
 - **Fee drag** applied in `recalc()` — `returnRate = a·(investReturn − terPct) + (1−a)·savingsReturn` — so `engine.js` stays fee-agnostic. The "lost to fees over your lifetime" readout reruns fee-free and compares **terminal** wealth (comparing at retirement inverts, because the fee-free run retires earlier and is already drawing down).
 - Life events: `renderEvents()` rebuilds `#events-list` on add/remove/restore (never per keystroke); `parseSignedNum` allows negative outlays.
 - Chart: x-axis is age; draw phase colours amber via `dataset.segment.borderColor` reading `chart.$drawStart`; `eventMarkerPlugin` draws ▲/▼ markers from `chart.$events`; `#lifecycle-note` shows survive/deplete.
+- The amber decumulation line **flat-lines at exactly €0** if the pot depletes before the horizon — that's real, meaningful data (confirmed via `runProjection`, not a rendering bug), documented via the chart card's `data-tip` rather than removed (v2.3 chart declutter, #8).
 
 ## Risk engine (v1.8)
 
@@ -96,12 +97,12 @@ Controlled by `state.mode`.
 - Grows locked and **Box-3-free**, then **annuitizes at AOW age** (`pensionAge`) over `ANNUITY_YEARS` (20): `annuityGross = PP/20`, taxed each year by `box1Tax` (progressive ~19.07%/37%, 2026 approx).
 - **Drawdown order** in retirement: AOW income (`pensionAmount`) + net Box-1 annuity fund spending first; the taxable Box-3 pool covers only the remainder (so it shrinks, lowering Box 3).
 - Every data point carries `pp` (pot balance; 0 after annuitization). Deterministic path byte-for-byte unchanged when `pensionPot=0 && pensionContrib=0`.
-- UI: violet dashed pension-pot line (dataset **5**) shown in steady/history when a pot is set, hidden in Monte Carlo.
+- The pot itself has **no chart line** (removed in v2.3 — see **Chart** below); it still fully drives tax/drawdown math, just isn't plotted.
 
 ## Cockpit UX (v2.0)
 
 - **A/B compare**: `#btn-compare` toggles `compareOn` + a frozen `scenarioA = snapshotState()` (deterministic config, `returnRate` already fee-adjusted), saved to a separate LS key `fire-dashboard-scenario-a` and restored on boot.
-- `renderChart` overlays A on datasets **6** (A portfolio, dashed) + **7** (`_A_FI`, hidden from legend) in steady/history only (hidden in MC); `updateCompareReadout(det)` shows the A-vs-B FIRE-year delta in `#compare-readout`.
+- `renderChart` overlays scenario A on dataset **5** ("Scenario A", solid violet `#a78bfa`, dashed) in steady/history only (hidden in MC); the live line (dataset 0) relabels to "Scenario B" while `compareOn`, reverting to "Portfolio Value" on exit. `updateCompareReadout(det)` shows the A-vs-B FIRE-year delta in `#compare-readout`. (v2.3: dropped the separate `_A_FI` dataset that used to sit at index 7 — scenario A's own FI-target line was redundant chart clutter, not information users needed.)
 - **Onboarding wizard**: pure DOM/CSS modal driven by `WIZARD_STEPS`; `renderWizardStep`/`wizardNext`/`wizardBack`/`finishWizard`; answers map through `applyConfig` (retire age → WR; risk → return+alloc).
 - Auto-opens when `_firstRun` (no `LS_KEY` at boot); `#btn-wizard` re-opens it; Esc/Skip/click-outside close.
 - `window.openWizard/finishWizard/toggleCompare` exposed for tests; tests dismiss the auto-opened wizard + exit compare in `resetBaseline`.
@@ -138,3 +139,14 @@ The `MILESTONES` array (in `ui.js`) drives `updateMilestones(portfolio, fi, curr
 - `exportConfig()` serialises `state` to JSON and triggers a download. `importConfig(file)` validates guards, then calls `applyConfig(cfg)` + `recalc()`.
 - New config fields `investReturn, savingsReturn, allocInvest` replace raw `returnRate`; backward-compat in `applyConfig()` treats old configs with `returnRate` and no `investReturn` as 100% invested, so their projection is preserved.
 - **Import guards** — `importConfig(file)` rejects *before* `FileReader` if `file.size > 100 KB`, or if type is not `application/json | text/json | "" (empty MIME)` **and** the name doesn't end in `.json`. All three rejection paths share `showImportError(msg)`.
+- **PDF export (v2.3)** — `#btn-export` opens a small dropdown (`#export-menu`: JSON / PDF) instead of exporting directly; `exportConfig()` itself is unchanged. PDF path: `buildPrintSnapshot()` (store.js) fills `#print-snapshot` (headline KPIs, `chart.toBase64Image()`, key assumptions), then `printSnapshot()` calls `window.print()`. `#print-snapshot` is `display:none` normally and only shown under `@media print` (standard `visibility:hidden`-on-body / `visibility:visible`-on-snapshot technique) — no PDF library, no new CDN origin. The export button suppresses its own `.has-tip` tooltip via a `.menu-open` class while the dropdown is open (the mouse is still resting on the button right after the click that opened it, which would otherwise cover the menu).
+
+## Help modal (v2.3)
+
+- `#btn-help` (left of Reset) opens `#help-overlay`, mirroring the wizard overlay's show/hide + Esc/overlay-click/close-button dismiss pattern (`openHelp(tabKey)` / `closeHelp()`).
+- Tab content lives in the `HELP_TABS` array in `app.js` — each section's `tip` is a **verbatim copy** of the matching `data-tip` string in `index.html`, plus a short `extra` explanation. Keep the two in sync by hand when editing either; there's no automated link between them.
+- A few cross-referenced readouts (`#lifecycle-note`, `#cagr-implied`, the chart `panel-title`) carry a `.help-learn-more` button that deep-links to the matching tab. These sit as **siblings**, not children, of the has-tip element — `.has-tip::after` is CSS-generated content (`content: attr(data-tip)`) and can't host a real clickable child. Not every tooltip in the app has one of these links (would require rebuilding the whole tooltip system as real DOM); the Help button itself is always one click away instead (and pinned in the header — see below).
+
+## Pinned Years-to-FIRE KPI (v2.3)
+
+- `#years-fire-pin` lives inside the already-`position: sticky` header (not a separately-positioned fixed element — avoids tracking header height across the `flex-wrap` breakpoints). An `IntersectionObserver` on `#kpi-years-card` (boot section of `app.js`) toggles its `.visible` class; `recalc()` unconditionally mirrors `#kpi-years`/`#kpi-fire-year` text into it every pass, so content is always fresh even while hidden.

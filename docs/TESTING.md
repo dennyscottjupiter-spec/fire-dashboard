@@ -5,12 +5,12 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 ## Running
 
 - Open `tests/tests.html` **via a local http server** — integration tests need a same-origin iframe (`file://` blocks cross-frame access). Quick start: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`.
-- **312 tests** = **116 engine unit tests** (synchronous; also run on `file://`) + **196 integration tests** (iframe). Integration watchdog **45 s**.
+- **339 tests** = **122 engine unit tests** (synchronous; also run on `file://`) + **217 integration tests** (iframe). Integration watchdog **45 s**.
 
 ## Coverage
 
 - Engine tests cover the v1.8 risk engine, v1.9 Box-1 pension pot, v2.2 Net-Worth CAGR growth model + solvers.
-- Integration tests drive every input, gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, annual tax readout, v1.7 lifecycle controls, v1.8 risk UI, v1.9 pension pot, v2.0 cockpit (A/B compare, onboarding wizard), v2.2 Growth Model toggle (CAGR block, reverse solver, implied-CAGR bridge, MC/History disablement).
+- Integration tests drive every input, gauge, blend, import guards, localStorage round-trip, milestones, two-step reset, annual tax readout, v1.7 lifecycle controls, v1.8 risk UI, v1.9 pension pot, v2.0 cockpit (A/B compare, onboarding wizard), v2.2 Growth Model toggle (CAGR block, reverse solver, implied-CAGR bridge, MC/History disablement), v2.3 Help modal (open/close/tabs/learn-more deep-links), Export dropdown (JSON/PDF snapshot), Box 3 three-bucket € inputs, and the allocation-slider/Box3 decoupling regression check.
 
 ## Layout (v2.1)
 
