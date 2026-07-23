@@ -273,21 +273,58 @@
     assert('tax-annual-val contains € symbol under Box 3',
       text('tax-annual-val').startsWith('€'), text('tax-annual-val'), 'starts with €');
 
-    /* savings-heavy (0% invest) pays less than invest-heavy (100% invest) */
-    doc.getElementById('slider-alloc').value = '0';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    /* savings-heavy (all box3Savings) pays less than invest-heavy (all box3Investments) —
+       driven by the dedicated Box 3 € inputs, NOT the return-blend allocation slider (v2.3) */
+    setVal('input-box3-savings', '50000'); fireBlur('input-box3-savings');
+    setVal('input-box3-investments', '0'); fireBlur('input-box3-investments');
     const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    doc.getElementById('slider-alloc').value = '100';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    setVal('input-box3-savings', '0');     fireBlur('input-box3-savings');
+    setVal('input-box3-investments', '50000'); fireBlur('input-box3-investments');
     const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
     assert('Box 3: invest-heavy pays more tax than savings-heavy (higher deemed return)',
       taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
+
+    /* Asset Allocation slider no longer affects Box 3 tax at all (decoupled in v2.3).
+       Freeze investReturn = savingsReturn first so moving the slider can't change the
+       blended returnRate itself — isolates whether allocInvest still leaks into Box 3. */
+    setVal('val-return', '5'); fireBlur('val-return');
+    setVal('val-savings', '5'); fireBlur('val-savings');
+    const taxBeforeAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    doc.getElementById('slider-alloc').value = '0';
+    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    const taxAfterAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('moving the allocation slider does not change Box 3 tax', near(taxAfterAllocMove, taxBeforeAllocMove, 0.5), taxAfterAllocMove, taxBeforeAllocMove);
+
+    /* deductible debt lowers the tax */
+    setVal('input-box3-debts', '40000'); fireBlur('input-box3-debts');
+    const taxWithDebt = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('deductible debt lowers Box 3 tax vs no debt', taxWithDebt < taxAllInvest, taxWithDebt.toFixed(0), '< ' + taxAllInvest.toFixed(0));
 
     /* restore */
     clickEl('btn-tax-none');
     doc.getElementById('slider-alloc').value = '80';
     doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
+    setVal('input-box3-savings', '10000'); fireBlur('input-box3-savings');
+    setVal('input-box3-investments', '40000'); fireBlur('input-box3-investments');
+    setVal('input-box3-debts', '0'); fireBlur('input-box3-debts');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax readout: ${e.message}\n`; }
+
+  /* ── Box 3 three-bucket inputs (v2.3) ────────────────────── */
+  try {
+    group('Integration — Box 3 three-bucket € inputs');
+    resetBaseline();
+    clickEl('btn-tax-box3');
+    assert('tax-box3-inputs visible under Box 3', style('tax-box3-inputs').display !== 'none', style('tax-box3-inputs').display, 'flex');
+    setVal('input-box3-savings', '25000'); fireBlur('input-box3-savings');
+    assert('box3Savings = 25000', s.box3Savings === 25000, s.box3Savings, 25000);
+    assert('box3-savings formats with comma on blur', val('input-box3-savings') === '25,000', val('input-box3-savings'), '25,000');
+    setVal('input-box3-investments', '75000'); fireBlur('input-box3-investments');
+    assert('box3Investments = 75000', s.box3Investments === 75000, s.box3Investments, 75000);
+    setVal('input-box3-debts', '15000'); fireBlur('input-box3-debts');
+    assert('box3Debts = 15000', s.box3Debts === 15000, s.box3Debts, 15000);
+    clickEl('btn-tax-none');
+    assert('tax-box3-inputs hidden again', style('tax-box3-inputs').display === 'none', style('tax-box3-inputs').display, 'none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] box3 inputs: ${e.message}\n`; }
 
   /* ── macro buttons ───────────────────────────────────────── */
   try {
