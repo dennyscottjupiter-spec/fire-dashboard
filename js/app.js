@@ -40,6 +40,10 @@ const els = {
   kpiYears:     $('kpi-years'),
   kpiFireYear:  $('kpi-fire-year'),
   kpiYearsSub:  $('kpi-years-sub'),
+  kpiYearsCard:   $('kpi-years-card'),
+  yearsFirePin:   $('years-fire-pin'),
+  pinKpiYears:    $('pin-kpi-years'),
+  pinKpiFireYear: $('pin-kpi-fire-year'),
   inputAge:     $('input-age'),
   notice:       $('notice-banner'),
   btnReal:      $('btn-real'),
@@ -202,6 +206,10 @@ function recalc() {
   } else {
     els.kpiFireYear.style.display = 'none';
   }
+
+  // Mirror into the header pin (visibility toggled separately by an IntersectionObserver)
+  els.pinKpiYears.textContent    = els.kpiYears.textContent;
+  els.pinKpiFireYear.textContent = els.kpiFireYear.style.display === 'none' ? '' : els.kpiFireYear.textContent;
 
   if (state.growthModel === 'cagr') {
     els.kpiYearsSub.textContent = `Net worth compounding at ${state.cagrPct.toFixed(1)}%/yr`;
@@ -907,6 +915,14 @@ try {
 refreshMacroActive();
 
 recalc();
+
+// Pin the Years-to-FIRE figure in the header once its KPI card scrolls out of view
+if (typeof IntersectionObserver !== 'undefined') {
+  new IntersectionObserver(
+    ([entry]) => els.yearsFirePin.classList.toggle('visible', !entry.isIntersecting),
+    { threshold: 0 }
+  ).observe(els.kpiYearsCard);
+}
 
 // Expose globals for integration tests
 window._state         = state;
