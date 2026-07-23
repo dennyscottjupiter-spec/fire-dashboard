@@ -882,6 +882,23 @@
     assert('Close button closes the Help modal', style('help-overlay').display === 'none', style('help-overlay').display, 'none');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] help modal: ${e.message}\n`; }
 
+  /* ── Export dropdown: JSON / PDF (v2.3) ──────────────────── */
+  try {
+    group('Integration — Export dropdown (JSON / PDF)');
+    resetBaseline();
+    const realPrint = win.print;
+    win.print = () => {};   // stub — never show a real print dialog in the test run
+    clickEl('btn-export');
+    assert('Export menu opens on click', style('export-menu').display === 'flex', style('export-menu').display, 'flex');
+    clickEl('export-pdf');
+    assert('Export menu closes after choosing PDF', style('export-menu').display === 'none', style('export-menu').display, 'none');
+    assert('PDF snapshot fills in the FI Number', text('print-kpi-fi') === text('kpi-fi-number'), text('print-kpi-fi'), text('kpi-fi-number'));
+    assert('PDF snapshot fills in Years to FIRE', text('print-kpi-years') === text('kpi-years'), text('print-kpi-years'), text('kpi-years'));
+    assert('PDF snapshot embeds the chart as a base64 image', doc.getElementById('print-chart-img').src.startsWith('data:image'), doc.getElementById('print-chart-img').src.slice(0, 15), '~data:image');
+    assert('PDF snapshot lists key assumptions', text('print-assumptions').includes('Safe Withdrawal Rate'), text('print-assumptions').slice(0, 30), '~Safe Withdrawal Rate');
+    win.print = realPrint;
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] export dropdown: ${e.message}\n`; }
+
   /* cleanup */
   safeClearLS();
 
