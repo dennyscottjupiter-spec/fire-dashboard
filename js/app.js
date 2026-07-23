@@ -230,13 +230,13 @@ function recalc() {
   // ── Lifecycle note: does the pot survive the plan?
   if (depleteAge !== null) {
     els.lifecycleNote.textContent = `🔴 At this spending, your pot runs dry at age ${depleteAge}.`;
-    els.lifecycleNote.className   = 'lifecycle-note dry';
+    els.lifecycleNote.className   = 'lifecycle-note has-tip dry';
   } else if (yearsToFI !== null) {
     els.lifecycleNote.textContent = `🟢 Your pot lasts through age ${data[lastIdx].age}.`;
-    els.lifecycleNote.className   = 'lifecycle-note ok';
+    els.lifecycleNote.className   = 'lifecycle-note has-tip ok';
   } else {
     els.lifecycleNote.textContent = '';
-    els.lifecycleNote.className   = 'lifecycle-note';
+    els.lifecycleNote.className   = 'lifecycle-note has-tip';
   }
 
   // ── Notice banner
