@@ -158,15 +158,6 @@ function initChart() {
           fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4,
           borderWidth: 2, hidden: true,
         },
-        // ── Box-1 pension pot line (v1.9), shown when a pot is configured ──
-        {
-          label: 'Pension pot (Box 1)',
-          data: [],
-          borderColor: '#a78bfa',
-          backgroundColor: 'transparent',
-          fill: false, tension: 0.35, pointRadius: 0, pointHoverRadius: 4,
-          borderWidth: 1.5, borderDash: [2, 3], hidden: true,
-        },
         // ── Scenario A (A/B compare, v2.0), muted; shown only in compare mode ──
         {
           label: 'A · Portfolio',
