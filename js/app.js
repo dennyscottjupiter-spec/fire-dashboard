@@ -291,7 +291,7 @@ function renderChart(det) {
   if (state.projMode === 'montecarlo') {
     ds[0].hidden = true;                       // hide the single deterministic path
     ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
-    ds[5].hidden = ds[6].hidden = ds[7].hidden = true;   // pot + scenario-A off in MC view
+    ds[5].hidden = ds[6].hidden = true;         // scenario-A off in MC view
     els.mcSuccess.style.display   = 'flex';
     els.vintageSelect.style.display = 'none';
     scheduleMonteCarlo();                       // debounced heavy compute
@@ -312,19 +312,15 @@ function renderChart(det) {
   chart.data.labels = proj.data.map(d => `Age ${d.age}`);
   ds[0].data = proj.data.map(d => Math.round(d.portfolio));
   ds[1].data = proj.data.map(d => Math.round(d.fi));
-  // Box-1 pension-pot line — only when a pot is configured
-  const showPot = state.pensionPot > 0 || state.pensionContrib > 0;
-  ds[5].hidden = !showPot;
-  if (showPot) ds[5].data = proj.data.map(d => Math.round(d.pp || 0));
 
   // Scenario A overlay (A/B compare mode)
   if (compareOn && scenarioA) {
     const projA = runProjection(scenarioA);
-    ds[6].data = projA.data.map(d => Math.round(d.portfolio));
-    ds[7].data = projA.data.map(d => Math.round(d.fi));
-    ds[6].hidden = ds[7].hidden = false;
+    ds[5].data = projA.data.map(d => Math.round(d.portfolio));
+    ds[6].data = projA.data.map(d => Math.round(d.fi));
+    ds[5].hidden = ds[6].hidden = false;
   } else {
-    ds[6].hidden = ds[7].hidden = true;
+    ds[5].hidden = ds[6].hidden = true;
   }
   chart.update();
 }

@@ -561,16 +561,13 @@
   try {
     group('Integration — Box-1 pension pot');
     resetBaseline();
-    const chartOf = () => win.Chart.getChart('fi-chart');
     setVal('input-pension-pot', '300000'); fireBlur('input-pension-pot');
     assert('pensionPot = 300000', s.pensionPot === 300000, s.pensionPot, 300000);
     assert('pension-pot formats with comma on blur', val('input-pension-pot') === '300,000', val('input-pension-pot'), '300,000');
-    assert('pension-pot chart line shown when pot > 0', chartOf().data.datasets[5].hidden === false, chartOf().data.datasets[5].hidden, false);
     setVal('input-pension-contrib', '8000'); fireBlur('input-pension-contrib');
     assert('pensionContrib = 8000', s.pensionContrib === 8000, s.pensionContrib, 8000);
     setVal('input-pension-pot', '0');     fireBlur('input-pension-pot');
     setVal('input-pension-contrib', '0'); fireBlur('input-pension-contrib');
-    assert('pot line hidden when pot & contrib are 0', chartOf().data.datasets[5].hidden === true, chartOf().data.datasets[5].hidden, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] pension pot: ${e.message}\n`; }
 
   /* ── A/B scenario compare (v2.0) ─────────────────────────── */
