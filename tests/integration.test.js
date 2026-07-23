@@ -576,13 +576,15 @@
     resetBaseline();
     const chartOf = () => win.Chart.getChart('fi-chart');
     clickEl('btn-compare');
-    assert('compare on → scenario A datasets shown', chartOf().data.datasets[6].hidden === false, chartOf().data.datasets[6].hidden, false);
+    assert('compare on → scenario A dataset shown', chartOf().data.datasets[5].hidden === false, chartOf().data.datasets[5].hidden, false);
+    assert('compare on → live line relabels to Scenario B', chartOf().data.datasets[0].label === 'Scenario B', chartOf().data.datasets[0].label, 'Scenario B');
     assert('compare readout visible', doc.getElementById('compare-readout').style.display !== 'none', true, true);
     assert('scenario A saved to localStorage', win.localStorage.getItem('fire-dashboard-scenario-a') !== null, true, true);
     setVal('input-income', '120000'); fireBlur('input-income');
     assert('compare readout mentions FIRE years', text('compare-readout').includes('FIRE'), text('compare-readout').slice(0, 12), '~A: FIRE');
     clickEl('btn-compare');  // toggle off
-    assert('compare off → A datasets hidden', chartOf().data.datasets[6].hidden === true, chartOf().data.datasets[6].hidden, true);
+    assert('compare off → A dataset hidden', chartOf().data.datasets[5].hidden === true, chartOf().data.datasets[5].hidden, true);
+    assert('compare off → live line relabels back to Portfolio Value', chartOf().data.datasets[0].label === 'Portfolio Value', chartOf().data.datasets[0].label, 'Portfolio Value');
     assert('compare readout hidden when off', doc.getElementById('compare-readout').style.display === 'none', true, true);
     assert('scenario A cleared from localStorage', win.localStorage.getItem('fire-dashboard-scenario-a') === null, null, null);
     setVal('input-income', '60000'); fireBlur('input-income');
