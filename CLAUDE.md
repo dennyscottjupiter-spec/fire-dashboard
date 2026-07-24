@@ -51,4 +51,4 @@ Single `state` object → **`recalc()` is the only heartbeat**. Every input even
 
 ## Git
 
-Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.5.0 — see `docs/HISTORY.md`.
+Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.6.0 — see `docs/HISTORY.md`.
