@@ -1,0 +1,17 @@
+# Exported user data — NEVER commit (contains personal financial inputs)
+fire-config*.json
+*.pdf
+
+# Local residual / scratch data
+*.local.json
+*.bak
+*.tmp
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
