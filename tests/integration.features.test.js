@@ -9,6 +9,12 @@
    implied-CAGR bridge, MC/History disablement in CAGR, Perpetual
    growth model, CAGR localStorage/export-import round-trips, old
    config backward-compat, Help modal, Export dropdown.
+   @map: import guards L18 · backward-compat import L41 · split-return
+   fields L52 · localStorage round-trip L63 · Reset button L80 · Growth
+   Model dimming L115-146 · CAGR drives KPIs L148 · CAGR solver L165 ·
+   implied-CAGR L188 · MC/History disabled L197 · Perpetual model L214 ·
+   CAGR localStorage/export-import L249-281 · old config L284 · Reset to
+   default L297 · Help modal L313 · Export dropdown L331
    ══════════════════════════════════════════════════════════ */
 window.runIntegrationFeatures = async function runIntegrationFeatures(ctx) {
   const { win, doc, s, setVal, fireBlur, clickEl, keyDown, text, val, style, resetBaseline } = ctx;

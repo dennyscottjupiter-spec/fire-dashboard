@@ -1,7 +1,8 @@
 'use strict';
 /* ══════════════════════════════════════════════════════════
-   Test harness — shared assert/group/summary infrastructure.
-   Loaded before engine.test.js and integration.test.js.
+   @file: shared assert/group/summary infrastructure. Loaded before
+   engine.core.test.js/engine.risk.test.js and the integration.*.test.js
+   files (see docs/FILEMAP.md for the full load order).
    Depends on: an #out <pre> and an #summary element in the page.
    ══════════════════════════════════════════════════════════ */
 const out = document.getElementById('out');

@@ -1,6 +1,6 @@
 /* ============================================================
    FIRE Dashboard — data.js
-   Vendored historical market data for Monte Carlo + backtesting.
+   @file: vendored historical market data for Monte Carlo + backtesting.
    Load BEFORE engine.js.
 
    HIST: annual S&P 500 TOTAL return (price + reinvested dividends)

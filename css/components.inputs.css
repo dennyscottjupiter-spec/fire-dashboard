@@ -6,6 +6,8 @@
    .models.css/.chart.css/.kpi.css/.gauge.css in this exact order
    (see index.html) — cascade is byte-identical to the original
    single components.css.
+   @map: Tooltips L11 · Control Groups L79 · Collapsible "Other" L97 ·
+   Euro text inputs L113 · Rate display L134 · Steppers L172 · Sliders L201
    ============================================================ */
 
 /* ── Tooltips (pure CSS) ─────────────────────────────────── */

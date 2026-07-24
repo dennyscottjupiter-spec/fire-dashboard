@@ -4,6 +4,8 @@
    banner, chart panel, milestones panel.
    Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
    -> .chart.css -> HERE -> .gauge.css.
+   @map: Dashboard column L9 · KPI Row L12 · Notice banner L84 ·
+   Chart Panel L97 · Milestones L107
    ============================================================ */
 
 /* ── Dashboard column ────────────────────────────────────── */

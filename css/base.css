@@ -1,9 +1,11 @@
 /* ============================================================
    FIRE Dashboard — base.css
-   Foundation layer: @font-face, design tokens (:root), reset,
-   typography, app shell, header chrome, main grid, panels.
-   Loaded BEFORE components.css so the cascade order matches the
-   original single stylesheet exactly.
+   @map: font-face+tokens L9 · App Shell L59 · Header L62 · Pinned
+   Years-to-FIRE readout L93 · Mode Toggle L115 · IO Buttons L143 ·
+   Export dropdown L195 · Print-only PDF snapshot L228 · Main Grid L252 ·
+   Panels L263
+   Loaded BEFORE the 6 components.*.css partials (see docs/FILEMAP.md)
+   so the cascade order matches the original single stylesheet exactly.
    ============================================================ */
 
 /* ── Inter variable font (self-hosted, SIL OFL) ─────────── */

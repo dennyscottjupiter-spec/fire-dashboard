@@ -8,6 +8,10 @@
    Interactive History click-to-place, TER fee, pension bridge
    inputs, lifecycle depletion note, life events manager, Box-1
    pension pot, A/B scenario compare, onboarding wizard.
+   @map: notice banner L17 · milestones L31 · withdrawal strategy L60 ·
+   Monte Carlo L74 · History vintage L95 · Interactive History L110 ·
+   TER fee L138 · pension bridge L156 · lifecycle note L169 · life
+   events L187 · pension pot L213 · A/B compare L226 · wizard L246
    ══════════════════════════════════════════════════════════ */
 window.runIntegrationProjection = async function runIntegrationProjection(ctx) {
   const { win, doc, s, setVal, fireBlur, clickEl, keyDown, text, val, style, resetBaseline } = ctx;

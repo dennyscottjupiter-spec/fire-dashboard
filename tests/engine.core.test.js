@@ -7,6 +7,9 @@
    this file — it reuses `s1` etc. declared here as top-level consts,
    the same cross-<script> global pattern the app itself already uses
    (e.g. `state` in store.js, read by app.core.js).
+   @map: parseNum/box3Tax/customTax L13-82 · runProjection core scenarios
+   L83-230 · coastFiTarget L231 · box1Tax + pension pot L244-273 · CAGR
+   mode L275-333 · perpetual model L349-403 · box3Persons L405
    ══════════════════════════════════════════════════════════ */
 
 /* ── parseNum ──────────────────────────────────────────────── */

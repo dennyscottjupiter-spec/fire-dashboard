@@ -1,9 +1,9 @@
 # Key invariants
 
 Detailed rules for `js/` and `css/`. Read this before editing either.
-See also `docs/TESTING.md` (suite) and `docs/HISTORY.md` (release lineage). Orientation + file map live in `CLAUDE.md`.
+See also `docs/TESTING.md` (suite) and `docs/HISTORY.md` (release lineage). Per-file index + load order live in `docs/FILEMAP.md`; read that first for "which file has X" before opening whole files.
 
-## Data flow (app.js)
+## Data flow (app.core.js)
 
 Single `state` object → **`recalc()` is the only heartbeat**. Every input event calls `recalc()`, which reads all inputs, runs the math via `runProjection(state)`, and renders everything in one pass. **Never update the UI piecemeal.**
 
@@ -22,9 +22,9 @@ input event
 
 ## Chart
 
-- `initChart()` runs once at boot, guarded by the `chartReady` flag (both in `ui.js`). Always `chart.update()` the existing instance; **never recreate it**.
+- `initChart()` runs once at boot, guarded by the `chartReady` flag (both in `ui.chart.js`). Always `chart.update()` the existing instance; **never recreate it**.
 - Chart writes skipped if CDN failed (`chartReady === false`).
-- `crossoverPlugin` (`ui.js`): inline Chart.js plugin drawing the FI-crossover marker; reads `chart.$fireYear`, set in `recalc()`.
+- `crossoverPlugin` (`ui.chart.js`): inline Chart.js plugin drawing the FI-crossover marker; reads `chart.$fireYear`, set in `recalc()`.
 - All Chart.js font options use `Inter, "Segoe UI", sans-serif`.
 
 ## Rate inputs
@@ -43,7 +43,7 @@ input event
 
 ## Retirement Readiness gauge
 
-Speedometer dial built entirely in SVG/CSS, no extra libraries (`ui.js`).
+Speedometer dial built entirely in SVG/CSS, no extra libraries (`ui.gauge.js`).
 
 - `buildGauge()` runs once at boot, injects into `#gauge-svg`: colored zone arcs (red 0–33% / amber 33–80% / green 80–100%), minor ticks every 10%, major ticks at 0/25/50/75/100%, numeric labels at r=94, three FIRE milestone checkpoint flags (`.gauge-flag`) at Barista 50% / Lean FI 70% / Full FIRE 100%.
 - The needle is a tapered `<polygon>` (not a `<line>`); hub is a two-circle chrome cap.
@@ -97,7 +97,7 @@ History mode no longer replays the *entire* timeline from a vintage year (that m
 
 - `VINTAGES` entries (`js/data.js`) carry a `span` (crash-window length in years, sized to the actual down-years for that vintage — e.g. 2008: 2 yrs for `-37%` then `+27%`; 1966: 8 yrs for the whole stagflation era).
 - `runHistoricalShock(s, startYear, shockAge, span)` builds a **full-horizon** sequence: every year is the user's steady `{ret: returnRate, infl: inflation}` except the `span` years starting at `t = shockAge − currentAge`, which replay `HIST` from `startYear` verbatim — then calls `runProjection({ ...s, sequence })` (sequences always run nominal, same as the existing risk engine). `runProjection` itself is untouched.
-- `js/ui.js`'s `initChart()` adds a **click handler** (`options.onClick`): active only when `state.projMode === 'history'`, it maps the click's x-pixel to a data index via `chart.scales.x.getValueForPixel(evt.x)`, clamps to `[1, horizon]`, and sets `state.shockAge = currentAge + index` before calling `recalc()`.
+- `js/ui.chart.js`'s `initChart()` adds a **click handler** (`options.onClick`): active only when `state.projMode === 'history'`, it maps the click's x-pixel to a data index via `chart.scales.x.getValueForPixel(evt.x)`, clamps to `[1, horizon]`, and sets `state.shockAge = currentAge + index` before calling `recalc()`.
 - `renderChart()` derives the shock age each render (`state.shockAge` if set, else `currentAge + 10` as a sane default before the user has clicked), calls `runHistoricalShock`, and sets `chart.$shock = { index, span, label }` for the `shockMarkerPlugin` (sibling to `crossoverPlugin`/`eventMarkerPlugin`) to draw a shaded band + boundary line + vintage label at that position. `chart.$shock` is reset to `null` outside History mode.
 - `#shock-age-readout` shows "💥 Crash at age N · click the chart to move it", visible only in History mode.
 - `state.shockAge` persists (`null` = not yet clicked, falls back to the +10 default) via `saveState`/`applyConfig`/`exportConfig` in `js/store.js`.
@@ -124,7 +124,7 @@ History mode no longer replays the *entire* timeline from a vintage year (that m
 - `state.growthModel` (`'income'` | `'cagr'`) lets the user type a single compound annual growth rate instead of decomposing income/spending/return.
 - In `runProjection`, CAGR mode zeroes the accumulation-phase `contrib` (a CAGR already bundles savings — adding `income − spending` on top would double-count it); `unattainable` is redefined as "growth can't outrun the FI target's own inflation" (`r ≤ inflation` nominal, `r ≤ 0` real), since there are no contributions to fall back on.
 - Deterministic income-model path byte-for-byte unchanged when `growthModel` is absent or `'income'`.
-- Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode **only when Box 3 isn't the active tax mode** (see `updateAllocDim()` under **Tax**) — since v2.5 Box 3 reads `allocInvest` directly, so the slider must stay live and interactive whenever it's driving real tax math, even with CAGR typed in.
+- Tax and TER still apply on top of the typed rate (treated as gross) — `app.core.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode **only when Box 3 isn't the active tax mode** (see `updateAllocDim()` under **Tax**) — since v2.5 Box 3 reads `allocInvest` directly, so the slider must stay live and interactive whenever it's driving real tax math, even with CAGR typed in.
 - `solveCagrForAge(s, targetAge)`: 40-step bisection on the real sim (not a closed form, so it stays correct under tax/TER) finding the minimum CAGR reaching FI by a target age — powers the "🎯 FIRE by age" reverse-solver row and its `Use ✓` button.
 - `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other — **hidden in Perpetual mode** (see below), since Perpetual's own build-up readout already tells that story.
 - Monte Carlo and History are disabled in CAGR **and Perpetual** mode (their injected `sequence` would silently override the typed rate / derived real rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.
@@ -155,7 +155,7 @@ History mode no longer replays the *entire* timeline from a vintage year (that m
 
 ## Milestones
 
-The `MILESTONES` array (in `ui.js`) drives `updateMilestones(portfolio, fi, currentAge, realReturn)`. Ladder (order in DOM): First €100k → Coast FI → Barista FI (50%) → Lean FI (70%) → Full FIRE (100%) → Fat FIRE (150%). Coast FI uses `coastFiTarget(fi, currentAge, realReturn)` from `engine.js` — already inflation-aware (passes real return = nominal − inflation; higher inflation raises the Coast FI target).
+The `MILESTONES` array (in `ui.gauge.js`) drives `updateMilestones(portfolio, fi, currentAge, realReturn)`. Ladder (order in DOM): First €100k → Coast FI → Barista FI (50%) → Lean FI (70%) → Full FIRE (100%) → Fat FIRE (150%). Coast FI uses `coastFiTarget(fi, currentAge, realReturn)` from `engine.js` — already inflation-aware (passes real return = nominal − inflation; higher inflation raises the Coast FI target).
 
 ## localStorage
 
@@ -170,14 +170,14 @@ The `MILESTONES` array (in `ui.js`) drives `updateMilestones(portfolio, fi, curr
 - `exportConfig()` serialises `state` to JSON and triggers a download. `importConfig(file)` validates guards, then calls `applyConfig(cfg)` + `recalc()`.
 - New config fields `investReturn, savingsReturn, allocInvest` replace raw `returnRate`; backward-compat in `applyConfig()` treats old configs with `returnRate` and no `investReturn` as 100% invested, so their projection is preserved.
 - **Import guards** — `importConfig(file)` rejects *before* `FileReader` if `file.size > 100 KB`, or if type is not `application/json | text/json | "" (empty MIME)` **and** the name doesn't end in `.json`. All three rejection paths share `showImportError(msg)`.
-- **PDF export (v2.3)** — `#btn-export` opens a small dropdown (`#export-menu`: JSON / PDF) instead of exporting directly; `exportConfig()` itself is unchanged. PDF path: `buildPrintSnapshot()` (store.js) fills `#print-snapshot` (headline KPIs, `chart.toBase64Image()`, key assumptions), then `printSnapshot()` calls `window.print()`. `#print-snapshot` is `display:none` normally and only shown under `@media print` (standard `visibility:hidden`-on-body / `visibility:visible`-on-snapshot technique) — no PDF library, no new CDN origin. The export button suppresses its own `.has-tip` tooltip via a `.menu-open` class while the dropdown is open (the mouse is still resting on the button right after the click that opened it, which would otherwise cover the menu).
+- **PDF export (v2.3)** — `#btn-export` opens a small dropdown (`#export-menu`: JSON / PDF) instead of exporting directly; `exportConfig()` itself is unchanged. PDF path: `buildPrintSnapshot()` (store.io.js) fills `#print-snapshot` (headline KPIs, `chart.toBase64Image()`, key assumptions), then `printSnapshot()` calls `window.print()`. `#print-snapshot` is `display:none` normally and only shown under `@media print` (standard `visibility:hidden`-on-body / `visibility:visible`-on-snapshot technique) — no PDF library, no new CDN origin. The export button suppresses its own `.has-tip` tooltip via a `.menu-open` class while the dropdown is open (the mouse is still resting on the button right after the click that opened it, which would otherwise cover the menu).
 
 ## Help modal (v2.3)
 
 - `#btn-help` (left of Reset) opens `#help-overlay`, mirroring the wizard overlay's show/hide + Esc/overlay-click/close-button dismiss pattern (`openHelp(tabKey)` / `closeHelp()`).
-- Tab content lives in the `HELP_TABS` array in `app.js` — each section's `tip` is a **verbatim copy** of the matching `data-tip` string in `index.html`, plus a short `extra` explanation. Keep the two in sync by hand when editing either; there's no automated link between them.
+- Tab content lives in the `HELP_TABS` array in `app.modals.js` — each section's `tip` is a **verbatim copy** of the matching `data-tip` string in `index.html`, plus a short `extra` explanation. Keep the two in sync by hand when editing either; there's no automated link between them.
 - A few cross-referenced readouts (`#lifecycle-note`, `#cagr-implied`, the chart `panel-title`) carry a `.help-learn-more` button that deep-links to the matching tab. These sit as **siblings**, not children, of the has-tip element — `.has-tip::after` is CSS-generated content (`content: attr(data-tip)`) and can't host a real clickable child. Not every tooltip in the app has one of these links (would require rebuilding the whole tooltip system as real DOM); the Help button itself is always one click away instead (and pinned in the header — see below).
 
 ## Pinned Years-to-FIRE KPI (v2.3)
 
-- `#years-fire-pin` lives inside the already-`position: sticky` header (not a separately-positioned fixed element — avoids tracking header height across the `flex-wrap` breakpoints). An `IntersectionObserver` on `#kpi-years-card` (boot section of `app.js`) toggles its `.visible` class; `recalc()` unconditionally mirrors `#kpi-years`/`#kpi-fire-year` text into it every pass, so content is always fresh even while hidden.
+- `#years-fire-pin` lives inside the already-`position: sticky` header (not a separately-positioned fixed element — avoids tracking header height across the `flex-wrap` breakpoints). An `IntersectionObserver` on `#kpi-years-card` (boot section of `app.boot.js`) toggles its `.visible` class; `recalc()` unconditionally mirrors `#kpi-years`/`#kpi-fire-year` text into it every pass, so content is always fresh even while hidden.

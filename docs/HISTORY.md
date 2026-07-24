@@ -4,7 +4,20 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0`
+
+## v2.6.0 — File-size refactor for lower agent token-cost (zero behavior change)
+
+Branch `refactor/split-large-files`, one atomic commit per area, merged to `master`. Every oversized file was split along its own existing section boundaries so an autonomous agent session can read just the piece it needs instead of the whole file — no logic changes anywhere, verified by the full 400-test suite + Chrome MCP visual smoke checks after every commit.
+
+- `js/engine.js` (476→391 lines) → risk-engine functions (`mulberry32`/`runMonteCarlo`/`runHistorical`/`runHistoricalShock`) moved to new `js/engine.risk.js`.
+- `js/ui.js` (376 lines) → `js/ui.chart.js` (Chart.js setup + drawing plugins) + `js/ui.gauge.js` (gauge + milestones).
+- `js/store.js` (352 lines) → `js/store.js` (state/persistence) + `js/store.io.js` (export/import/PDF snapshot).
+- `css/components.css` (1132 lines) → 6 ordered contiguous partials (`components.inputs/.toggles/.models/.chart/.kpi/.gauge.css`), loaded via ordered `<link>`s so the cascade stays byte-identical (verified by reconstructing the original file from the 6 partials programmatically).
+- `js/app.js` (1206 lines, the biggest single file) → `app.core.js` (formatters/els/recalc/bindRange/rate stepper) + `app.chart.js` (chart renderer/Monte Carlo/growth-model UI) + `app.scenarios.js` (A/B compare/life events) + `app.modals.js` (wizard/Help modal) + `app.io.js` (export-menu helper/reset-confirm state) + `app.boot.js` (`wireInputs()` + every top-level listener + boot — the only file allowed to execute side effects on load, always loaded last).
+- `tests/engine.test.js` (480 lines) → `engine.core.test.js` + `engine.risk.test.js`. `tests/integration.test.js` (1005 lines, one async IIFE around a single shared hidden iframe) → `integration.setup.js` (builds the iframe/helpers, then `await`s the next three files in order) + `integration.inputs/.projection/.features.test.js` (each just defines `window.runIntegration<Name>(ctx)`, no self-execution). Test count held at exactly 400 (157 engine + 243 integration) throughout.
+- `explainer.html` (627→202 lines): inline `<style>`/`<script>` extracted to `css/explainer.css` / `js/explainer.js`; CSP `script-src` tightened to `'self'` now that no inline script remains.
+- New `docs/FILEMAP.md` — the durable per-file index + load order, meant to be read before opening any individual source file. `CLAUDE.md` gained a "Targeted reads" rule pointing to it.
 
 ## v2.5.1 — Box 3 Single/Couple allowance fix + UI cleanup
 

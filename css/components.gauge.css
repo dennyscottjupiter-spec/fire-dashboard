@@ -4,6 +4,8 @@
    Asset Allocation controls, localStorage transparency note.
    Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
    -> .chart.css -> .kpi.css -> HERE (last).
+   @map: Gauge speedometer L9 · Asset Allocation controls L119 ·
+   localStorage note L146
    ============================================================ */
 
 /* ── Retirement Readiness Gauge — Speedometer ────────────── */

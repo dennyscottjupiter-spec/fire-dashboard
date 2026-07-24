@@ -5,6 +5,8 @@
    (buildup readout, sensitivity table, CAGR solver).
    Load order: base.css -> .inputs.css -> .toggles.css -> HERE ->
    .chart.css -> .kpi.css -> .gauge.css.
+   @map: "Learn more" links L10 · Growth Model toggle + CAGR L44 ·
+   Perpetual growth model L55
    ============================================================ */
 
 /* ── "Learn more" deep-links into the Help modal ─────────── */

@@ -8,6 +8,10 @@
    savings box+slider sync, allocation slider, mode buttons, tax
    buttons + custom box + annual readout, macro buttons, steppers,
    arrow keys, Retirement Readiness gauge, KPI output values.
+   @map: euro inputs L17 · focus/blur L28 · age clamping L38 · return/
+   inflation/withdrawal/savings box+slider L50-90 · allocation slider L92 ·
+   mode buttons L114 · tax buttons+custom+readout L125-198 · macro L199 ·
+   steppers L210 · arrow keys L229 · gauge L244 · KPI values L289
    ══════════════════════════════════════════════════════════ */
 window.runIntegrationInputs = async function runIntegrationInputs(ctx) {
   const { win, doc, s, setVal, fireBlur, clickEl, keyDown, text, val, style, resetBaseline } = ctx;

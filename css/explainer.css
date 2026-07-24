@@ -1,6 +1,11 @@
 /* ============================================================
-   FIRE Dashboard — Explainer "Video"
+   FIRE Dashboard — Explainer "Video" (css/explainer.css)
    Self-contained: no build, no CDN, no network. Open directly.
+   Extracted from explainer.html's old inline <style>; only linked by
+   explainer.html, not index.html.
+   @map: Player shell L37 · Stage L52 · per-scene styling (title/formula/
+   mock-inputs/allocation/chart/gauge/milestones/privacy/pills/CTA) L93-220 ·
+   Subtitle + controls L221 · Replay overlay L248
    ============================================================ */
 @font-face {
   font-family: "Inter";

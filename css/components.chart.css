@@ -5,6 +5,8 @@
    wizard, Help modal.
    Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
    -> HERE -> .kpi.css -> .gauge.css.
+   @map: Projection mode bar + MC badge L10 · A/B compare readout L89 ·
+   Onboarding wizard L105 · Help modal L191
    ============================================================ */
 
 /* ── Projection mode bar (v1.8 risk engine) ──────────────── */
