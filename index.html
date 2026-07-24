@@ -2,8 +2,8 @@
      Already fully externalized (css/js linked, no inline <script>) — see
      docs/FILEMAP.md for the full per-file index and load order.
      section..line: Header L20 · Main Grid L64 (Control Center panel L69 ·
-     KPI row L460 · gauge card L469 · Chart panel L495 · Milestones L541) ·
-     Onboarding wizard L607 · Help modal L625 · Print-only PDF snapshot L639 -->
+     KPI row L460 · gauge card L469 · Chart panel L495 · Milestones L549) ·
+     Onboarding wizard L616 · Help modal L634 · Print-only PDF snapshot L648 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -525,9 +525,12 @@
               Nominal
             </button>
           </div>
-          <select id="vintage-select" class="vintage-select" style="display:none" aria-label="Historical start year"></select>
-          <div id="shock-age-readout" class="shock-age-readout" style="display:none">
-            💥 Crash at age <b id="shock-age-val">—</b> · click the chart to move it
+          <div id="event-sim" class="event-sim" style="display:none">
+            <span class="event-sim-title">🎬 Event Simulator</span>
+            <select id="vintage-select" class="vintage-select" aria-label="Historical crash scenario"></select>
+            <div id="shock-age-readout" class="shock-age-readout">
+              💥 Crash at age <b id="shock-age-val">—</b> · click the chart to move it
+            </div>
           </div>
           <div id="mc-success" class="mc-success" style="display:none">
             <span id="mc-success-val">—</span>
