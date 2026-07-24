@@ -130,6 +130,16 @@ const els = {
   groupReturn:      $('group-return'),
   groupSavingsLabel:$('group-savings-label'),
   groupAlloc:       $('group-alloc'),
+  // v2.5 perpetual growth model
+  btnModelPerp:    $('btn-model-perp'),
+  perpetualBlock:  $('perpetual-block'),
+  perpG:           $('perp-g'),
+  perpN:           $('perp-n'),
+  perpR:           $('perp-r'),
+  perpCapital:     $('perp-capital'),
+  perpTaxLine:     $('perp-tax-line'),
+  perpWarning:     $('perp-warning'),
+  perpSensitivity: $('perp-sensitivity'),
 };
 
 /* ── A/B scenario compare state (module-level, not in saved config) ── */
@@ -193,12 +203,15 @@ function recalc() {
 
   refreshMacroActive();
 
-  const det = runProjection(state);   // deterministic path drives all KPIs
+  const isPerp = state.growthModel === 'perpetual';
+  const det = isPerp ? runPerpetual(state) : runProjection(state);   // deterministic path drives all KPIs
   const { savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge } = det;
 
   // ── KPI: FI Number
   els.kpiFI.textContent    = isFinite(fiTarget) ? eur.format(fiTarget) : '∞';
-  els.kpiFISub.textContent = `Covers ${eur.format(state.spending)}/yr · ${eur.format(state.spending / 12)}/mo`;
+  els.kpiFISub.textContent = isPerp
+    ? `Capital for ${eur.format(state.spending)}/yr, inflation-protected — forever`
+    : `Covers ${eur.format(state.spending)}/yr · ${eur.format(state.spending / 12)}/mo`;
 
   // ── KPI: Years to FIRE
   if (yearsToFI === 0) {
@@ -247,10 +260,16 @@ function recalc() {
   // Comparing at retirement is unreliable — the fee-free run reaches FI earlier and
   // is already drawing down, so it can dip below the still-accumulating fee run there.
   // At the longevity horizon the compounding gap is unambiguous (and dramatic).
-  const lastIdx     = data.length - 1;
-  const feeFreeProj = runProjection({ ...state, returnRate: grossReturn });
-  const feeLost     = Math.max(0, feeFreeProj.data[lastIdx].portfolio - data[lastIdx].portfolio);
-  els.feeImpactVal.textContent = eur.format(feeLost);
+  // Skipped in Perpetual mode: fees change the required capital itself (not just
+  // the wealth at a fixed horizon), so a like-for-like rerun doesn't apply here.
+  const lastIdx = data.length - 1;
+  if (isPerp) {
+    els.feeImpactVal.textContent = 'n/a';
+  } else {
+    const feeFreeProj = runProjection({ ...state, returnRate: grossReturn });
+    const feeLost      = Math.max(0, feeFreeProj.data[lastIdx].portfolio - data[lastIdx].portfolio);
+    els.feeImpactVal.textContent = eur.format(feeLost);
+  }
 
   // ── Lifecycle note: does the pot survive the plan?
   if (depleteAge !== null) {
@@ -286,14 +305,20 @@ function recalc() {
     els.btnApplyCagr.disabled = (g === null);
     els.cagrSolveResult._solved = g;
   }
-  // Implied CAGR is always shown — the bridge between the two models.
-  const incomeProj = state.growthModel === 'cagr'
-    ? runProjection({ ...state, growthModel: 'income' })
-    : det;
-  const imp = impliedCagr(incomeProj, state.portfolio);
-  els.cagrImplied.textContent = imp === null
-    ? ''
-    : `💡 Your income & return plan compounds at ≈ ${imp.toFixed(1)}%/yr`;
+  // Implied CAGR bridge: shown for Income & CAGR modes, hidden in Perpetual
+  // (its own build-up readout — g→n→r→P — already tells that story).
+  if (isPerp) {
+    els.cagrImplied.textContent = '';
+    renderPerpetual(perpetualCapital(state), perpetualSensitivity(state));
+  } else {
+    const incomeProj = state.growthModel === 'cagr'
+      ? runProjection({ ...state, growthModel: 'income' })
+      : det;
+    const imp = impliedCagr(incomeProj, state.portfolio);
+    els.cagrImplied.textContent = imp === null
+      ? ''
+      : `💡 Your income & return plan compounds at ≈ ${imp.toFixed(1)}%/yr`;
+  }
 
   // Persist every recalc (fire-and-forget, silently fails if storage unavailable)
   saveState();
@@ -342,7 +367,7 @@ function renderChart(det) {
   // so the two plans read as clearly distinct series, not portfolio-vs-overlay.
   if (compareOn && scenarioA) {
     ds[0].label = 'Scenario B';
-    const projA = runProjection(scenarioA);
+    const projA = scenarioA.growthModel === 'perpetual' ? runPerpetual(scenarioA) : runProjection(scenarioA);
     ds[5].data = projA.data.map(d => Math.round(d.portfolio));
     ds[5].hidden = false;
   } else {
@@ -385,26 +410,58 @@ function populateVintages() {
   els.vintageSelect.value = state.vintageYear;
 }
 
-/* ── 6b2. Growth Model UI (v2.2) ──────────────────────────── */
-// Shows/hides the CAGR block, dims the Income + Investment Return groups
-// (Asset Allocation is handled separately by updateAllocDim(), since v2.5
-// re-couples it to the Box 3 split), and disables Monte Carlo / History
-// (they inject a sequence that would silently override the typed CAGR).
+/* ── 6b2. Growth Model UI (v2.2 CAGR, v2.5 Perpetual) ────────── */
+// Shows/hides the CAGR / Perpetual blocks, dims the Income + Investment
+// Return groups in CAGR only (Perpetual keeps them live — it uses the same
+// income-model blend to derive its gross rate; Asset Allocation is handled
+// separately by updateAllocDim()), and disables Monte Carlo / History in
+// BOTH CAGR and Perpetual (they inject a sequence that would silently
+// override the typed CAGR / the derived real rate).
 function applyGrowthModelUI() {
   const isCagr = state.growthModel === 'cagr';
-  els.cagrBlock.style.display = isCagr ? 'block' : 'none';
+  const isPerp = state.growthModel === 'perpetual';
+  els.cagrBlock.style.display      = isCagr ? 'block' : 'none';
+  els.perpetualBlock.style.display = isPerp ? 'block' : 'none';
   [els.groupIncome, els.groupReturn, els.groupSavingsLabel].forEach(g =>
     g.classList.toggle('model-dimmed', isCagr));
   updateAllocDim();
 
-  [els.btnProjMc, els.btnProjHistory].forEach(b => { b.disabled = isCagr; });
-  els.btnProjMc.title      = isCagr ? 'Disabled in Net Worth CAGR mode — it would override your typed rate' : '';
-  els.btnProjHistory.title = isCagr ? 'Disabled in Net Worth CAGR mode — it would override your typed rate' : '';
-  if (isCagr && state.projMode !== 'steady') {
+  const lockedOut = isCagr || isPerp;
+  [els.btnProjMc, els.btnProjHistory].forEach(b => { b.disabled = lockedOut; });
+  const lockTitle = isCagr
+    ? 'Disabled in Net Worth CAGR mode — it would override your typed rate'
+    : isPerp
+      ? 'Disabled in Perpetual mode — it would override the derived real rate'
+      : '';
+  els.btnProjMc.title      = lockTitle;
+  els.btnProjHistory.title = lockTitle;
+  if (lockedOut && state.projMode !== 'steady') {
     state.projMode = 'steady';
     const projBtns = [els.btnProjSteady, els.btnProjMc, els.btnProjHistory];
     projBtns.forEach(b => b.classList.toggle('active-proj', b.dataset.proj === state.projMode));
   }
+}
+
+// Renders the layered build-up (g→n→r→P), tax line, r≤0 warning, and the
+// inflation-sensitivity table for the Perpetual growth model.
+function renderPerpetual(pc, sens) {
+  els.perpG.textContent       = (pc.g * 100).toFixed(1) + '%';
+  els.perpN.textContent       = (pc.n * 100).toFixed(1) + '%';
+  els.perpR.textContent       = (pc.r * 100).toFixed(1) + '%';
+  els.perpCapital.textContent = pc.unreachable ? '∞' : eur.format(pc.capital);
+
+  els.perpTaxLine.textContent = pc.taxType === 'box3'
+    ? `Tax: Box 3 wealth tax — ${(pc.drag * 100).toFixed(2)}%/yr drag on the whole pot, ${eur.format(pc.allowanceBenefit)}/yr free from the allowance`
+    : pc.taxType === 'custom'
+      ? `Tax: Custom — ${state.taxCustomPct || 0}%/yr on gains`
+      : 'Tax: None';
+
+  els.perpWarning.style.display = pc.unreachable ? 'block' : 'none';
+
+  const tbody = els.perpSensitivity.querySelector('tbody');
+  tbody.innerHTML = sens.map(row =>
+    `<tr><td>${(row.infl * 100).toFixed(0)}%</td><td>${row.capital === null ? 'unreachable' : eur.format(row.capital)}</td></tr>`
+  ).join('');
 }
 
 // Asset Allocation dims only when it's truly inert: CAGR mode dropped it from
@@ -456,7 +513,8 @@ function fireYearOf(proj) {
 
 function updateCompareReadout(detB) {
   if (!compareOn || !scenarioA) { els.compareReadout.style.display = 'none'; return; }
-  const aYr = fireYearOf(runProjection(scenarioA));
+  const projA = scenarioA.growthModel === 'perpetual' ? runPerpetual(scenarioA) : runProjection(scenarioA);
+  const aYr = fireYearOf(projA);
   const bYr = fireYearOf(detB);
   let delta = '';
   if (aYr && bYr) {
@@ -949,8 +1007,8 @@ function wireInputs() {
     recalc();
   });
 
-  // Growth Model toggle (v2.2) + CAGR block wiring
-  const modelBtns = [els.btnModelIncome, els.btnModelCagr];
+  // Growth Model toggle (v2.2 CAGR, v2.5 Perpetual) + block wiring
+  const modelBtns = [els.btnModelIncome, els.btnModelCagr, els.btnModelPerp];
   modelBtns.forEach(btn => btn.addEventListener('click', () => {
     state.growthModel = btn.dataset.model;
     modelBtns.forEach(b => b.classList.toggle('active-model', b.dataset.model === state.growthModel));

@@ -176,10 +176,10 @@ function applyConfig(cfg) {
     state.vintageYear      = cfg.vintageYear;
     els.vintageSelect.value = cfg.vintageYear;
   }
-  // ── v2.2 net-worth CAGR fields ──
-  if (['income', 'cagr'].includes(cfg.growthModel)) {
+  // ── v2.2 net-worth CAGR / v2.5 perpetual growth-model fields ──
+  if (['income', 'cagr', 'perpetual'].includes(cfg.growthModel)) {
     state.growthModel = cfg.growthModel;
-    [els.btnModelIncome, els.btnModelCagr].forEach(b =>
+    [els.btnModelIncome, els.btnModelCagr, els.btnModelPerp].forEach(b =>
       b.classList.toggle('active-model', b.dataset.model === cfg.growthModel));
     applyGrowthModelUI();
   }
@@ -281,7 +281,7 @@ function exportConfig() {
 
 // One-page PDF snapshot (v2.3) — print-optimized view + window.print(), no PDF library.
 function buildPrintSnapshot() {
-  const det = runProjection(state);
+  const det = state.growthModel === 'perpetual' ? runPerpetual(state) : runProjection(state);
   els.printDate.textContent    = `Generated ${new Date().toLocaleDateString()}`;
   els.printKpiYears.textContent = els.kpiYears.textContent;
   els.printKpiFi.textContent    = els.kpiFI.textContent;
@@ -290,7 +290,9 @@ function buildPrintSnapshot() {
 
   const growthLabel = state.growthModel === 'cagr'
     ? `Net Worth CAGR: ${state.cagrPct}%/yr`
-    : `Investment Return: ${state.investReturn}%/yr · Savings Return: ${state.savingsReturn}%/yr`;
+    : state.growthModel === 'perpetual'
+      ? `Perpetual Capital: ${eur.format(det.fiTarget)} — inflation-protected, forever`
+      : `Investment Return: ${state.investReturn}%/yr · Savings Return: ${state.savingsReturn}%/yr`;
   const taxLabel = state.taxMode === 'box3'   ? 'Box 3 (NL wealth tax)'
                   : state.taxMode === 'custom' ? `Custom (${state.taxCustomPct}%/yr on gains)`
                   : 'None';

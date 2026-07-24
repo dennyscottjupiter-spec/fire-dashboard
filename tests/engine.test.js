@@ -384,3 +384,59 @@ const pureCagrProj = runProjection({ portfolio: 100000, income: 60000, spending:
   currentAge: 30, growthModel: 'cagr' });
 const impliedPure = impliedCagr(pureCagrProj, 100000);
 assert('impliedCagr recovers the exact typed rate for a pure CAGR run', near(impliedPure, 9, 0.01), impliedPure.toFixed(2), 9);
+
+/* ── perpetualCapital — layered build-up (v2.5) ──────────────── */
+group('perpetualCapital — tax mapping + Fisher equation');
+const perpBase = { portfolio: 300000, income: 60000, spending: 30000, returnRate: 7, inflation: 2,
+  allocInvest: 80, taxMode: 'none', taxCustomPct: 0, currentAge: 30 };
+// none: n = g; r = (1.07/1.02)-1 ≈ 4.902%; capital = 30000 / r
+const pcNone = perpetualCapital(perpBase);
+const rNoneExpected = (1.07 / 1.02) - 1;
+assert('none: n equals g (no tax drag)', near(pcNone.n, 0.07, 1e-9), pcNone.n, 0.07);
+assert('none: r matches exact Fisher equation', near(pcNone.r, rNoneExpected, 1e-9), pcNone.r, rNoneExpected);
+assert('none: capital = I / r', near(pcNone.capital, 30000 / rNoneExpected, 0.01), pcNone.capital.toFixed(2), (30000 / rNoneExpected).toFixed(2));
+assert('none: allowanceBenefit is 0', pcNone.allowanceBenefit === 0, pcNone.allowanceBenefit, 0);
+assert('none: unreachable is false', pcNone.unreachable === false, pcNone.unreachable, false);
+
+// box3: blendedDeemed = 0.8*6.0% + 0.2*1.28% = 5.056%; drag = 5.056%*36% = 1.82016%
+const pcBox3 = perpetualCapital({ ...perpBase, taxMode: 'box3' });
+const blendedDeemed = 0.8 * 0.060 + 0.2 * 0.0128;
+const dragExpected  = blendedDeemed * 0.36;
+assert('box3: drag matches hand-computed blended deemed × 36%', near(pcBox3.drag, dragExpected, 1e-9), pcBox3.drag, dragExpected);
+assert('box3: n = g - drag', near(pcBox3.n, 0.07 - dragExpected, 1e-9), pcBox3.n, 0.07 - dragExpected);
+assert('box3: allowanceBenefit = 59357 × drag', near(pcBox3.allowanceBenefit, 59357 * dragExpected, 0.01), pcBox3.allowanceBenefit.toFixed(2), (59357 * dragExpected).toFixed(2));
+assert('box3: allowance benefit lowers required capital vs no benefit', pcBox3.capital < (30000 - 0) / pcBox3.r, pcBox3.capital, '< ' + ((30000 - 0) / pcBox3.r));
+
+// custom: n = g × (1 − pct%)
+const pcCustom = perpetualCapital({ ...perpBase, taxMode: 'custom', taxCustomPct: 20 });
+assert('custom: n = g × (1 − 20%)', near(pcCustom.n, 0.07 * 0.8, 1e-9), pcCustom.n, 0.07 * 0.8);
+assert('custom: allowanceBenefit is 0 (income tax, not wealth)', pcCustom.allowanceBenefit === 0, pcCustom.allowanceBenefit, 0);
+
+// unreachable: inflation high enough that r ≤ 0
+const pcUnreachable = perpetualCapital({ ...perpBase, taxMode: 'none', returnRate: 2, inflation: 5 });
+assert('r ≤ 0 → unreachable + infinite capital', pcUnreachable.unreachable === true && pcUnreachable.capital === Infinity, pcUnreachable, '{unreachable:true, capital:Infinity}');
+
+/* ── perpetualSensitivity — inflation sweep ──────────────────── */
+group('perpetualSensitivity — inflation 0–4%');
+const sens = perpetualSensitivity(perpBase);
+assert('sensitivity returns 5 rows (0–4% inflation)', sens.length === 5, sens.length, 5);
+assert('sensitivity is monotonically increasing capital as inflation rises', sens.every((row, i) => i === 0 || row.capital === null || sens[i - 1].capital === null || row.capital > sens[i - 1].capital), true, true);
+const sensHighInfl = perpetualSensitivity({ ...perpBase, returnRate: 3 });
+assert('sensitivity nulls out capital once r ≤ 0 at high inflation', sensHighInfl.some(row => row.capital === null), true, true);
+
+/* ── runPerpetual — same shape as runProjection, accumulates to P ───── */
+group('runPerpetual — accumulation + flat draw phase');
+const perpProj = runPerpetual({ ...perpBase, portfolio: 50000, currentAge: 30, longevityAge: 95 });
+assert('fiTarget equals perpetualCapital(...).capital', near(perpProj.fiTarget, pcNone.capital, 0.01), perpProj.fiTarget, pcNone.capital);
+assert('yearsToFI is a positive integer (starts below target)', perpProj.yearsToFI > 0, perpProj.yearsToFI, '> 0');
+assert('portfolio grows monotonically during accumulation', perpProj.data[1].portfolio > perpProj.data[0].portfolio, perpProj.data[1].portfolio, '> ' + perpProj.data[0].portfolio);
+const lastRow = perpProj.data[perpProj.data.length - 1];
+assert('portfolio stays close to target after reaching it (flat draw phase)', near(lastRow.portfolio, perpProj.fiTarget, perpProj.fiTarget * 0.01), lastRow.portfolio, perpProj.fiTarget);
+assert('depleteAge is always null (perpetuity never depletes by construction)', perpProj.depleteAge === null, perpProj.depleteAge, null);
+
+const perpAlreadyFI = runPerpetual({ ...perpBase, portfolio: pcNone.capital * 1.5 });
+assert('already above target → yearsToFI = 0', perpAlreadyFI.yearsToFI === 0, perpAlreadyFI.yearsToFI, 0);
+
+const perpUnreachableProj = runPerpetual({ ...perpBase, taxMode: 'none', returnRate: 2, inflation: 5 });
+assert('unreachable perpetual sets unattainable = true', perpUnreachableProj.unattainable === true, perpUnreachableProj.unattainable, true);
+assert('unreachable perpetual never marks yearsToFI', perpUnreachableProj.yearsToFI === null, perpUnreachableProj.yearsToFI, null);

@@ -818,6 +818,41 @@
     assert('History button re-enabled back in income model', !doc.getElementById('btn-proj-history').disabled, false, false);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] MC/History disablement: ${e.message}\n`; }
 
+  /* ── Perpetual growth model (v2.5) ────────────────────────── */
+  try {
+    group('Integration — Perpetual growth model toggle + block');
+    resetBaseline();
+    assert('perpetual-block hidden in income model', style('perpetual-block').display === 'none', style('perpetual-block').display, 'none');
+    clickEl('btn-model-perp');
+    assert('growthModel = perpetual after click', s.growthModel === 'perpetual', s.growthModel, 'perpetual');
+    assert('btn-model-perp gets .active-model', doc.getElementById('btn-model-perp').classList.contains('active-model'), true, true);
+    assert('perpetual-block visible in Perpetual model', style('perpetual-block').display === 'block', style('perpetual-block').display, 'block');
+    assert('cagr-block stays hidden in Perpetual model', style('cagr-block').display === 'none', style('cagr-block').display, 'none');
+    assert('group-income stays live (not dimmed) in Perpetual model', !doc.getElementById('group-income').classList.contains('model-dimmed'), false, false);
+    assert('group-return stays live (not dimmed) in Perpetual model', !doc.getElementById('group-return').classList.contains('model-dimmed'), false, false);
+    assert('group-alloc stays live (not dimmed) in Perpetual model', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    assert('MC button disabled in Perpetual model', doc.getElementById('btn-proj-mc').disabled, true, true);
+    assert('History button disabled in Perpetual model', doc.getElementById('btn-proj-history').disabled, true, true);
+    assert('implied-CAGR bridge is hidden in Perpetual model', text('cagr-implied') === '', text('cagr-implied'), '');
+
+    // FI Number KPI should equal the perpetual capital, and the build-up chain should render
+    assert('perp-g renders a % value', /%$/.test(text('perp-g')), text('perp-g'), '~N.N%');
+    assert('perp-r renders a % value', /%$/.test(text('perp-r')), text('perp-r'), '~N.N%');
+    assert('perp-capital matches FI Number KPI', text('perp-capital') === text('kpi-fi-number'), text('perp-capital'), text('kpi-fi-number'));
+    assert('sensitivity table renders 5 rows', doc.querySelectorAll('#perp-sensitivity tbody tr').length === 5, doc.querySelectorAll('#perp-sensitivity tbody tr').length, 5);
+    assert('perp-warning hidden for a normal reachable plan', style('perp-warning').display === 'none', style('perp-warning').display, 'none');
+
+    // Force r ≤ 0 (return well below inflation) → unreachable warning + ∞ capital
+    setVal('val-return', '1');  fireBlur('val-return');
+    setVal('val-savings', '1'); fireBlur('val-savings');
+    setVal('val-inflation', '8'); fireBlur('val-inflation');
+    assert('perp-warning shows when r ≤ 0', style('perp-warning').display === 'block', style('perp-warning').display, 'block');
+    assert('FI Number shows ∞ when unreachable', text('kpi-fi-number') === '∞', text('kpi-fi-number'), '∞');
+
+    clickEl('btn-model-income');
+    assert('MC/History re-enabled back in income model', !doc.getElementById('btn-proj-mc').disabled && !doc.getElementById('btn-proj-history').disabled, true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Perpetual growth model: ${e.message}\n`; }
+
   /* ── localStorage round-trip for CAGR fields ─────────────── */
   try {
     group('Integration — localStorage round-trip (CAGR fields)');

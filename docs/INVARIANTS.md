@@ -114,9 +114,28 @@ Controlled by `state.mode`.
 - Deterministic income-model path byte-for-byte unchanged when `growthModel` is absent or `'income'`.
 - Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode **only when Box 3 isn't the active tax mode** (see `updateAllocDim()` under **Tax**) — since v2.5 Box 3 reads `allocInvest` directly, so the slider must stay live and interactive whenever it's driving real tax math, even with CAGR typed in.
 - `solveCagrForAge(s, targetAge)`: 40-step bisection on the real sim (not a closed form, so it stays correct under tax/TER) finding the minimum CAGR reaching FI by a target age — powers the "🎯 FIRE by age" reverse-solver row and its `Use ✓` button.
-- `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other.
-- Monte Carlo and History are disabled in CAGR mode (their injected `sequence` would silently override the typed rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.
-- `snapshotState()` (A/B compare) carries `growthModel`/`cagrPct` so a frozen scenario replays under the right model.
+- `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other — **hidden in Perpetual mode** (see below), since Perpetual's own build-up readout already tells that story.
+- Monte Carlo and History are disabled in CAGR **and Perpetual** mode (their injected `sequence` would silently override the typed rate / derived real rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.
+- `snapshotState()` (A/B compare) carries `growthModel`/`cagrPct` so a frozen scenario replays under the right model. `updateCompareReadout()` and the chart's scenario-A overlay both branch on `scenarioA.growthModel === 'perpetual'` to call `runPerpetual` instead of `runProjection` when replaying a saved snapshot — otherwise a perpetual snapshot would be silently misread as an income-model one.
+
+## Perpetual growth model (v2.5)
+
+"How much capital funds my spending forever, adjusted for inflation, without ever running out?" `state.growthModel === 'perpetual'` is a third Growth-Model option, alongside `'income'` and `'cagr'`. No new inputs — it reuses the income-model blend (Asset Allocation / Investment Return / Savings Return / TER all stay **live**, unlike CAGR mode) and the existing Tax toggle.
+
+- **Layered build-up**, computed by `perpetualCapital(s)`: gross `g = s.returnRate/100` (the fee-adjusted income-model blend) → after-tax nominal `n` → after-tax **real** `r` via the exact Fisher equation `r = (1+n)/(1+f) − 1` → required capital `capital = (I − allowanceBenefit) / r`, where `I = s.spending`.
+- **Tax mapping reuses `state.taxMode`** (no dedicated Perpetual tax UI):
+  - `box3` — wealth tax: `blendedDeemed = alloc·6.0% + (1−alloc)·1.28%` (same `alloc` as the Box 3 split); `drag = blendedDeemed × 36%`; `n = g − drag`. The €59,357 allowance is tax-free, so it funds `allowanceBenefit = BOX3.allowance × drag` €/yr of income for free, lowering the required capital.
+  - `custom` — income tax: `n = g × (1 − taxCustomPct/100)`; `allowanceBenefit = 0`.
+  - `none` — `n = g`; `allowanceBenefit = 0`.
+- **If `r ≤ 0`** (after-tax growth can't outrun inflation), `perpetualCapital` returns `{ unreachable: true, capital: Infinity }` — no finite principal works. Surfaced as a warning (`#perp-warning`) in the UI.
+- `perpetualSensitivity(s)` holds `g` and the tax layer fixed and re-derives `r`/`capital` across a 0–4% inflation sweep (`capital: null` wherever that inflation alone would push `r ≤ 0`) — rendered as `#perp-sensitivity`.
+- `runPerpetual(s)` returns the **same shape as `runProjection`** (`{ savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge }`) so the chart/KPI/gauge/milestone plumbing is reused unchanged. `fiTarget = perpetualCapital(s).capital`.
+  - **Accumulation** (before reaching the target): simple real-terms compounding, `P = P·(1+r) + (income − spending)`, mirroring the income model's contribution but at the after-tax real rate `r`.
+  - **Crossing**: `fiTarget` is an exact fixed point of the draw recursion (`r·capital + allowanceBenefit = I`) — on the year `P` first reaches it, `runPerpetual` **snaps `P` to exactly `fiTarget`** rather than carrying that year's overshoot forward, because the draw recursion amplifies any starting delta by `(1+r)` every subsequent year (unstable fixed point in the forward direction). Without the snap, "flat forever" would silently drift.
+  - **Draw phase** (after reaching the target): `P = max(0, P·(1+r) + allowanceBenefit − I)` every year — flat by construction. `depleteAge` is always `null`.
+  - `firstYearTax` is a representative one-year figure for the existing `#tax-annual-val` readout: `drag × portfolio` (wealth) or `customTax(portfolio × g, taxCustomPct)` (income); `0` for no tax.
+- **`runProjection` is completely untouched** — Perpetual is a fully separate code path (`recalc()` picks `runPerpetual` vs `runProjection` based on `state.growthModel`), so the deterministic income-model path stays byte-for-byte identical.
+- UI: `#perpetual-block` (mirrors `#cagr-block`) shows the build-up chain (`#perp-g → #perp-n → #perp-r → #perp-capital`), the active tax line, the sensitivity table, and the `r ≤ 0` warning, rendered by `renderPerpetual(pc, sens)`. FI Number KPI sub-label switches to "Capital for €I/yr, inflation-protected — forever". The fee-drag rerun and implied-CAGR bridge are both skipped (fees change the required capital itself, not just wealth at a fixed horizon — a like-for-like rerun doesn't apply the same way).
 
 ## Pure-CSS tooltips
 

@@ -279,6 +279,102 @@ function impliedCagr(proj, startPortfolio) {
   return (Math.pow(end / startPortfolio, 1 / n) - 1) * 100;
 }
 
+/* ── Perpetual growth model (v2.5) ────────────────────────── */
+// "How much capital do I need to draw an inflation-protected income forever?"
+// Reuses the income-model blend (s.returnRate — already fee-adjusted) and the
+// existing Tax toggle, layered up through a real (Fisher) after-tax rate:
+//
+//   g (gross blend) → n (after-tax nominal) → r (after-tax REAL, Fisher) → P
+//
+// Tax mapping (reuses the existing taxMode toggle, no new UI):
+//   box3   — wealth tax: drag = (alloc·6.0% + (1-alloc)·1.28%) × 36%, applied to
+//            the WHOLE pot every year (n = g − drag), but the €59,357 allowance
+//            is tax-FREE, so it funds `allowanceBenefit` €/yr of income for free.
+//   custom — income tax: n = g × (1 − taxCustomPct%) (tax only bites the gain).
+//   none   — n = g.
+//
+// Fisher equation converts the after-tax NOMINAL rate to a REAL one so P is
+// expressed in today's money: r = (1+n)/(1+f) − 1. If r ≤ 0, compounding can't
+// outrun inflation net of tax — no finite principal funds the income forever.
+function perpetualCapital(s) {
+  const I     = s.spending;
+  const g     = s.returnRate / 100;
+  const f     = s.inflation  / 100;
+  const alloc = (s.allocInvest != null ? s.allocInvest : 100) / 100;
+
+  let n, drag = 0, allowanceBenefit = 0, taxType = 'none';
+  if (s.taxMode === 'box3') {
+    taxType = 'box3';
+    const blendedDeemed = alloc * BOX3.deemedInvest + (1 - alloc) * BOX3.deemedSavings;
+    drag = blendedDeemed * BOX3.taxRate;
+    n = g - drag;
+    allowanceBenefit = BOX3.allowance * drag;
+  } else if (s.taxMode === 'custom') {
+    taxType = 'custom';
+    n = g * (1 - (s.taxCustomPct || 0) / 100);
+  } else {
+    n = g;
+  }
+
+  const r = (1 + n) / (1 + f) - 1;
+  if (r <= 0) return { I, g, drag, n, r, taxType, allowanceBenefit, capital: Infinity, unreachable: true };
+  return { I, g, drag, n, r, taxType, allowanceBenefit, capital: (I - allowanceBenefit) / r, unreachable: false };
+}
+
+// Inflation-sensitivity table: holds g and the tax layer fixed, re-derives r
+// and the required capital at a spread of inflation rates (0–4%). `capital`
+// is null wherever that inflation rate alone would already push r ≤ 0.
+function perpetualSensitivity(s) {
+  const pc = perpetualCapital(s);
+  return [0, 0.01, 0.02, 0.03, 0.04].map(infl => {
+    const r = (1 + pc.n) / (1 + infl) - 1;
+    return { infl, capital: r > 0 ? (pc.I - pc.allowanceBenefit) / r : null };
+  });
+}
+
+// Same return shape as runProjection so the chart/KPI plumbing is reused as-is.
+// Accumulates in real terms at rate r (adding annual real savings) until the
+// pot reaches the perpetual capital target, then holds flat: each year draws I
+// and receives the tax-free allowance benefit, which nets to ~0 by construction
+// (r·capital + allowanceBenefit = I) — the whole point of a perpetuity.
+function runPerpetual(s) {
+  const pc         = perpetualCapital(s);
+  const fiTarget   = pc.capital;
+  const currentAge   = s.currentAge   || 30;
+  const longevityAge = s.longevityAge || 95;
+  const MAX_YEARS  = Math.max(1, Math.round(longevityAge - currentAge));
+  const savings     = s.income - s.spending;
+  const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
+  const r = pc.r;
+
+  const data = [];
+  let P = s.portfolio;
+  let yearsToFI = isFinite(fiTarget) && P >= fiTarget ? 0 : null;
+  let retired   = yearsToFI === 0;
+  data.push({ year: 0, age: currentAge, portfolio: P, fi: fiTarget, pp: 0, phase: retired ? 'draw' : 'grow' });
+
+  for (let t = 1; t <= MAX_YEARS; t++) {
+    const age = currentAge + t;
+    if (retired) {
+      P = Math.max(0, P * (1 + r) + pc.allowanceBenefit - pc.I);
+    } else {
+      P = P * (1 + r) + savings;
+      // fiTarget is an exact fixed point of the draw recursion (r·capital +
+      // allowanceBenefit = I) — snap onto it at the crossing so the "flat"
+      // phase actually stays flat instead of carrying that year's overshoot
+      // forward and compounding it at rate r for the rest of the horizon.
+      if (yearsToFI === null && isFinite(fiTarget) && P >= fiTarget) { yearsToFI = t; retired = true; P = fiTarget; }
+    }
+    data.push({ year: t, age, portfolio: P, fi: fiTarget, pp: 0, phase: retired ? 'draw' : 'grow' });
+  }
+
+  let firstYearTax = 0;
+  if (pc.taxType === 'box3')   firstYearTax = pc.drag * s.portfolio;
+  else if (pc.taxType === 'custom') firstYearTax = customTax(s.portfolio * pc.g, s.taxCustomPct || 0);
+
+  return { savings, savingsRate, fiTarget, yearsToFI, unattainable: pc.unreachable, data, firstYearTax, depleteAge: null };
+}
+
 /* ── Risk engine: Monte Carlo + historical replay (v1.8) ──── */
 
 // Tiny seedable PRNG (mulberry32) so Monte Carlo runs are reproducible in tests.

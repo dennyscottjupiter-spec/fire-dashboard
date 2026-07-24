@@ -129,17 +129,18 @@
 
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
-        <!-- Growth Model (v2.2) -->
+        <!-- Growth Model (v2.2 CAGR, v2.5 Perpetual) -->
         <div class="control-group" id="group-growth-model">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
-                  data-tip="Two ways to reach FIRE. 'Income &amp; Return' builds your pot from what you save each year plus market growth. 'Net Worth CAGR' skips all that — you just tell it how fast your total net worth grows per year, savings included.">
+                  data-tip="Three ways to reach FIRE. 'Income &amp; Return' builds your pot from what you save each year plus market growth. 'Net Worth CAGR' skips all that — you just tell it how fast your total net worth grows per year. 'Perpetual' answers a different question: how much capital funds your spending forever, without ever drawing it down.">
               🌱 Growth Model
             </span>
           </div>
           <div class="tax-toggle model-toggle" role="group" aria-label="Growth model">
             <button class="tax-btn active-model" id="btn-model-income" data-model="income">💵 Income &amp; Return</button>
             <button class="tax-btn"              id="btn-model-cagr"   data-model="cagr">📊 Net Worth CAGR</button>
+            <button class="tax-btn"              id="btn-model-perp"   data-model="perpetual">♾️ Perpetual</button>
           </div>
 
           <!-- Shown only in CAGR mode -->
@@ -176,6 +177,34 @@
               <button type="button" class="cagr-apply-btn" id="btn-apply-cagr"
                       aria-label="Use this CAGR">Use ✓</button>
             </div>
+          </div>
+
+          <!-- Shown only in Perpetual mode -->
+          <div id="perpetual-block" style="display:none">
+            <div class="control-label">
+              <span class="has-tip" tabindex="0"
+                    data-tip="How much capital funds your spending forever, rising with inflation every year, without ever running out. Built from your Investment Return / Asset Allocation blend, run through your chosen Investment Tax mode below, then converted to a real (inflation-protected) rate via the Fisher equation.">
+                ♾️ Perpetual Capital
+              </span>
+            </div>
+            <div class="perp-buildup">
+              <span>Gross <b id="perp-g">—</b></span>
+              <span class="arrow">→</span>
+              <span>After tax <b id="perp-n">—</b></span>
+              <span class="arrow">→</span>
+              <span>Real <b id="perp-r">—</b></span>
+              <span class="arrow">→</span>
+              <span>Capital <b id="perp-capital">—</b></span>
+            </div>
+            <div class="perp-tax-line" id="perp-tax-line"></div>
+            <div class="perp-warning" id="perp-warning" style="display:none">
+              ⚠️ At this inflation and after-tax return, no finite principal can fund this income forever.
+            </div>
+            <table class="perp-sensitivity" id="perp-sensitivity">
+              <thead><tr><th>Inflation</th><th>Capital needed</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div class="perp-note">Simple compounding arithmetic in today's money — not financial or tax advice.</div>
           </div>
 
           <!-- Always visible: the bridge between the two models -->
