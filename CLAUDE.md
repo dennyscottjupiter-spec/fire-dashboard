@@ -23,7 +23,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository. Vanilla-JS
 
 ## Tests
 
-**391 tests** = 151 engine (synchronous, run on `file://` too) + 240 integration. Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`.
+**400 tests** = 157 engine (synchronous, run on `file://` too) + 243 integration. Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`.
 
 ## Architecture
 

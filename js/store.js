@@ -24,6 +24,7 @@ const state = {
   mode:         'nominal',
   taxMode:      'none',   // 'none' | 'box3' | 'custom'
   taxCustomPct: 0,        // % for custom tax mode
+  box3Persons:  2,        // 1 (single) | 2 (couple) — multiplies the Box 3 allowance
   // Box 3 savings/invest split is derived from allocInvest (v2.5) — no separate fields.
   currentAge:   30,       // for FIRE-year + Coast FI
   // ── v1.7 lifecycle ──
@@ -52,7 +53,7 @@ const DEFAULTS = {
   portfolio: 50000, income: 60000, spending: 30000,
   investReturn: 7, savingsReturn: 2, allocInvest: 80,
   inflation: 2, withdrawal: 4, mode: 'nominal',
-  taxMode: 'none', taxCustomPct: 0, currentAge: 30,
+  taxMode: 'none', taxCustomPct: 0, box3Persons: 2, currentAge: 30,
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
   pensionPot: 0, pensionContrib: 0,
   wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008, shockAge: null,
@@ -128,6 +129,11 @@ function applyConfig(cfg) {
   if (cfg.taxCustomPct != null) {
     state.taxCustomPct     = cfg.taxCustomPct;
     els.valTaxCustom.value = cfg.taxCustomPct;
+  }
+  if (cfg.box3Persons === 1 || cfg.box3Persons === 2) {
+    state.box3Persons = cfg.box3Persons;
+    els.btnBox3Single.classList.toggle('active-persons', cfg.box3Persons === 1);
+    els.btnBox3Couple.classList.toggle('active-persons', cfg.box3Persons === 2);
   }
   if (cfg.currentAge != null) {
     state.currentAge   = cfg.currentAge;
@@ -212,6 +218,7 @@ function saveState() {
       mode:          state.mode,
       taxMode:       state.taxMode,
       taxCustomPct:  state.taxCustomPct,
+      box3Persons:   state.box3Persons,
       currentAge:    state.currentAge,
       terPct:        state.terPct,
       pensionAge:    state.pensionAge,
@@ -259,6 +266,7 @@ function exportConfig() {
     mode:          state.mode,
     taxMode:       state.taxMode,
     taxCustomPct:  state.taxCustomPct,
+    box3Persons:   state.box3Persons,
     currentAge:    state.currentAge,
     terPct:        state.terPct,
     pensionAge:    state.pensionAge,

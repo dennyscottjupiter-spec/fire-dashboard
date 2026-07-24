@@ -265,8 +265,9 @@
     assert('tax-annual-val shows €0 when taxMode=none',
       text('tax-annual-val') === '€0', text('tax-annual-val'), '€0');
 
-    /* Box 3 → non-zero € amount (portfolio=50k, which is below Box3 threshold 59357,
-       but year-1 P includes savings contributions: 50k + 3k gain + 30k savings = 83k > 59357) */
+    /* Box 3 → non-zero € amount. App defaults to Couple (2-person allowance = €118,714),
+       so bump the portfolio well above that: 200k + 14k gain + 30k savings = 244k > 118,714. */
+    setVal('input-portfolio', '200000'); fireBlur('input-portfolio');
     clickEl('btn-tax-box3');
     assert('tax-annual-val is non-zero under Box 3',
       text('tax-annual-val') !== '€0', text('tax-annual-val'), '!= €0');
@@ -288,9 +289,20 @@
     assert('Box 3: invest-heavy allocation pays more tax than savings-heavy (higher deemed return)',
       taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
 
+    /* Single ⇄ Couple allowance toggle: halving the allowance raises the tax bill */
+    const taxCouple = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    clickEl('btn-box3-single');
+    assert('box3Persons = 1 after clicking Single', s.box3Persons === 1, s.box3Persons, 1);
+    const taxSingle = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('Box 3: Single allowance (€59,357) pays more tax than Couple (€118,714)',
+      taxSingle > taxCouple, taxSingle.toFixed(0), '> ' + taxCouple.toFixed(0));
+    clickEl('btn-box3-couple');
+    assert('box3Persons = 2 after clicking Couple', s.box3Persons === 2, s.box3Persons, 2);
+
     /* restore */
     clickEl('btn-tax-none');
     setVal('slider-alloc', '80');
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax readout: ${e.message}\n`; }
 
   /* ── macro buttons ───────────────────────────────────────── */

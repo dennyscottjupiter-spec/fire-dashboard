@@ -4,7 +4,17 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1`
+
+## v2.5.1 — Box 3 Single/Couple allowance fix + UI cleanup
+
+Branch `feat/box3-couple-ux-cleanup`, merged to `master`:
+
+- **Bugfix:** `runPerpetual()` ignored the €59,357 Box 3 allowance entirely, taxing the whole pot from €1. Fixed by threading a `persons` multiplier (1 = Single, 2 = Couple) through `box3Tax`, `perpetualCapital`, and `runPerpetual`. The app now defaults to **Couple** (€118,714 allowance) with a Single/Couple toggle in the Box 3 info panel; the engine still defaults to Single (persons=1) for back-compat with existing direct calls.
+- Added per-button tooltips to the 3 Growth Model buttons (previously only the group label had one).
+- Moved the Real Terms/Nominal toggle from the header into the chart toolbar, next to Steady/Monte Carlo/History — it only affects the chart.
+- Wrapped "Costs & Income Timeline" in a collapsed-by-default `<details>` to declutter the left control panel.
+- Test suite grew from 391 → 400 tests (157 engine + 243 integration).
 
 ## v2.5.0 — Perpetual model, interactive History, Box 3/Allocation re-coupling
 
