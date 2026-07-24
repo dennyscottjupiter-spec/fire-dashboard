@@ -4,7 +4,16 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0`
+
+## v2.7.0 — Event Simulator: full 11-year historical replay (fixes portfolio-to-zero bug)
+
+Branch `feature/event-simulator-11yr`, merged to `master`:
+
+- **Bugfix:** every Event Simulator vintage rendered a slide to ~€0 within a few years of the crash. Root cause: `runHistoricalShock`'s replay window (`VINTAGES[*].span`, 2–4 years) captured the crash but cut off the big rebound years that followed (e.g. 1929's window ended before 1933's `+54%` and 1935's `+48%`; 2000's window ended before 2003's `+29%`), so a depleted pot + reverting to the flat steady rate + ongoing withdrawals drained toward zero instead of recovering.
+- **Fix:** replaced the numeric `span` with a hard-coded **11-year `returns` array** (crash year + 10 following years) per vintage, sourced from Slickcharts/NYU Stern S&P 500 total-return data — all 5 events (1929, 1966, 1973, 2000, 2008) now replay their full historical dip-and-recovery arc verbatim. `runHistoricalShock(s, startYear, shockAge, returns)` pairs each hard-coded nominal return with that year's actual `HIST` inflation, so the Real/Nominal toggle keeps deflating correctly.
+- Test suite grew from 405 → 411 tests (168 engine + 243 integration): new asserts cover the dip→recovery arc (window-end beats window-trough) and confirm all 5 vintages expose full 11-length `returns` arrays.
+- `CLAUDE.md` gained a standing rule: always sanity-check rendered projection numbers for realism (not just "tests green") and verify Event Simulator scenarios live via Chrome MCP before calling a change done — this bug shipped and lingered specifically because that check was skipped.
 
 ## v2.6.0 — File-size refactor for lower agent token-cost (zero behavior change)
 

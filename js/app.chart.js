@@ -55,8 +55,8 @@ function renderChart(det) {
     const horizon = Math.max(1, Math.round(95 - state.currentAge));
     const shockAge = Math.max(state.currentAge + 1, Math.min(state.currentAge + horizon,
       state.shockAge != null ? state.shockAge : state.currentAge + 10));
-    proj = runHistoricalShock(state, state.vintageYear, shockAge, vintage.span);
-    chart.$shock = { index: shockAge - state.currentAge, span: vintage.span, label: vintage.label };
+    proj = runHistoricalShock(state, state.vintageYear, shockAge, vintage.returns);
+    chart.$shock = { index: shockAge - state.currentAge, span: vintage.returns.length, label: vintage.label };
     els.shockAgeVal.textContent = shockAge;
   }
   const last = proj.data.length - 1;

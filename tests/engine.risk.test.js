@@ -43,21 +43,28 @@ const h1929 = runHistorical({ portfolio: 600000, income: 0, spending: 36000, wit
 assert('1929 retirement (thin pot) depletes', h1929.depleteAge !== null, h1929.depleteAge, '!= null');
 assert('unknown start year falls back to dataset start (no crash)', runHistorical(histBase, 3000).data.length === 56, runHistorical(histBase, 3000).data.length, 56);
 
-/* ── runHistoricalShock — click-to-place crash window (v2.5) ─── */
+/* ── runHistoricalShock — click-to-place crash window (v2.7: 11-yr returns) ─── */
 group('runHistoricalShock — click-to-place crash window');
-const shockBase   = { ...s1, currentAge: 30, allocInvest: 100 };
-const steadyProj  = runProjection(shockBase);
-const shocked2008 = runHistoricalShock(shockBase, 2008, 50, 2);   // shockAge=50 → t=20, span=2
+const shockBase    = { ...s1, currentAge: 30, allocInvest: 100 };
+const steadyProj   = runProjection(shockBase);
+const returns2008  = VINTAGES.find(v => v.year === 2008).returns;
+const shocked2008  = runHistoricalShock(shockBase, 2008, 50, returns2008);   // shockAge=50 → t=20, 11-yr window
 assert('pre-shock years match steady exactly', near(shocked2008.data[10].portfolio, steadyProj.data[10].portfolio, 0.01), shocked2008.data[10].portfolio, steadyProj.data[10].portfolio);
 assert('shock window diverges from steady', Math.abs(shocked2008.data[20].portfolio - steadyProj.data[20].portfolio) > 1, shocked2008.data[20].portfolio, '!= ' + steadyProj.data[20].portfolio);
 assert('2008 shock (-37%) lowers the portfolio at the window vs steady', shocked2008.data[20].portfolio < steadyProj.data[20].portfolio, shocked2008.data[20].portfolio, '< ' + steadyProj.data[20].portfolio);
-assert('shock still lowers the portfolio after the window resumes steady growth', shocked2008.data[30].portfolio < steadyProj.data[30].portfolio, shocked2008.data[30].portfolio, '< ' + steadyProj.data[30].portfolio);
+assert('shock still lowers the portfolio partway through the window (year 3 of 11)', shocked2008.data[23].portfolio < steadyProj.data[23].portfolio, shocked2008.data[23].portfolio, '< ' + steadyProj.data[23].portfolio);
+assert('the recovery years are included — window end (t=31) beats the crash trough (t=20)', shocked2008.data[31].portfolio > shocked2008.data[20].portfolio, shocked2008.data[31].portfolio, '> ' + shocked2008.data[20].portfolio);
 
-const shockedZeroSpan = runHistoricalShock(shockBase, 2008, 50, 0);
-assert('span=0 produces no shock at all (matches steady throughout)', near(shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio, 1), shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio);
+const shockedEmptyReturns = runHistoricalShock(shockBase, 2008, 50, []);
+assert('empty returns array produces no shock at all (matches steady throughout)', near(shockedEmptyReturns.data[40].portfolio, steadyProj.data[40].portfolio, 1), shockedEmptyReturns.data[40].portfolio, steadyProj.data[40].portfolio);
 
-const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, 2);
+const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, returns2008);
 assert('unknown startYear falls back to dataset start (still runs full horizon)', unknownStartShock.data.length === steadyProj.data.length, unknownStartShock.data.length, steadyProj.data.length);
+
+group('VINTAGES — every event exposes a full 11-year returns array');
+VINTAGES.forEach(v => {
+  assert(`${v.year} has an 11-length returns array`, Array.isArray(v.returns) && v.returns.length === 11, v.returns && v.returns.length, 11);
+});
 
 /* ── Real mode must honor the toggle inside a sequence, not force nominal ──
    Regression for the reported "History mode drains the pot to €0" bug: a
@@ -84,7 +91,7 @@ assert('real vs nominal sequence runs diverge (mode is honored, not overridden)'
 const retireeReal = { portfolio: 1000000, income: 0, spending: 25000, withdrawal: 4, currentAge: 65, longevityAge: 95, returnRate: 6, inflation: 2, mode: 'real', taxMode: 'box3', allocInvest: 80, box3Persons: 2 };
 const retireeSteady = runProjection(retireeReal);
 assert('sanity: sustainable real-mode retiree never depletes in steady mode', retireeSteady.depleteAge === null, retireeSteady.depleteAge, null);
-const retiree2008Shock = runHistoricalShock(retireeReal, 2008, retireeReal.currentAge + 3, 2);
+const retiree2008Shock = runHistoricalShock(retireeReal, 2008, retireeReal.currentAge + 3, returns2008);
 assert('same retiree still survives a 2008 shock in History mode (KPI/chart agree)', retiree2008Shock.depleteAge === null, retiree2008Shock.depleteAge, null);
 
 group('withdrawal strategies — VPW & Guyton-Klinger');

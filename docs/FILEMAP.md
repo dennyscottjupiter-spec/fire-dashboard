@@ -27,9 +27,9 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 
 | File | Lines | Purpose |
 |---|---|---|
-| `data.js` | 130 | Vendored historical S&P 500 + CPI dataset (`HIST`, `VINTAGES`). No DOM. |
+| `data.js` | 144 | Vendored historical S&P 500 + CPI dataset (`HIST`, `VINTAGES` — each with an 11-year hard-coded `returns` array, v2.7). No DOM. |
 | `engine.js` | 393 | Pure math: `parseNum`, tax functions (`box3Tax`/`box1Tax`/`customTax`), `runProjection` (two-phase lifecycle sim — sequences honor the Real/Nominal toggle, v2.6.1), CAGR solver, Perpetual model (`perpetualCapital`/`runPerpetual`), `coastFiTarget`. No DOM, no Chart. |
-| `engine.risk.js` | 96 | Risk engine: `mulberry32` (seedable PRNG), `runMonteCarlo`, `runHistorical`, `runHistoricalShock`. Depends on `HIST` + `runProjection`. |
+| `engine.risk.js` | 100 | Risk engine: `mulberry32` (seedable PRNG), `runMonteCarlo`, `runHistorical`, `runHistoricalShock` (11-year hard-coded returns replay, v2.7). Depends on `HIST` + `runProjection`. |
 | `ui.chart.js` | 279 | Chart.js setup (`initChart`) + drawing plugins (`crossoverPlugin`/`eventMarkerPlugin`/`shockMarkerPlugin`). |
 | `ui.gauge.js` | 142 | Retirement Readiness gauge (`buildGauge`/`updateGauge`) + `MILESTONES`/`updateMilestones`. |
 | `store.js` | 256 | `state` object, `DEFAULTS`, `applyConfig` (shared restore), `saveState`/`loadState`/`resetSavedData`. |
@@ -55,13 +55,13 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `components.gauge.css` | 158 | Retirement Readiness gauge, Asset Allocation controls, localStorage note. |
 | `explainer.css` | 263 | Styling for `explainer.html`'s scene player (extracted from its old inline `<style>`). Not linked by `index.html`. |
 
-## tests/ (405 tests = 162 engine + 243 integration)
+## tests/ (411 tests = 168 engine + 243 integration)
 
 | File | Lines | Purpose |
 |---|---|---|
 | `harness.js` | 57 | Shared `assert`/`group`/`near`/`renderSummary`/watchdog infrastructure. |
 | `engine.core.test.js` | 424 | Pure-math tests: `parseNum`, tax functions, `runProjection` scenarios, `coastFiTarget`, Box-1 pension pot, CAGR mode, Perpetual model (130 asserts, 37 groups). |
-| `engine.risk.test.js` | 86 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock`, sequence real/nominal-toggle regression (v2.6.1), withdrawal strategies (32 asserts, 8 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
+| `engine.risk.test.js` | 105 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock` (11-year hard-coded returns replay, v2.7), sequence real/nominal-toggle regression (v2.6.1), withdrawal strategies (38 asserts, 9 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
 | `integration.inputs.test.js` | 296 | Raw input-widget wiring: euro inputs, sliders/boxes, mode/tax buttons, macros, steppers, gauge, KPIs (67 asserts, 17 groups). Defines `window.runIntegrationInputs(ctx)` — doesn't self-execute. |
 | `integration.projection.test.js` | 276 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage (checks `#event-sim`, v2.6.1), Interactive History, TER fee, pension bridge, life events, A/B compare, wizard (74 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
 | `integration.features.test.js` | 345 | Import guards, localStorage round-trips, Reset button, Growth Model/CAGR/Perpetual toggles, Help modal, Export dropdown (102 asserts, 18 groups). Defines `window.runIntegrationFeatures(ctx)`. |
