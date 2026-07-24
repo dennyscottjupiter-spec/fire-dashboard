@@ -7,8 +7,8 @@
    boot live in app.boot.js (loaded LAST after all app.*.js).
    State + persistence live in store.js/store.io.js. View widgets
    (chart, gauge, milestones) live in ui.chart.js/ui.gauge.js.
-   @map: eur/numFmt L13 · els L25 · refreshMacroActive L154 ·
-         recalc L165 · bindRange L332 · RATE_CFG/stepRate L367
+   @map: eur/numFmt L13 · els L25 · refreshMacroActive L155 ·
+         recalc L166 · bindRange L333 · RATE_CFG/stepRate L368
    ============================================================ */
 
 'use strict';
@@ -103,6 +103,7 @@ const els = {
   btnProjSteady:  $('btn-proj-steady'),
   btnProjMc:      $('btn-proj-mc'),
   btnProjHistory: $('btn-proj-history'),
+  eventSim:       $('event-sim'),
   vintageSelect:  $('vintage-select'),
   shockAgeReadout:$('shock-age-readout'),
   shockAgeVal:    $('shock-age-val'),

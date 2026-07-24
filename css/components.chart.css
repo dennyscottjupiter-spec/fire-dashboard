@@ -58,6 +58,25 @@
 }
 .vintage-select:focus { border-color: var(--accent); }
 
+/* Event Simulator — titled wrapper around the History vintage picker +
+   crash-age readout, so it reads as one labeled control group (v2.6.1). */
+.event-sim {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.event-sim-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 /* Interactive History crash-age readout (v2.5) */
 .shock-age-readout {
   font-size: 11px;

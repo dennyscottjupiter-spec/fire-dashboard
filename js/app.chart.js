@@ -33,7 +33,7 @@ function renderChart(det) {
     ds[2].hidden = ds[3].hidden = ds[4].hidden = false;
     ds[5].hidden = true;                        // scenario-A off in MC view
     els.mcSuccess.style.display   = 'flex';
-    els.vintageSelect.style.display = 'none';
+    els.eventSim.style.display    = 'none';
     scheduleMonteCarlo();                       // debounced heavy compute
     return;
   }
@@ -43,8 +43,7 @@ function renderChart(det) {
   ds[2].hidden = ds[3].hidden = ds[4].hidden = true;
   els.mcSuccess.style.display     = 'none';
   const isHistory = state.projMode === 'history';
-  els.vintageSelect.style.display   = isHistory ? 'inline-block' : 'none';
-  els.shockAgeReadout.style.display = isHistory ? 'block' : 'none';
+  els.eventSim.style.display = isHistory ? 'flex' : 'none';
 
   // History mode (v2.5): click the chart to place the crash at a chosen age —
   // before/after the window uses steady assumptions, the window itself replays

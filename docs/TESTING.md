@@ -5,7 +5,7 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 ## Running
 
 - Open `tests/tests.html` **via a local http server** — integration tests need a same-origin iframe (`file://` blocks cross-frame access). Quick start: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`.
-- **400 tests** = **157 engine unit tests** (synchronous; also run on `file://`) + **243 integration tests** (iframe). Integration watchdog **45 s**.
+- **405 tests** = **162 engine unit tests** (synchronous; also run on `file://`) + **243 integration tests** (iframe). Integration watchdog **45 s**.
 
 ## Coverage
 
@@ -14,9 +14,9 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 
 ## Layout (v2.6 — split for lower per-file token cost; see `docs/FILEMAP.md`)
 
-- Suite split out of the HTML into modules under `tests/`: `tests.html` thin shell loads `harness.js` (assert/group/near/`renderSummary`/watchdog) → `engine.core.test.js` (130 asserts) → `engine.risk.test.js` (27 asserts, 157 total) → `integration.inputs.test.js` / `integration.projection.test.js` / `integration.features.test.js` (67+74+102 = 243 asserts, each just defines `window.runIntegration<Name>(ctx)` — none run standalone) → `integration.setup.js` (builds the shared hidden iframe + helpers, then `await`s the three integration files **in that order**, and is the only file that calls `renderSummary()`).
-- `renderSummary()` also writes a machine-readable one-liner (`PASS 400/400` / `FAIL n/400`) to a `#test-summary` element **and** `document.title` — headless readers grab the verdict without parsing the whole log.
-- The 157 engine tests also run headlessly under **Node** via a stdlib `vm` DOM-shim (no npm); integration self-skips there because `location.protocol` reads `file:`.
+- Suite split out of the HTML into modules under `tests/`: `tests.html` thin shell loads `harness.js` (assert/group/near/`renderSummary`/watchdog) → `engine.core.test.js` (130 asserts) → `engine.risk.test.js` (32 asserts, 162 total — incl. v2.6.1 sequence real/nominal regression guards) → `integration.inputs.test.js` / `integration.projection.test.js` / `integration.features.test.js` (67+74+102 = 243 asserts, each just defines `window.runIntegration<Name>(ctx)` — none run standalone) → `integration.setup.js` (builds the shared hidden iframe + helpers, then `await`s the three integration files **in that order**, and is the only file that calls `renderSummary()`).
+- `renderSummary()` also writes a machine-readable one-liner (`PASS 405/405` / `FAIL n/405`) to a `#test-summary` element **and** `document.title` — headless readers grab the verdict without parsing the whole log.
+- The 162 engine tests also run headlessly under **Node** via a stdlib `vm` DOM-shim (no npm); integration self-skips there because `location.protocol` reads `file:`.
 - Harness is bulletproof: `file://` early-exit, try/catch/finally + **25 s watchdog** + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
 
 ## ⚠️ Dev caching gotcha

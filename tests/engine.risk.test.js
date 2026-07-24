@@ -59,6 +59,34 @@ assert('span=0 produces no shock at all (matches steady throughout)', near(shock
 const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, 2);
 assert('unknown startYear falls back to dataset start (still runs full horizon)', unknownStartShock.data.length === steadyProj.data.length, unknownStartShock.data.length, steadyProj.data.length);
 
+/* ── Real mode must honor the toggle inside a sequence, not force nominal ──
+   Regression for the reported "History mode drains the pot to €0" bug: a
+   sequence used to hard-code useReal=false, so a Real-Terms plan silently
+   computed its History/Monte-Carlo chart in nominal terms — disagreeing with
+   the (real) steady KPI and, combined with Box 3's fixed nominal allowance,
+   depleting far faster than the real-mode numbers implied. */
+group('runProjection — sequence honors Real/Nominal toggle (not forced nominal)');
+const oneYearSeq = [{ ret: 0.10, infl: 0.05 }];
+const realSeqBase = { portfolio: 100000, income: 0, spending: 0, withdrawal: 4, currentAge: 60, longevityAge: 61, returnRate: 6, inflation: 2, mode: 'real', taxMode: 'none', allocInvest: 100, sequence: oneYearSeq };
+const nominalSeqBase = { ...realSeqBase, mode: 'nominal' };
+const realSeqProj    = runProjection(realSeqBase);
+const nominalSeqProj = runProjection(nominalSeqBase);
+const expectedRealGrowth = 100000 * (1 + (1.10 / 1.05 - 1));
+assert('real mode deflates a sequence year by that year\'s own inflation', near(realSeqProj.data[1].portfolio, expectedRealGrowth, 0.01), realSeqProj.data[1].portfolio, expectedRealGrowth);
+assert('nominal mode applies the sequence return raw (no deflation)', near(nominalSeqProj.data[1].portfolio, 110000, 0.01), nominalSeqProj.data[1].portfolio, 110000);
+assert('real vs nominal sequence runs diverge (mode is honored, not overridden)', Math.abs(realSeqProj.data[1].portfolio - nominalSeqProj.data[1].portfolio) > 1, realSeqProj.data[1].portfolio, '!= ' + nominalSeqProj.data[1].portfolio);
+
+// End-to-end: a comfortably-sustainable real-mode retiree under Box 3 (2.5% WR
+// against a ~3.9% real return — a clear margin, not a razor's edge) should
+// agree with the steady KPI that the plan survives, even through a historical
+// crash — the chart must not silently deplete just because History replays a
+// sequence (that was the reported "portfolio → €0" bug).
+const retireeReal = { portfolio: 1000000, income: 0, spending: 25000, withdrawal: 4, currentAge: 65, longevityAge: 95, returnRate: 6, inflation: 2, mode: 'real', taxMode: 'box3', allocInvest: 80, box3Persons: 2 };
+const retireeSteady = runProjection(retireeReal);
+assert('sanity: sustainable real-mode retiree never depletes in steady mode', retireeSteady.depleteAge === null, retireeSteady.depleteAge, null);
+const retiree2008Shock = runHistoricalShock(retireeReal, 2008, retireeReal.currentAge + 3, 2);
+assert('same retiree still survives a 2008 shock in History mode (KPI/chart agree)', retiree2008Shock.depleteAge === null, retiree2008Shock.depleteAge, null);
+
 group('withdrawal strategies — VPW & Guyton-Klinger');
 const vpw = runProjection({ portfolio: 500000, income: 0, spending: 100000, withdrawal: 20, returnRate: 5, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, wdStrategy: 'vpw' });
 assert('VPW never fully depletes (draws % of pot)', vpw.depleteAge === null, vpw.depleteAge, null);
