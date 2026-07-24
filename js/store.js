@@ -37,6 +37,7 @@ const state = {
   wdStrategy:   'fixed',  // 'fixed' | 'gk' (Guyton-Klinger) | 'vpw' (% of pot)
   projMode:     'steady', // 'steady' | 'montecarlo' | 'history'
   vintageYear:   2008,    // historical replay start year
+  shockAge:      null,    // v2.5 — age the History crash window is placed at (null = default)
   // ── v2.2 net-worth CAGR ──
   growthModel:   'income', // 'income' | 'cagr'
   cagrPct:       10,       // % net-worth CAGR (gross — tax & TER still apply)
@@ -54,7 +55,7 @@ const DEFAULTS = {
   taxMode: 'none', taxCustomPct: 0, currentAge: 30,
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
   pensionPot: 0, pensionContrib: 0,
-  wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008,
+  wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008, shockAge: null,
   growthModel: 'income', cagrPct: 10, targetFireAge: 45,
 };
 
@@ -176,6 +177,7 @@ function applyConfig(cfg) {
     state.vintageYear      = cfg.vintageYear;
     els.vintageSelect.value = cfg.vintageYear;
   }
+  if (cfg.shockAge !== undefined) state.shockAge = cfg.shockAge;
   // ── v2.2 net-worth CAGR / v2.5 perpetual growth-model fields ──
   if (['income', 'cagr', 'perpetual'].includes(cfg.growthModel)) {
     state.growthModel = cfg.growthModel;
@@ -220,6 +222,7 @@ function saveState() {
       wdStrategy:    state.wdStrategy,
       projMode:      state.projMode,
       vintageYear:   state.vintageYear,
+      shockAge:      state.shockAge,
       growthModel:   state.growthModel,
       cagrPct:       state.cagrPct,
       targetFireAge: state.targetFireAge,
@@ -266,6 +269,7 @@ function exportConfig() {
     wdStrategy:    state.wdStrategy,
     projMode:      state.projMode,
     vintageYear:   state.vintageYear,
+    shockAge:      state.shockAge,
     growthModel:   state.growthModel,
     cagrPct:       state.cagrPct,
     targetFireAge: state.targetFireAge,

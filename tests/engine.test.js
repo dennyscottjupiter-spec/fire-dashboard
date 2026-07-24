@@ -271,6 +271,22 @@ const h1929 = runHistorical({ portfolio: 600000, income: 0, spending: 36000, wit
 assert('1929 retirement (thin pot) depletes', h1929.depleteAge !== null, h1929.depleteAge, '!= null');
 assert('unknown start year falls back to dataset start (no crash)', runHistorical(histBase, 3000).data.length === 56, runHistorical(histBase, 3000).data.length, 56);
 
+/* ── runHistoricalShock — click-to-place crash window (v2.5) ─── */
+group('runHistoricalShock — click-to-place crash window');
+const shockBase   = { ...s1, currentAge: 30, allocInvest: 100 };
+const steadyProj  = runProjection(shockBase);
+const shocked2008 = runHistoricalShock(shockBase, 2008, 50, 2);   // shockAge=50 → t=20, span=2
+assert('pre-shock years match steady exactly', near(shocked2008.data[10].portfolio, steadyProj.data[10].portfolio, 0.01), shocked2008.data[10].portfolio, steadyProj.data[10].portfolio);
+assert('shock window diverges from steady', Math.abs(shocked2008.data[20].portfolio - steadyProj.data[20].portfolio) > 1, shocked2008.data[20].portfolio, '!= ' + steadyProj.data[20].portfolio);
+assert('2008 shock (-37%) lowers the portfolio at the window vs steady', shocked2008.data[20].portfolio < steadyProj.data[20].portfolio, shocked2008.data[20].portfolio, '< ' + steadyProj.data[20].portfolio);
+assert('shock still lowers the portfolio after the window resumes steady growth', shocked2008.data[30].portfolio < steadyProj.data[30].portfolio, shocked2008.data[30].portfolio, '< ' + steadyProj.data[30].portfolio);
+
+const shockedZeroSpan = runHistoricalShock(shockBase, 2008, 50, 0);
+assert('span=0 produces no shock at all (matches steady throughout)', near(shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio, 1), shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio);
+
+const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, 2);
+assert('unknown startYear falls back to dataset start (still runs full horizon)', unknownStartShock.data.length === steadyProj.data.length, unknownStartShock.data.length, steadyProj.data.length);
+
 group('withdrawal strategies — VPW & Guyton-Klinger');
 const vpw = runProjection({ portfolio: 500000, income: 0, spending: 100000, withdrawal: 20, returnRate: 5, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, wdStrategy: 'vpw' });
 assert('VPW never fully depletes (draws % of pot)', vpw.depleteAge === null, vpw.depleteAge, null);

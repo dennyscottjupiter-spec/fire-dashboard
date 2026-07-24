@@ -589,6 +589,13 @@ input[type="range"]::-moz-range-thumb {
 }
 .vintage-select:focus { border-color: var(--accent); }
 
+/* Interactive History crash-age readout (v2.5) */
+.shock-age-readout {
+  font-size: 11px;
+  color: var(--muted);
+}
+.shock-age-readout b { color: var(--warn); font-variant-numeric: tabular-nums; }
+
 /* Monte Carlo success badge */
 .mc-success {
   display: flex;

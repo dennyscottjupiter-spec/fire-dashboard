@@ -486,6 +486,34 @@
     assert('vintage select hidden in steady', doc.getElementById('vintage-select').style.display === 'none', true, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] History vintage: ${e.message}\n`; }
 
+  /* ── Interactive History: click-to-place crash window (v2.5) ── */
+  try {
+    group('Integration — Interactive History click-to-place crash');
+    resetBaseline();
+    s.shockAge = null;
+    clickEl('btn-proj-history');
+    assert('shock-age-readout visible in History mode', style('shock-age-readout').display !== 'none', style('shock-age-readout').display, 'block');
+    assert('default crash age is currentAge + 10', text('shock-age-val') === String(s.currentAge + 10), text('shock-age-val'), String(s.currentAge + 10));
+    const ch = win._chart;
+    assert('chart.$shock is set in History mode', ch.$shock != null, ch.$shock, '!= null');
+    assert('chart.$shock.index matches the default crash age', ch.$shock.index === 10, ch.$shock.index, 10);
+
+    // Simulate the click-to-place flow: set shockAge directly (the raw canvas
+    // click itself is visually verified separately — jsdom-less harness can't
+    // dispatch real pixel-accurate canvas clicks) and confirm the chart reacts.
+    s.shockAge = s.currentAge + 25;
+    win.recalc();
+    assert('shock-age-val readout updates after moving the crash', text('shock-age-val') === String(s.currentAge + 25), text('shock-age-val'), String(s.currentAge + 25));
+    assert('chart.$shock.index updates after moving the crash', ch.$shock.index === 25, ch.$shock.index, 25);
+    const dataAt25 = ch.data.datasets[0].data[25];
+    const steadyProj = win.runProjection(s);
+    assert('portfolio data at the crash year diverges from a steady projection', dataAt25 !== Math.round(steadyProj.data[25].portfolio), dataAt25, '!= ' + Math.round(steadyProj.data[25].portfolio));
+
+    clickEl('btn-proj-steady');
+    assert('shock-age-readout hidden back in steady mode', style('shock-age-readout').display === 'none', style('shock-age-readout').display, 'none');
+    s.shockAge = null;
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Interactive History click-to-place: ${e.message}\n`; }
+
   /* ── TER fund fee (fee drag) ─────────────────────────────── */
   try {
     group('Integration — TER fund fee (fee drag)');

@@ -97,6 +97,8 @@ const els = {
   btnProjMc:      $('btn-proj-mc'),
   btnProjHistory: $('btn-proj-history'),
   vintageSelect:  $('vintage-select'),
+  shockAgeReadout:$('shock-age-readout'),
+  shockAgeVal:    $('shock-age-val'),
   mcSuccess:      $('mc-success'),
   mcSuccessVal:   $('mc-success-val'),
   mcRuns:         $('mc-runs'),
@@ -352,9 +354,24 @@ function renderChart(det) {
   ds[0].hidden = false;
   ds[2].hidden = ds[3].hidden = ds[4].hidden = true;
   els.mcSuccess.style.display     = 'none';
-  els.vintageSelect.style.display = (state.projMode === 'history') ? 'inline-block' : 'none';
+  const isHistory = state.projMode === 'history';
+  els.vintageSelect.style.display   = isHistory ? 'inline-block' : 'none';
+  els.shockAgeReadout.style.display = isHistory ? 'block' : 'none';
 
-  const proj = (state.projMode === 'history') ? runHistorical(state, state.vintageYear) : det;
+  // History mode (v2.5): click the chart to place the crash at a chosen age —
+  // before/after the window uses steady assumptions, the window itself replays
+  // the chosen vintage's real HIST data. Defaults to age+10 until clicked.
+  let proj = det;
+  chart.$shock = null;
+  if (isHistory) {
+    const vintage = VINTAGES.find(v => v.year === state.vintageYear) || VINTAGES[0];
+    const horizon = Math.max(1, Math.round(95 - state.currentAge));
+    const shockAge = Math.max(state.currentAge + 1, Math.min(state.currentAge + horizon,
+      state.shockAge != null ? state.shockAge : state.currentAge + 10));
+    proj = runHistoricalShock(state, state.vintageYear, shockAge, vintage.span);
+    chart.$shock = { index: shockAge - state.currentAge, span: vintage.span, label: vintage.label };
+    els.shockAgeVal.textContent = shockAge;
+  }
   const last = proj.data.length - 1;
   chart.$fireYear  = (proj.yearsToFI !== null && proj.yearsToFI <= last) ? proj.yearsToFI : null;
   chart.$drawStart = chart.$fireYear;
@@ -1166,6 +1183,8 @@ window._disarmReset   = _disarmReset;
 window.openWizard     = openWizard;
 window.finishWizard   = finishWizard;
 window.toggleCompare  = toggleCompare;
+window._chart         = chart;
+window.recalc         = recalc;
 
 // First visit → guide the newcomer through setup
 if (_firstRun) openWizard();

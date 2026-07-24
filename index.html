@@ -503,9 +503,12 @@
             <button class="proj-btn has-tip" id="btn-proj-mc" data-proj="montecarlo" tabindex="0"
                     data-tip="Monte Carlo: replays 1,000 random shuffles of a century of real market years to show the RANGE of outcomes and how often your plan survives — the honest way to see Sequence-of-Returns Risk.">🎲 Monte Carlo</button>
             <button class="proj-btn has-tip" id="btn-proj-history" data-proj="history" tabindex="0"
-                    data-tip="History: replays the exact market sequence from a chosen year — e.g. retiring straight into the 1929 crash or the 2000 dot-com bust.">🕰️ History</button>
+                    data-tip="History: pick a crash, then click the chart to choose the age it hits. Before and after that window you keep your own steady assumptions — during it, the exact real market sequence plays out (e.g. the 1929 crash or the 2000 dot-com bust).">🕰️ History</button>
           </div>
           <select id="vintage-select" class="vintage-select" style="display:none" aria-label="Historical start year"></select>
+          <div id="shock-age-readout" class="shock-age-readout" style="display:none">
+            💥 Crash at age <b id="shock-age-val">—</b> · click the chart to move it
+          </div>
           <div id="mc-success" class="mc-success" style="display:none">
             <span id="mc-success-val">—</span>
             <span class="mc-success-label"><span id="mc-runs">1,000</span> futures survive to 95</span>

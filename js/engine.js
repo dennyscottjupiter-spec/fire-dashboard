@@ -437,6 +437,33 @@ function runHistorical(s, startYear) {
   return runProjection({ ...s, sequence });
 }
 
+// Interactive History (v2.5): click-to-place crash. Every year uses the
+// user's own steady assumptions EXCEPT a `span`-year window starting at
+// `shockAge`, which replays the exact HIST sequence from `startYear` — so a
+// crash happens exactly when placed, not "from age-now" like runHistorical.
+function runHistoricalShock(s, startYear, shockAge, span) {
+  const currentAge   = s.currentAge   || 30;
+  const longevityAge = s.longevityAge || 95;
+  const horizon       = Math.max(1, Math.round(longevityAge - currentAge));
+  const rConst    = s.returnRate / 100;
+  const inflConst = s.inflation  / 100;
+
+  let idx0 = HIST.findIndex(h => h.year === startYear);
+  if (idx0 < 0) idx0 = 0;
+
+  const shockStart = Math.round(shockAge - currentAge);  // 1-based year the window begins
+  const sequence = [];
+  for (let t = 1; t <= horizon; t++) {
+    if (t >= shockStart && t < shockStart + span) {
+      const row = HIST[(idx0 + (t - shockStart)) % HIST.length];
+      sequence.push({ ret: row.ret, infl: row.infl });
+    } else {
+      sequence.push({ ret: rConst, infl: inflConst });
+    }
+  }
+  return runProjection({ ...s, sequence });
+}
+
 /* ── Coast FI target ─────────────────────────────────────── */
 // How much you need TODAY so that compounding alone reaches `fi` by age 65.
 function coastFiTarget(fi, currentAge, realReturn) {
