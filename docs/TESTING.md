@@ -5,7 +5,7 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 ## Running
 
 - Open `tests/tests.html` **via a local http server** — integration tests need a same-origin iframe (`file://` blocks cross-frame access). Quick start: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`.
-- **391 tests** = **151 engine unit tests** (synchronous; also run on `file://`) + **240 integration tests** (iframe). Integration watchdog **45 s**.
+- **400 tests** = **157 engine unit tests** (synchronous; also run on `file://`) + **243 integration tests** (iframe). Integration watchdog **45 s**.
 
 ## Coverage
 
@@ -14,7 +14,7 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 
 ## Layout (v2.1)
 
-- Suite split out of the HTML into modules under `tests/`: `tests.html` thin shell loads `harness.js` (assert/group/near/`renderSummary`/watchdog) → `engine.test.js` (151) → `integration.test.js` (240).
+- Suite split out of the HTML into modules under `tests/`: `tests.html` thin shell loads `harness.js` (assert/group/near/`renderSummary`/watchdog) → `engine.test.js` (157) → `integration.test.js` (243).
 - `renderSummary()` also writes a machine-readable one-liner (`PASS 312/312` / `FAIL n/312`) to a `#test-summary` element **and** `document.title` — headless readers grab the verdict without parsing the whole log.
 - The 116 engine tests also run headlessly under **Node** via a stdlib `vm` DOM-shim (no npm); integration self-skips there because `location.protocol` reads `file:`.
 - Harness is bulletproof: `file://` early-exit, try/catch/finally + **25 s watchdog** + global error/rejection listeners + per-section try/catch — a hang is structurally impossible.
