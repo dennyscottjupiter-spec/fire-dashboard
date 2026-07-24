@@ -100,13 +100,13 @@ window.runIntegrationProjection = async function runIntegrationProjection(ctx) {
     resetBaseline();
     clickEl('btn-proj-history');
     assert('projMode = history', s.projMode === 'history', s.projMode, 'history');
-    assert('vintage select visible', doc.getElementById('vintage-select').style.display !== 'none', true, true);
+    assert('event simulator visible', style('event-sim').display !== 'none', style('event-sim').display, '!= none');
     const vsel = doc.getElementById('vintage-select');
     vsel.value = '1929';
     vsel.dispatchEvent(new win.Event('change', { bubbles: true }));
     assert('vintageYear = 1929', s.vintageYear === 1929, s.vintageYear, 1929);
     clickEl('btn-proj-steady');
-    assert('vintage select hidden in steady', doc.getElementById('vintage-select').style.display === 'none', true, true);
+    assert('event simulator hidden in steady', style('event-sim').display === 'none', style('event-sim').display, 'none');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] History vintage: ${e.message}\n`; }
 
   /* ── Interactive History: click-to-place crash window (v2.5) ── */
@@ -115,7 +115,7 @@ window.runIntegrationProjection = async function runIntegrationProjection(ctx) {
     resetBaseline();
     s.shockAge = null;
     clickEl('btn-proj-history');
-    assert('shock-age-readout visible in History mode', style('shock-age-readout').display !== 'none', style('shock-age-readout').display, 'block');
+    assert('shock-age-readout visible in History mode', style('event-sim').display !== 'none', style('event-sim').display, 'flex');
     assert('default crash age is currentAge + 10', text('shock-age-val') === String(s.currentAge + 10), text('shock-age-val'), String(s.currentAge + 10));
     const ch = win._chart;
     assert('chart.$shock is set in History mode', ch.$shock != null, ch.$shock, '!= null');
@@ -133,7 +133,7 @@ window.runIntegrationProjection = async function runIntegrationProjection(ctx) {
     assert('portfolio data at the crash year diverges from a steady projection', dataAt25 !== Math.round(steadyProj.data[25].portfolio), dataAt25, '!= ' + Math.round(steadyProj.data[25].portfolio));
 
     clickEl('btn-proj-steady');
-    assert('shock-age-readout hidden back in steady mode', style('shock-age-readout').display === 'none', style('shock-age-readout').display, 'none');
+    assert('shock-age-readout hidden back in steady mode', style('event-sim').display === 'none', style('event-sim').display, 'none');
     s.shockAge = null;
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Interactive History click-to-place: ${e.message}\n`; }
 
