@@ -1,0 +1,69 @@
+'use strict';
+/* ══════════════════════════════════════════════════════════
+   ENGINE RISK-ENGINE UNIT TESTS  (synchronous — run immediately)
+   Depends on: data.js, engine.js, engine.risk.js, harness.js
+   (assert/group/near), AND engine.core.test.js — loaded BEFORE this
+   file, since this file reuses its top-level `s1` const.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Risk engine: RNG, Monte Carlo, historical, strategies (v1.8) ── */
+group('data.js — historical dataset');
+assert('HIST spans ~a century (≥ 95 years)', HIST.length >= 95, HIST.length, '≥95');
+assert('HIST rows have ret + infl numbers', typeof HIST[0].ret === 'number' && typeof HIST[0].infl === 'number', true, true);
+assert('1931 is a deep crash year (< −40%)', HIST.find(h => h.year === 1931).ret < -0.4, HIST.find(h => h.year === 1931).ret, '< -0.4');
+assert('2008 crash present (< −30%)', HIST.find(h => h.year === 2008).ret < -0.3, HIST.find(h => h.year === 2008).ret, '< -0.3');
+
+group('mulberry32 RNG — deterministic');
+assert('same seed → same first draw', mulberry32(42)() === mulberry32(42)(), true, true);
+assert('different seeds → different draws', mulberry32(1)() !== mulberry32(2)(), true, true);
+(() => { const r = mulberry32(7); let ok = true; for (let i = 0; i < 200; i++) { const x = r(); if (x < 0 || x >= 1) ok = false; } assert('draws stay in [0,1)', ok, true, true); })();
+
+group('runMonteCarlo — reproducible + well-formed');
+const mcBase = { ...s1, currentAge: 40 };
+const mcA = runMonteCarlo(mcBase, 200, 123);
+const mcB = runMonteCarlo(mcBase, 200, 123);
+assert('same seed → identical successRate', mcA.successRate === mcB.successRate, mcA.successRate, mcB.successRate);
+assert('successRate in [0,1]', mcA.successRate >= 0 && mcA.successRate <= 1, mcA.successRate, '0–1');
+assert('bands length = horizon+1 (age 40→95 = 56)', mcA.bands.length === 56, mcA.bands.length, 56);
+assert('bands first age = currentAge 40', mcA.bands[0].age === 40, mcA.bands[0].age, 40);
+assert('p10 ≤ p50 ≤ p90 at mid-horizon', mcA.bands[20].p10 <= mcA.bands[20].p50 && mcA.bands[20].p50 <= mcA.bands[20].p90, true, true);
+
+group('runMonteCarlo — sensible success rates');
+const mcRich  = runMonteCarlo({ portfolio: 3000000, income: 0, spending: 40000, withdrawal: 4, returnRate: 7, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 60, allocInvest: 100 }, 300, 7);
+assert('over-funded retiree survives almost always (>0.9)', mcRich.successRate > 0.9, mcRich.successRate, '>0.9');
+const mcBroke = runMonteCarlo({ portfolio: 500000, income: 0, spending: 80000, withdrawal: 16, returnRate: 7, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 60, allocInvest: 100 }, 300, 7);
+assert('overspending retiree often fails (<0.6)', mcBroke.successRate < 0.6, mcBroke.successRate, '<0.6');
+
+group('runHistorical — replay specific vintages');
+const histBase = { ...s1, currentAge: 40 };
+const h2008 = runHistorical(histBase, 2008);
+assert('replay returns full data path (56)', h2008.data.length === 56, h2008.data.length, 56);
+assert('replay differs from flat projection', h2008.data[10].portfolio !== runProjection(histBase).data[10].portfolio, true, true);
+const h1929 = runHistorical({ portfolio: 600000, income: 0, spending: 36000, withdrawal: 6, returnRate: 7, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 60, allocInvest: 100 }, 1929);
+assert('1929 retirement (thin pot) depletes', h1929.depleteAge !== null, h1929.depleteAge, '!= null');
+assert('unknown start year falls back to dataset start (no crash)', runHistorical(histBase, 3000).data.length === 56, runHistorical(histBase, 3000).data.length, 56);
+
+/* ── runHistoricalShock — click-to-place crash window (v2.5) ─── */
+group('runHistoricalShock — click-to-place crash window');
+const shockBase   = { ...s1, currentAge: 30, allocInvest: 100 };
+const steadyProj  = runProjection(shockBase);
+const shocked2008 = runHistoricalShock(shockBase, 2008, 50, 2);   // shockAge=50 → t=20, span=2
+assert('pre-shock years match steady exactly', near(shocked2008.data[10].portfolio, steadyProj.data[10].portfolio, 0.01), shocked2008.data[10].portfolio, steadyProj.data[10].portfolio);
+assert('shock window diverges from steady', Math.abs(shocked2008.data[20].portfolio - steadyProj.data[20].portfolio) > 1, shocked2008.data[20].portfolio, '!= ' + steadyProj.data[20].portfolio);
+assert('2008 shock (-37%) lowers the portfolio at the window vs steady', shocked2008.data[20].portfolio < steadyProj.data[20].portfolio, shocked2008.data[20].portfolio, '< ' + steadyProj.data[20].portfolio);
+assert('shock still lowers the portfolio after the window resumes steady growth', shocked2008.data[30].portfolio < steadyProj.data[30].portfolio, shocked2008.data[30].portfolio, '< ' + steadyProj.data[30].portfolio);
+
+const shockedZeroSpan = runHistoricalShock(shockBase, 2008, 50, 0);
+assert('span=0 produces no shock at all (matches steady throughout)', near(shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio, 1), shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio);
+
+const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, 2);
+assert('unknown startYear falls back to dataset start (still runs full horizon)', unknownStartShock.data.length === steadyProj.data.length, unknownStartShock.data.length, steadyProj.data.length);
+
+group('withdrawal strategies — VPW & Guyton-Klinger');
+const vpw = runProjection({ portfolio: 500000, income: 0, spending: 100000, withdrawal: 20, returnRate: 5, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, wdStrategy: 'vpw' });
+assert('VPW never fully depletes (draws % of pot)', vpw.depleteAge === null, vpw.depleteAge, null);
+const gkVint = { portfolio: 1000000, income: 0, spending: 40000, withdrawal: 4, returnRate: 6, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, allocInvest: 100 };
+const gkH = runHistorical({ ...gkVint, wdStrategy: 'gk' },    1966);
+const fxH = runHistorical({ ...gkVint, wdStrategy: 'fixed' }, 1966);
+assert('GK diverges from fixed under a volatile vintage', gkH.data[20].portfolio !== fxH.data[20].portfolio, true, true);
+assert('GK projection stays finite', Number.isFinite(gkH.data[gkH.data.length - 1].portfolio), true, true);
