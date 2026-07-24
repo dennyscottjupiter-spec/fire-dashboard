@@ -68,16 +68,19 @@ function runHistorical(s, startYear) {
   return runProjection({ ...s, sequence });
 }
 
-// Interactive History (v2.5): click-to-place crash. Every year uses the
-// user's own steady assumptions EXCEPT a `span`-year window starting at
-// `shockAge`, which replays the exact HIST sequence from `startYear` — so a
-// crash happens exactly when placed, not "from age-now" like runHistorical.
-function runHistoricalShock(s, startYear, shockAge, span) {
+// Interactive History (v2.7): click-to-place crash. Every year uses the
+// user's own steady assumptions EXCEPT an 11-year window starting at
+// `shockAge`, which replays the vintage's hard-coded `returns` array (exact
+// nominal total returns, crash year + 10 following) paired with that year's
+// actual HIST inflation — so a crash happens exactly when placed, not "from
+// age-now" like runHistorical, and the full dip-AND-recovery arc renders.
+function runHistoricalShock(s, startYear, shockAge, returns) {
   const currentAge   = s.currentAge   || 30;
   const longevityAge = s.longevityAge || 95;
   const horizon       = Math.max(1, Math.round(longevityAge - currentAge));
   const rConst    = s.returnRate / 100;
   const inflConst = s.inflation  / 100;
+  returns = returns || [];
 
   let idx0 = HIST.findIndex(h => h.year === startYear);
   if (idx0 < 0) idx0 = 0;
@@ -85,9 +88,10 @@ function runHistoricalShock(s, startYear, shockAge, span) {
   const shockStart = Math.round(shockAge - currentAge);  // 1-based year the window begins
   const sequence = [];
   for (let t = 1; t <= horizon; t++) {
-    if (t >= shockStart && t < shockStart + span) {
-      const row = HIST[(idx0 + (t - shockStart)) % HIST.length];
-      sequence.push({ ret: row.ret, infl: row.infl });
+    if (t >= shockStart && t < shockStart + returns.length) {
+      const i = t - shockStart;
+      const infl = HIST[(idx0 + i) % HIST.length] ? HIST[(idx0 + i) % HIST.length].infl : inflConst;
+      sequence.push({ ret: returns[i], infl });
     } else {
       sequence.push({ ret: rConst, infl: inflConst });
     }

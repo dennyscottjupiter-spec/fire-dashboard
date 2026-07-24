@@ -118,13 +118,27 @@ const HIST = [
 ];
 
 // Infamous retirement start years for the historical replay dropdown.
-// `span` (v2.5) — the crash window length in years, replayed verbatim from
-// `year` once the user clicks the chart to place it. Sized to the actual
-// down-years in HIST for that vintage (e.g. 2008: -37% then +27% rebound).
+// `returns` (v2.7) — the exact 11-year (crash year + 10 following) nominal
+// total-return sequence, replayed verbatim from `year` once the user clicks
+// the chart to place it. Hard-coded so the full dip-AND-recovery arc renders
+// (a short 2-4 year window used to cut off the big rebound years, e.g. 1933
+// +54%/1935 +48%, which made decumulation scenarios drain toward zero).
+// Real/Nominal toggle still works: each nominal return is paired with that
+// year's actual HIST inflation (Dec-to-Dec CPI) inside runHistoricalShock.
 const VINTAGES = [
-  { year: 1929, label: '1929 💀 Great Crash',       span: 4 },
-  { year: 1966, label: '1966 🪫 Stagflation era',    span: 8 },
-  { year: 1973, label: '1973 🛢️ Oil shock',          span: 2 },
-  { year: 2000, label: '2000 💻 Dot-com bust',       span: 3 },
-  { year: 2008, label: '2008 🏚️ Global Financial Crisis', span: 2 },
+  { year: 1929, label: '1929 💀 Great Crash', returns: [
+    -0.0842, -0.2490, -0.4334, -0.0819, 0.5399, -0.0144, 0.4767, 0.3392, -0.3503, 0.3112, -0.0041,
+  ] },
+  { year: 1966, label: '1966 🪫 Stagflation era', returns: [
+    -0.1006, 0.2398, 0.1106, -0.0850, 0.0401, 0.1431, 0.1898, -0.1466, -0.2647, 0.3720, 0.2384,
+  ] },
+  { year: 1973, label: '1973 🛢️ Oil shock', returns: [
+    -0.1466, -0.2647, 0.3720, 0.2384, -0.0718, 0.0656, 0.1844, 0.3242, -0.0491, 0.2141, 0.2251,
+  ] },
+  { year: 2000, label: '2000 💻 Dot-com bust', returns: [
+    -0.0910, -0.1189, -0.2210, 0.2868, 0.1088, 0.0491, 0.1579, 0.0549, -0.3700, 0.2646, 0.1506,
+  ] },
+  { year: 2008, label: '2008 🏚️ Global Financial Crisis', returns: [
+    -0.3700, 0.2646, 0.1506, 0.0211, 0.1600, 0.3239, 0.1369, 0.0138, 0.1196, 0.2183, -0.0438,
+  ] },
 ];
