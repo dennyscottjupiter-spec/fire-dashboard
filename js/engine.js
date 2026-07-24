@@ -1,10 +1,10 @@
 /* ============================================================
    FIRE Dashboard — engine.js
    Pure math. No DOM, no Chart. Safe to unit-test.
-   @map: parseNum L10 · box3Tax L35 · customTax L51 · box1Tax L66 ·
-         runProjection L101 · solveCagrForAge L256 · impliedCagr L274 ·
-         perpetualCapital L300 · perpetualSensitivity L329 · runPerpetual L342 ·
-         coastFiTarget L360
+   @map: parseNum L15 · box3Tax L40 · customTax L56 · box1Tax L71 ·
+         runProjection L108 · solveCagrForAge L263 · impliedCagr L281 ·
+         perpetualCapital L307 · perpetualSensitivity L336 · runPerpetual L349 ·
+         coastFiTarget L389
    Risk engine (mulberry32/runMonteCarlo/runHistorical*) lives in engine.risk.js.
    ============================================================ */
 
@@ -92,7 +92,9 @@ function box1Tax(income) {
 //
 // v1.8 extensions (default-guarded, deterministic path unchanged):
 //   s.sequence   – [{ret, infl}] per-year rates for Monte Carlo / historical replay.
-//                  When present the sim runs in NOMINAL terms (real toggle ignored).
+//                  Honors the user's Real/Nominal toggle exactly like the steady
+//                  path — a Real-mode plan replays each sequence year's return
+//                  deflated by THAT year's own historical inflation.
 //   s.wdStrategy – 'fixed' (default) | 'vpw' (% of current pot) | 'gk' (Guyton-Klinger
 //                  guardrails: skip the inflation raise after a loss year; cut/raise
 //                  spending 10% when the current rate drifts ±20% off the initial rate).
@@ -132,11 +134,11 @@ function runProjection(s) {
   // CAGR mode has no contributions, so "never catches up" means growth can't
   // outrun the FI target's own inflation (nominal: r ≤ i; real: FI is fixed, r ≤ 0).
   const unattainable = growthModel === 'cagr'
-    ? (s.portfolio < fiTarget && ((s.mode === 'real' && !seq) ? rConst <= 0 : rConst <= inflConst))
+    ? (s.portfolio < fiTarget && (s.mode === 'real' ? rConst <= 0 : rConst <= inflConst))
     : (savings <= 0 && s.portfolio < fiTarget);
 
   const MAX_YEARS = Math.max(1, Math.round(longevityAge - currentAge));
-  const useReal   = (s.mode === 'real') && !seq;  // sequences always run nominal
+  const useReal   = s.mode === 'real';  // sequences honor the toggle too — see yearRates()
 
   // Net one-off cash flow scheduled for a given age (nominal / today's € as entered).
   function eventAt(age) {
