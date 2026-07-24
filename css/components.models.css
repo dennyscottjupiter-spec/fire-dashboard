@@ -1,0 +1,140 @@
+/* ============================================================
+   FIRE Dashboard — components.models.css (3/6)
+   Widget layer, part 3: "Learn more" Help-modal deep-links,
+   persons/strategy/growth-model toggles, perpetual growth model
+   (buildup readout, sensitivity table, CAGR solver).
+   Load order: base.css -> .inputs.css -> .toggles.css -> HERE ->
+   .chart.css -> .kpi.css -> .gauge.css.
+   ============================================================ */
+
+/* ── "Learn more" deep-links into the Help modal ─────────── */
+.help-learn-more {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+.help-learn-more:hover, .help-learn-more:focus { color: var(--accent); }
+
+/* Persons toggle (Box 3 allowance) shares tax-toggle styling; active marker */
+.persons-toggle {
+  margin: 8px 0 0;
+}
+.persons-toggle .tax-btn.active-persons {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Strategy toggle shares tax-toggle styling; active marker */
+.strat-toggle .tax-btn.active-strat {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Growth Model toggle + CAGR block (v2.2) ─────────────── */
+.model-toggle .tax-btn.active-model {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.model-dimmed {
+  opacity: 0.38;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+/* ── Perpetual growth model (v2.5) ─────────────────────────── */
+.perp-buildup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 0;
+}
+.perp-buildup b { color: var(--text); font-variant-numeric: tabular-nums; }
+.perp-buildup .arrow { color: var(--border-hi); }
+.perp-tax-line {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.perp-warning {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warn);
+  margin: 8px 0;
+}
+.perp-sensitivity {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin: 8px 0;
+}
+.perp-sensitivity th, .perp-sensitivity td {
+  padding: 4px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.perp-sensitivity th:first-child, .perp-sensitivity td:first-child { text-align: left; }
+.perp-sensitivity th { color: var(--muted); font-weight: 500; }
+.perp-note {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.8;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.cagr-solve-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cagr-solve-label {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+}
+.cagr-age-box { width: 34px; }
+.cagr-solve-result {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cagr-solve-result.unreachable { color: var(--warn); }
+.cagr-apply-btn {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  padding: 3px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cagr-apply-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.cagr-apply-btn:disabled { opacity: 0.4; cursor: default; }
+.cagr-implied {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+  font-family: var(--mono);
+  min-height: 14px;
+}
+

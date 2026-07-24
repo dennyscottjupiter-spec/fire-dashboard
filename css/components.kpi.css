@@ -1,0 +1,169 @@
+/* ============================================================
+   FIRE Dashboard — components.kpi.css (5/6)
+   Widget layer, part 5: dashboard column, KPI row/cards, notice
+   banner, chart panel, milestones panel.
+   Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
+   -> .chart.css -> HERE -> .gauge.css.
+   ============================================================ */
+
+/* ── Dashboard column ────────────────────────────────────── */
+.dashboard { display: flex; flex-direction: column; gap: var(--gap); }
+
+/* ── KPI Row ─────────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr 1fr;
+  gap: var(--gap);
+  align-items: stretch;   /* equal-height cards */
+}
+@media (max-width: 700px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 500px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi-card {
+  background: linear-gradient(145deg, var(--panel) 0%, var(--panel-alt) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-kpi);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.kpi-card:hover {
+  border-color: var(--border-hi);
+  box-shadow: var(--shadow-kpi), 0 0 0 1px var(--accent-dim);
+}
+
+.kpi-card .kpi-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+  cursor: help;
+}
+
+.kpi-card .kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.kpi-value.warn { color: var(--warn); }
+
+.kpi-card .kpi-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-fire-year {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, rgba(34,211,160,0.18) 0%, rgba(14,165,233,0.14) 100%);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+/* ── Notice banner ───────────────────────────────────────── */
+#notice-banner {
+  background: var(--warn-dim);
+  border: 1px solid rgba(244,63,94,0.35);
+  border-radius: var(--radius);
+  color: var(--warn);
+  padding: 11px 15px;
+  font-size: 13px;
+  display: none;
+  line-height: 1.5;
+}
+#notice-banner.visible { display: block; }
+
+/* ── Chart Panel ─────────────────────────────────────────── */
+.chart-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+.chart-panel canvas { max-height: 300px; }
+
+/* ── Milestones ──────────────────────────────────────────── */
+.milestones-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+.milestone-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px;
+  border-radius: 7px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.milestone-item.achieved {
+  border-color: var(--success);
+  background: var(--success-dim);
+  box-shadow: 0 0 0 0 var(--success);
+}
+
+.milestone-check {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--track);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: transparent;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.milestone-item.achieved .milestone-check {
+  border-color: var(--success);
+  background: var(--success);
+  color: #0f2820;
+  font-weight: 800;
+}
+
+.milestone-icon { font-size: 15px; }
+.milestone-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  /* tooltip base */
+  position: relative;
+}
+.milestone-item.achieved .milestone-name { color: var(--success); }
+
+.milestone-threshold {
+  font-size: 12px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.milestone-item.achieved .milestone-threshold { color: var(--success); }
+

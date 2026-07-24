@@ -1,0 +1,209 @@
+/* ============================================================
+   FIRE Dashboard — components.toggles.css (2/6)
+   Widget layer, part 2: macro buttons, tax toggle, costs/income
+   timeline + life events manager, lifecycle note under the chart.
+   Load order: base.css -> components.inputs.css -> HERE -> .models.css
+   -> .chart.css -> .kpi.css -> .gauge.css.
+   ============================================================ */
+
+/* ── Macro Buttons ───────────────────────────────────────── */
+.macro-btns { display: flex; gap: 6px; margin-top: 8px; }
+.macro-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  padding: 4px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+.macro-btn:hover { border-color: var(--accent); color: var(--accent); }
+.macro-btn.active-macro {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Tax toggle ──────────────────────────────────────────── */
+.tax-toggle {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.tax-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  padding: 4px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.tax-btn:hover { border-color: var(--accent); color: var(--accent); }
+.tax-btn.active-tax {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tax-info {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 5px 8px;
+  background: var(--bg);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.tax-custom-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 6px;
+  gap: 8px;
+}
+.tax-custom-label {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+}
+.tax-annual-readout {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 0 4px;
+  font-family: var(--mono);
+}
+.tax-annual-readout span {
+  color: var(--amber);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Costs & Income Timeline (v1.7) ──────────────────────── */
+.fee-impact-readout {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 0 4px;
+  font-family: var(--mono);
+}
+.fee-impact-readout span {
+  color: var(--warn);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.timeline-label {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+.mini-input {
+  width: 84px;
+  background: var(--track);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 6px 9px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.mini-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* Life events manager */
+.events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.event-add-btn {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.12s;
+}
+.event-add-btn:hover { background: var(--accent-glow); }
+
+.events-list { display: flex; flex-direction: column; gap: 6px; }
+.event-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 1fr 22px;
+  gap: 5px;
+  align-items: center;
+}
+.event-input {
+  background: var(--track);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  padding: 5px 7px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.event-input.event-label { font-family: var(--sans); font-variant-numeric: normal; }
+.event-input:focus { border-color: var(--accent); }
+.event-input::placeholder { color: var(--muted); }
+.event-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.12s;
+}
+.event-remove:hover { color: var(--warn); }
+
+/* Lifecycle note under the chart */
+.lifecycle-note {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-height: 16px;
+}
+.lifecycle-note.ok    { color: var(--success); }
+.lifecycle-note.dry   { color: var(--warn); }
+.lifecycle-note-row, .cagr-implied-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 8px;
+}
+.cagr-implied-row { margin: 8px 0 0; }
+.cagr-implied-row .cagr-implied { margin-top: 0; }
+
