@@ -66,11 +66,11 @@ Controlled by `state.mode`.
 
 `state.taxMode` is `'none' | 'box3' | 'custom'`.
 
-- Box 3 (NL 2026 model, v2.3 three-bucket): split deemed returns — investments 6.0%, savings 1.28%, deductible debts −2.70%, flat 36% rate, €59,357 threshold (single).
-- **Decoupled from `state.allocInvest`** (the return-blend slider) — driven instead by three dedicated €-denominated inputs: `state.box3Savings`, `state.box3Investments`, `state.box3Debts`. `runProjection` derives fixed *ratios* from them once (`savingsRatio`/`investRatio` = each bucket ÷ (savings+investments); `debtRatio` = debts ÷ (savings+investments)) and re-applies those ratios to the grown taxable pool `P` every year — the same "fixed % of a growing P" pattern the old `allocInvest`-based method used, just from 3 buckets instead of 1 slider.
-- Uses the *proportional method*: `savings=P·savingsRatio`, `investments=P·investRatio`, `debts=P·debtRatio`; `netWorth = savings+investments−debts`; `deemed = savings·1.28% + investments·6.0% − debts·2.70%`; `taxableShare = (netWorth−allowance)/netWorth`; tax = `0.36 × max(0,deemed) × taxableShare` (0 if `netWorth ≤ allowance`).
-- `box3Tax(P, t, infl, isReal, ratios)` — `ratios = {savingsRatio, investRatio, debtRatio}`; omitting it defaults to `{0, 1, 0}` (100% invest, no debt — backward-compat with pre-v2.3 configs/tests). Allowance deflated in Real mode.
-- Because Box 3 no longer reads `allocInvest`, Asset Allocation is now genuinely inert in CAGR mode (it never affected the CAGR return itself) — `applyGrowthModelUI()` dims `#group-alloc` there too, alongside Income/Investment Return.
+- Box 3 (NL 2026 model): split deemed returns — investments 6.0%, savings 1.28%, flat 36% rate, €59,357 threshold (single). No debt bucket (removed v2.5 — the user doesn't need it).
+- **Re-coupled to `state.allocInvest`** (v2.5 — reverses the v2.3 decoupling): no manual € inputs. `runProjection` derives `box3Ratios = { savingsRatio: (100-alloc)/100, investRatio: alloc/100, debtRatio: 0 }` fresh each call from `state.allocInvest` (defaults to 100% invest if omitted, for backward-compat with old configs), and re-applies that fixed ratio to the grown taxable pool `P` every year.
+- Uses the *proportional method*: `savings=P·savingsRatio`, `investments=P·investRatio`; `netWorth = savings+investments`; `deemed = savings·1.28% + investments·6.0%`; `taxableShare = (netWorth−allowance)/netWorth`; tax = `0.36 × max(0,deemed) × taxableShare` (0 if `netWorth ≤ allowance`).
+- `box3Tax(P, t, infl, isReal, ratios)` — `ratios = {savingsRatio, investRatio, debtRatio}` (the function signature keeps `debtRatio` for backward-compat with its direct unit tests; `runProjection` always passes `0`). Omitting `ratios` entirely defaults to `{0, 1, 0}` (100% invest, no debt). Allowance deflated in Real mode.
+- Because Box 3 now reads `allocInvest` again, it is **not** inert in CAGR mode when Box 3 is the active tax mode — `updateAllocDim()` (called from both `applyGrowthModelUI()` and `applyTaxMode()`) dims `#group-alloc` only when `growthModel==='cagr' && taxMode!=='box3'`; it stays live whenever Box 3 needs it, even in CAGR mode.
 - Custom: `taxCustomPct`% applied to that year's investment gain only.
 - Tax is subtracted *after* growth + contributions each year, inside `runProjection`, which returns `firstYearTax` (year-1 tax under the active mode) → rendered to the `#tax-annual-val` readout as "≈ €X est. tax this year".
 
@@ -87,9 +87,21 @@ Controlled by `state.mode`.
 
 - `runProjection` accepts `s.sequence` (`[{ret,infl}]` per-year rates; runs nominal, ignores the real toggle) and `s.wdStrategy` (`'fixed'`|`'gk'`|`'vpw'`). Deterministic path (no sequence, `'fixed'`) is **byte-for-byte unchanged**. `cumInfl` unifies nominal spending/FI scaling.
 - **Guyton-Klinger** (`gk`): skip the inflation raise after a loss year; cut/raise spending 10% when the current rate drifts ±20% off the initial rate. **VPW** (`vpw`): withdraw `wr%` of the current pot (never depletes).
-- `mulberry32(seed)` → reproducible `runMonteCarlo(s,N,seed)` (bootstrap-resample `HIST`; returns `{successRate, bands:[{age,p10,p50,p90}]}`) and `runHistorical(s,startYear)` (exact replay, wraps past 2023).
+- `mulberry32(seed)` → reproducible `runMonteCarlo(s,N,seed)` (bootstrap-resample `HIST`; returns `{successRate, bands:[{age,p10,p50,p90}]}`) and `runHistorical(s,startYear)` (exact full-timeline replay, wraps past 2023 — kept for its own engine test, no longer used by the History chart mode).
 - **`recalc()` always computes the deterministic `det`** for KPIs/gauge/milestones; `renderChart(det)` switches the chart by `state.projMode`.
 - steady/history draw one path in dataset 0 (bands hidden); Monte Carlo hides dataset 0, reveals the p90/p10(`fill:'-1'`)/p50 band datasets, shows the `#mc-success` badge, runs the debounced (250 ms) `runAndDrawMonteCarlo`. The `_band90` series is hidden from the legend via a label filter.
+
+### Interactive History (v2.5)
+
+History mode no longer replays the *entire* timeline from a vintage year (that made a crash feel "random" — it always started at age-now). Instead the user **clicks the chart to place the crash at a chosen age**; before and after that window the plan runs on the user's own steady assumptions, and only the window itself replays real market data.
+
+- `VINTAGES` entries (`js/data.js`) carry a `span` (crash-window length in years, sized to the actual down-years for that vintage — e.g. 2008: 2 yrs for `-37%` then `+27%`; 1966: 8 yrs for the whole stagflation era).
+- `runHistoricalShock(s, startYear, shockAge, span)` builds a **full-horizon** sequence: every year is the user's steady `{ret: returnRate, infl: inflation}` except the `span` years starting at `t = shockAge − currentAge`, which replay `HIST` from `startYear` verbatim — then calls `runProjection({ ...s, sequence })` (sequences always run nominal, same as the existing risk engine). `runProjection` itself is untouched.
+- `js/ui.js`'s `initChart()` adds a **click handler** (`options.onClick`): active only when `state.projMode === 'history'`, it maps the click's x-pixel to a data index via `chart.scales.x.getValueForPixel(evt.x)`, clamps to `[1, horizon]`, and sets `state.shockAge = currentAge + index` before calling `recalc()`.
+- `renderChart()` derives the shock age each render (`state.shockAge` if set, else `currentAge + 10` as a sane default before the user has clicked), calls `runHistoricalShock`, and sets `chart.$shock = { index, span, label }` for the `shockMarkerPlugin` (sibling to `crossoverPlugin`/`eventMarkerPlugin`) to draw a shaded band + boundary line + vintage label at that position. `chart.$shock` is reset to `null` outside History mode.
+- `#shock-age-readout` shows "💥 Crash at age N · click the chart to move it", visible only in History mode.
+- `state.shockAge` persists (`null` = not yet clicked, falls back to the +10 default) via `saveState`/`applyConfig`/`exportConfig` in `js/store.js`.
+- Test hooks: `window._chart`, `window.recalc`, and `window.runProjection` are exposed on `window` (classic-script `function` declarations attach to `window` automatically; `VINTAGES`/`HIST`/`chart` do not, since they're `const`/`let` — hence the explicit `window._chart` exposure) so integration tests can inspect `chart.$shock` and drive `recalc()` without a raw canvas click; the actual pixel-accurate click is verified visually (Chrome MCP), not by the node harness.
 
 ## NL tax layering (v1.9)
 
@@ -112,11 +124,30 @@ Controlled by `state.mode`.
 - `state.growthModel` (`'income'` | `'cagr'`) lets the user type a single compound annual growth rate instead of decomposing income/spending/return.
 - In `runProjection`, CAGR mode zeroes the accumulation-phase `contrib` (a CAGR already bundles savings — adding `income − spending` on top would double-count it); `unattainable` is redefined as "growth can't outrun the FI target's own inflation" (`r ≤ inflation` nominal, `r ≤ 0` real), since there are no contributions to fall back on.
 - Deterministic income-model path byte-for-byte unchanged when `growthModel` is absent or `'income'`.
-- Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode since v2.3 — Box 3 now uses its own dedicated Savings/Investments/Debts split (see **Tax**), so the allocation slider has no effect on either the return or the tax in this mode.
+- Tax and TER still apply on top of the typed rate (treated as gross) — `app.js`'s `recalc()` sets `state.returnRate = cagrPct − terPct` in CAGR mode instead of the blended formula. Asset Allocation is dimmed (`.model-dimmed` on `#group-alloc`) in CAGR mode **only when Box 3 isn't the active tax mode** (see `updateAllocDim()` under **Tax**) — since v2.5 Box 3 reads `allocInvest` directly, so the slider must stay live and interactive whenever it's driving real tax math, even with CAGR typed in.
 - `solveCagrForAge(s, targetAge)`: 40-step bisection on the real sim (not a closed form, so it stays correct under tax/TER) finding the minimum CAGR reaching FI by a target age — powers the "🎯 FIRE by age" reverse-solver row and its `Use ✓` button.
-- `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other.
-- Monte Carlo and History are disabled in CAGR mode (their injected `sequence` would silently override the typed rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.
-- `snapshotState()` (A/B compare) carries `growthModel`/`cagrPct` so a frozen scenario replays under the right model.
+- `impliedCagr(proj, startPortfolio)` backs out the compound rate the *income* model's own accumulation phase achieves, shown as an always-visible bridge readout (`#cagr-implied`) so both models can be sanity-checked against each other — **hidden in Perpetual mode** (see below), since Perpetual's own build-up readout already tells that story.
+- Monte Carlo and History are disabled in CAGR **and Perpetual** mode (their injected `sequence` would silently override the typed rate / derived real rate) — `applyGrowthModelUI()` dims/disables them and forces `projMode: 'steady'`.
+- `snapshotState()` (A/B compare) carries `growthModel`/`cagrPct` so a frozen scenario replays under the right model. `updateCompareReadout()` and the chart's scenario-A overlay both branch on `scenarioA.growthModel === 'perpetual'` to call `runPerpetual` instead of `runProjection` when replaying a saved snapshot — otherwise a perpetual snapshot would be silently misread as an income-model one.
+
+## Perpetual growth model (v2.5)
+
+"How much capital funds my spending forever, adjusted for inflation, without ever running out?" `state.growthModel === 'perpetual'` is a third Growth-Model option, alongside `'income'` and `'cagr'`. No new inputs — it reuses the income-model blend (Asset Allocation / Investment Return / Savings Return / TER all stay **live**, unlike CAGR mode) and the existing Tax toggle.
+
+- **Layered build-up**, computed by `perpetualCapital(s)`: gross `g = s.returnRate/100` (the fee-adjusted income-model blend) → after-tax nominal `n` → after-tax **real** `r` via the exact Fisher equation `r = (1+n)/(1+f) − 1` → required capital `capital = (I − allowanceBenefit) / r`, where `I = s.spending`.
+- **Tax mapping reuses `state.taxMode`** (no dedicated Perpetual tax UI):
+  - `box3` — wealth tax: `blendedDeemed = alloc·6.0% + (1−alloc)·1.28%` (same `alloc` as the Box 3 split); `drag = blendedDeemed × 36%`; `n = g − drag`. The €59,357 allowance is tax-free, so it funds `allowanceBenefit = BOX3.allowance × drag` €/yr of income for free, lowering the required capital.
+  - `custom` — income tax: `n = g × (1 − taxCustomPct/100)`; `allowanceBenefit = 0`.
+  - `none` — `n = g`; `allowanceBenefit = 0`.
+- **If `r ≤ 0`** (after-tax growth can't outrun inflation), `perpetualCapital` returns `{ unreachable: true, capital: Infinity }` — no finite principal works. Surfaced as a warning (`#perp-warning`) in the UI.
+- `perpetualSensitivity(s)` holds `g` and the tax layer fixed and re-derives `r`/`capital` across a 0–4% inflation sweep (`capital: null` wherever that inflation alone would push `r ≤ 0`) — rendered as `#perp-sensitivity`.
+- `runPerpetual(s)` returns the **same shape as `runProjection`** (`{ savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge }`) so the chart/KPI/gauge/milestone plumbing is reused unchanged. `fiTarget = perpetualCapital(s).capital`.
+  - **Accumulation** (before reaching the target): simple real-terms compounding, `P = P·(1+r) + (income − spending)`, mirroring the income model's contribution but at the after-tax real rate `r`.
+  - **Crossing**: `fiTarget` is an exact fixed point of the draw recursion (`r·capital + allowanceBenefit = I`) — on the year `P` first reaches it, `runPerpetual` **snaps `P` to exactly `fiTarget`** rather than carrying that year's overshoot forward, because the draw recursion amplifies any starting delta by `(1+r)` every subsequent year (unstable fixed point in the forward direction). Without the snap, "flat forever" would silently drift.
+  - **Draw phase** (after reaching the target): `P = max(0, P·(1+r) + allowanceBenefit − I)` every year — flat by construction. `depleteAge` is always `null`.
+  - `firstYearTax` is a representative one-year figure for the existing `#tax-annual-val` readout: `drag × portfolio` (wealth) or `customTax(portfolio × g, taxCustomPct)` (income); `0` for no tax.
+- **`runProjection` is completely untouched** — Perpetual is a fully separate code path (`recalc()` picks `runPerpetual` vs `runProjection` based on `state.growthModel`), so the deterministic income-model path stays byte-for-byte identical.
+- UI: `#perpetual-block` (mirrors `#cagr-block`) shows the build-up chain (`#perp-g → #perp-n → #perp-r → #perp-capital`), the active tax line, the sensitivity table, and the `r ≤ 0` warning, rendered by `renderPerpetual(pc, sens)`. FI Number KPI sub-label switches to "Capital for €I/yr, inflation-protected — forever". The fee-drag rerun and implied-CAGR bridge are both skipped (fees change the required capital itself, not just wealth at a fixed horizon — a like-for-like rerun doesn't apply the same way).
 
 ## Pure-CSS tooltips
 

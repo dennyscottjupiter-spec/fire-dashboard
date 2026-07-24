@@ -52,19 +52,19 @@ assert('adding deductible debt lowers the tax vs no debt', debtTax < expectedMix
 const heavyDebt = { savingsRatio: 0.2, investRatio: 0.8, debtRatio: 0.9 };
 assert('heavy debt can push net worth below the allowance (no tax)', box3Tax(300000, 0, 0.02, false, heavyDebt) === 0, box3Tax(300000, 0, 0.02, false, heavyDebt), 0);
 
-/* ── runProjection — Box 3 wiring to box3Savings/Investments/Debts (v2.3) ── */
-group('runProjection — Box 3 three-bucket wiring');
+/* ── runProjection — Box 3 split derived from Asset Allocation (v2.5) ──── */
+group('runProjection — Box 3 / Asset Allocation coupling');
 const box3Base = { portfolio: 300000, income: 60000, spending: 30000, investReturn: 0, savingsReturn: 0,
   allocInvest: 100, returnRate: 0, inflation: 2, withdrawal: 4, mode: 'nominal', currentAge: 30, taxMode: 'box3' };
-const projDefaultInvest = runProjection({ ...box3Base }); // no box3* fields → back-compat 100% invest
-const projAllSavings    = runProjection({ ...box3Base, box3Savings: 300000, box3Investments: 0, box3Debts: 0 });
-assert('all-savings Box3 split pays less first-year tax than default all-invest', projAllSavings.firstYearTax < projDefaultInvest.firstYearTax, projAllSavings.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
-const projWithDebt = runProjection({ ...box3Base, box3Savings: 60000, box3Investments: 240000, box3Debts: 100000 });
-assert('declared debt lowers first-year Box3 tax vs no debt', projWithDebt.firstYearTax < projDefaultInvest.firstYearTax, projWithDebt.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
-assert('Box 3 no longer keys off allocInvest', near(
-  runProjection({ ...box3Base, allocInvest: 0,   box3Savings: 0, box3Investments: 300000 }).firstYearTax,
-  runProjection({ ...box3Base, allocInvest: 100, box3Savings: 0, box3Investments: 300000 }).firstYearTax, 0.01
-), true, true);
+const projAllInvest  = runProjection({ ...box3Base, allocInvest: 100 });
+const projAllSavings = runProjection({ ...box3Base, allocInvest: 0 });
+assert('all-savings allocation pays less first-year Box3 tax than all-invest', projAllSavings.firstYearTax < projAllInvest.firstYearTax, projAllSavings.firstYearTax, '< ' + projAllInvest.firstYearTax);
+const projNoAlloc = runProjection({ ...box3Base, allocInvest: undefined });
+assert('omitting allocInvest defaults to 100% invest (back-compat)', near(projNoAlloc.firstYearTax, projAllInvest.firstYearTax, 0.01), projNoAlloc.firstYearTax, projAllInvest.firstYearTax);
+const projMix = runProjection({ ...box3Base, allocInvest: 80 });
+assert('Box 3 now keys off allocInvest (80% invest sits between the extremes)',
+  projMix.firstYearTax > projAllSavings.firstYearTax && projMix.firstYearTax < projAllInvest.firstYearTax,
+  projMix.firstYearTax, `between ${projAllSavings.firstYearTax} and ${projAllInvest.firstYearTax}`);
 
 /* ── customTax ─────────────────────────────────────────────── */
 group('customTax');
@@ -271,6 +271,22 @@ const h1929 = runHistorical({ portfolio: 600000, income: 0, spending: 36000, wit
 assert('1929 retirement (thin pot) depletes', h1929.depleteAge !== null, h1929.depleteAge, '!= null');
 assert('unknown start year falls back to dataset start (no crash)', runHistorical(histBase, 3000).data.length === 56, runHistorical(histBase, 3000).data.length, 56);
 
+/* ── runHistoricalShock — click-to-place crash window (v2.5) ─── */
+group('runHistoricalShock — click-to-place crash window');
+const shockBase   = { ...s1, currentAge: 30, allocInvest: 100 };
+const steadyProj  = runProjection(shockBase);
+const shocked2008 = runHistoricalShock(shockBase, 2008, 50, 2);   // shockAge=50 → t=20, span=2
+assert('pre-shock years match steady exactly', near(shocked2008.data[10].portfolio, steadyProj.data[10].portfolio, 0.01), shocked2008.data[10].portfolio, steadyProj.data[10].portfolio);
+assert('shock window diverges from steady', Math.abs(shocked2008.data[20].portfolio - steadyProj.data[20].portfolio) > 1, shocked2008.data[20].portfolio, '!= ' + steadyProj.data[20].portfolio);
+assert('2008 shock (-37%) lowers the portfolio at the window vs steady', shocked2008.data[20].portfolio < steadyProj.data[20].portfolio, shocked2008.data[20].portfolio, '< ' + steadyProj.data[20].portfolio);
+assert('shock still lowers the portfolio after the window resumes steady growth', shocked2008.data[30].portfolio < steadyProj.data[30].portfolio, shocked2008.data[30].portfolio, '< ' + steadyProj.data[30].portfolio);
+
+const shockedZeroSpan = runHistoricalShock(shockBase, 2008, 50, 0);
+assert('span=0 produces no shock at all (matches steady throughout)', near(shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio, 1), shockedZeroSpan.data[40].portfolio, steadyProj.data[40].portfolio);
+
+const unknownStartShock = runHistoricalShock(shockBase, 9999, 50, 2);
+assert('unknown startYear falls back to dataset start (still runs full horizon)', unknownStartShock.data.length === steadyProj.data.length, unknownStartShock.data.length, steadyProj.data.length);
+
 group('withdrawal strategies — VPW & Guyton-Klinger');
 const vpw = runProjection({ portfolio: 500000, income: 0, spending: 100000, withdrawal: 20, returnRate: 5, inflation: 2, mode: 'nominal', taxMode: 'none', currentAge: 55, wdStrategy: 'vpw' });
 assert('VPW never fully depletes (draws % of pot)', vpw.depleteAge === null, vpw.depleteAge, null);
@@ -384,3 +400,59 @@ const pureCagrProj = runProjection({ portfolio: 100000, income: 60000, spending:
   currentAge: 30, growthModel: 'cagr' });
 const impliedPure = impliedCagr(pureCagrProj, 100000);
 assert('impliedCagr recovers the exact typed rate for a pure CAGR run', near(impliedPure, 9, 0.01), impliedPure.toFixed(2), 9);
+
+/* ── perpetualCapital — layered build-up (v2.5) ──────────────── */
+group('perpetualCapital — tax mapping + Fisher equation');
+const perpBase = { portfolio: 300000, income: 60000, spending: 30000, returnRate: 7, inflation: 2,
+  allocInvest: 80, taxMode: 'none', taxCustomPct: 0, currentAge: 30 };
+// none: n = g; r = (1.07/1.02)-1 ≈ 4.902%; capital = 30000 / r
+const pcNone = perpetualCapital(perpBase);
+const rNoneExpected = (1.07 / 1.02) - 1;
+assert('none: n equals g (no tax drag)', near(pcNone.n, 0.07, 1e-9), pcNone.n, 0.07);
+assert('none: r matches exact Fisher equation', near(pcNone.r, rNoneExpected, 1e-9), pcNone.r, rNoneExpected);
+assert('none: capital = I / r', near(pcNone.capital, 30000 / rNoneExpected, 0.01), pcNone.capital.toFixed(2), (30000 / rNoneExpected).toFixed(2));
+assert('none: allowanceBenefit is 0', pcNone.allowanceBenefit === 0, pcNone.allowanceBenefit, 0);
+assert('none: unreachable is false', pcNone.unreachable === false, pcNone.unreachable, false);
+
+// box3: blendedDeemed = 0.8*6.0% + 0.2*1.28% = 5.056%; drag = 5.056%*36% = 1.82016%
+const pcBox3 = perpetualCapital({ ...perpBase, taxMode: 'box3' });
+const blendedDeemed = 0.8 * 0.060 + 0.2 * 0.0128;
+const dragExpected  = blendedDeemed * 0.36;
+assert('box3: drag matches hand-computed blended deemed × 36%', near(pcBox3.drag, dragExpected, 1e-9), pcBox3.drag, dragExpected);
+assert('box3: n = g - drag', near(pcBox3.n, 0.07 - dragExpected, 1e-9), pcBox3.n, 0.07 - dragExpected);
+assert('box3: allowanceBenefit = 59357 × drag', near(pcBox3.allowanceBenefit, 59357 * dragExpected, 0.01), pcBox3.allowanceBenefit.toFixed(2), (59357 * dragExpected).toFixed(2));
+assert('box3: allowance benefit lowers required capital vs no benefit', pcBox3.capital < (30000 - 0) / pcBox3.r, pcBox3.capital, '< ' + ((30000 - 0) / pcBox3.r));
+
+// custom: n = g × (1 − pct%)
+const pcCustom = perpetualCapital({ ...perpBase, taxMode: 'custom', taxCustomPct: 20 });
+assert('custom: n = g × (1 − 20%)', near(pcCustom.n, 0.07 * 0.8, 1e-9), pcCustom.n, 0.07 * 0.8);
+assert('custom: allowanceBenefit is 0 (income tax, not wealth)', pcCustom.allowanceBenefit === 0, pcCustom.allowanceBenefit, 0);
+
+// unreachable: inflation high enough that r ≤ 0
+const pcUnreachable = perpetualCapital({ ...perpBase, taxMode: 'none', returnRate: 2, inflation: 5 });
+assert('r ≤ 0 → unreachable + infinite capital', pcUnreachable.unreachable === true && pcUnreachable.capital === Infinity, pcUnreachable, '{unreachable:true, capital:Infinity}');
+
+/* ── perpetualSensitivity — inflation sweep ──────────────────── */
+group('perpetualSensitivity — inflation 0–4%');
+const sens = perpetualSensitivity(perpBase);
+assert('sensitivity returns 5 rows (0–4% inflation)', sens.length === 5, sens.length, 5);
+assert('sensitivity is monotonically increasing capital as inflation rises', sens.every((row, i) => i === 0 || row.capital === null || sens[i - 1].capital === null || row.capital > sens[i - 1].capital), true, true);
+const sensHighInfl = perpetualSensitivity({ ...perpBase, returnRate: 3 });
+assert('sensitivity nulls out capital once r ≤ 0 at high inflation', sensHighInfl.some(row => row.capital === null), true, true);
+
+/* ── runPerpetual — same shape as runProjection, accumulates to P ───── */
+group('runPerpetual — accumulation + flat draw phase');
+const perpProj = runPerpetual({ ...perpBase, portfolio: 50000, currentAge: 30, longevityAge: 95 });
+assert('fiTarget equals perpetualCapital(...).capital', near(perpProj.fiTarget, pcNone.capital, 0.01), perpProj.fiTarget, pcNone.capital);
+assert('yearsToFI is a positive integer (starts below target)', perpProj.yearsToFI > 0, perpProj.yearsToFI, '> 0');
+assert('portfolio grows monotonically during accumulation', perpProj.data[1].portfolio > perpProj.data[0].portfolio, perpProj.data[1].portfolio, '> ' + perpProj.data[0].portfolio);
+const lastRow = perpProj.data[perpProj.data.length - 1];
+assert('portfolio stays close to target after reaching it (flat draw phase)', near(lastRow.portfolio, perpProj.fiTarget, perpProj.fiTarget * 0.01), lastRow.portfolio, perpProj.fiTarget);
+assert('depleteAge is always null (perpetuity never depletes by construction)', perpProj.depleteAge === null, perpProj.depleteAge, null);
+
+const perpAlreadyFI = runPerpetual({ ...perpBase, portfolio: pcNone.capital * 1.5 });
+assert('already above target → yearsToFI = 0', perpAlreadyFI.yearsToFI === 0, perpAlreadyFI.yearsToFI, 0);
+
+const perpUnreachableProj = runPerpetual({ ...perpBase, taxMode: 'none', returnRate: 2, inflation: 5 });
+assert('unreachable perpetual sets unattainable = true', perpUnreachableProj.unattainable === true, perpUnreachableProj.unattainable, true);
+assert('unreachable perpetual never marks yearsToFI', perpUnreachableProj.yearsToFI === null, perpUnreachableProj.yearsToFI, null);

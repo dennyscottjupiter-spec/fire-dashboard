@@ -272,59 +272,26 @@
       text('tax-annual-val') !== '€0', text('tax-annual-val'), '!= €0');
     assert('tax-annual-val contains € symbol under Box 3',
       text('tax-annual-val').startsWith('€'), text('tax-annual-val'), 'starts with €');
+    assert('no manual Box 3 € inputs exist in the DOM (v2.5 — derived from Asset Allocation)',
+      doc.getElementById('input-box3-savings') === null, doc.getElementById('input-box3-savings'), null);
 
-    /* savings-heavy (all box3Savings) pays less than invest-heavy (all box3Investments) —
-       driven by the dedicated Box 3 € inputs, NOT the return-blend allocation slider (v2.3) */
-    setVal('input-box3-savings', '50000'); fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '0'); fireBlur('input-box3-investments');
-    const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    setVal('input-box3-savings', '0');     fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '50000'); fireBlur('input-box3-investments');
-    const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('Box 3: invest-heavy pays more tax than savings-heavy (higher deemed return)',
-      taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
-
-    /* Asset Allocation slider no longer affects Box 3 tax at all (decoupled in v2.3).
-       Freeze investReturn = savingsReturn first so moving the slider can't change the
-       blended returnRate itself — isolates whether allocInvest still leaks into Box 3. */
+    /* Box 3 split is now derived from the Asset Allocation slider (v2.5): savings-heavy
+       (allocInvest=0) pays less than invest-heavy (allocInvest=100). Freeze
+       investReturn = savingsReturn first so moving the slider can't change the blended
+       returnRate itself — isolates whether allocInvest drives Box 3 as intended. */
     setVal('val-return', '5'); fireBlur('val-return');
     setVal('val-savings', '5'); fireBlur('val-savings');
-    const taxBeforeAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    doc.getElementById('slider-alloc').value = '0';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-    const taxAfterAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('moving the allocation slider does not change Box 3 tax', near(taxAfterAllocMove, taxBeforeAllocMove, 0.5), taxAfterAllocMove, taxBeforeAllocMove);
-
-    /* deductible debt lowers the tax */
-    setVal('input-box3-debts', '40000'); fireBlur('input-box3-debts');
-    const taxWithDebt = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('deductible debt lowers Box 3 tax vs no debt', taxWithDebt < taxAllInvest, taxWithDebt.toFixed(0), '< ' + taxAllInvest.toFixed(0));
+    setVal('slider-alloc', '0');
+    const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    setVal('slider-alloc', '100');
+    const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('Box 3: invest-heavy allocation pays more tax than savings-heavy (higher deemed return)',
+      taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
 
     /* restore */
     clickEl('btn-tax-none');
-    doc.getElementById('slider-alloc').value = '80';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-    setVal('input-box3-savings', '10000'); fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '40000'); fireBlur('input-box3-investments');
-    setVal('input-box3-debts', '0'); fireBlur('input-box3-debts');
+    setVal('slider-alloc', '80');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax readout: ${e.message}\n`; }
-
-  /* ── Box 3 three-bucket inputs (v2.3) ────────────────────── */
-  try {
-    group('Integration — Box 3 three-bucket € inputs');
-    resetBaseline();
-    clickEl('btn-tax-box3');
-    assert('tax-box3-inputs visible under Box 3', style('tax-box3-inputs').display !== 'none', style('tax-box3-inputs').display, 'flex');
-    setVal('input-box3-savings', '25000'); fireBlur('input-box3-savings');
-    assert('box3Savings = 25000', s.box3Savings === 25000, s.box3Savings, 25000);
-    assert('box3-savings formats with comma on blur', val('input-box3-savings') === '25,000', val('input-box3-savings'), '25,000');
-    setVal('input-box3-investments', '75000'); fireBlur('input-box3-investments');
-    assert('box3Investments = 75000', s.box3Investments === 75000, s.box3Investments, 75000);
-    setVal('input-box3-debts', '15000'); fireBlur('input-box3-debts');
-    assert('box3Debts = 15000', s.box3Debts === 15000, s.box3Debts, 15000);
-    clickEl('btn-tax-none');
-    assert('tax-box3-inputs hidden again', style('tax-box3-inputs').display === 'none', style('tax-box3-inputs').display, 'none');
-  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] box3 inputs: ${e.message}\n`; }
 
   /* ── macro buttons ───────────────────────────────────────── */
   try {
@@ -518,6 +485,34 @@
     clickEl('btn-proj-steady');
     assert('vintage select hidden in steady', doc.getElementById('vintage-select').style.display === 'none', true, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] History vintage: ${e.message}\n`; }
+
+  /* ── Interactive History: click-to-place crash window (v2.5) ── */
+  try {
+    group('Integration — Interactive History click-to-place crash');
+    resetBaseline();
+    s.shockAge = null;
+    clickEl('btn-proj-history');
+    assert('shock-age-readout visible in History mode', style('shock-age-readout').display !== 'none', style('shock-age-readout').display, 'block');
+    assert('default crash age is currentAge + 10', text('shock-age-val') === String(s.currentAge + 10), text('shock-age-val'), String(s.currentAge + 10));
+    const ch = win._chart;
+    assert('chart.$shock is set in History mode', ch.$shock != null, ch.$shock, '!= null');
+    assert('chart.$shock.index matches the default crash age', ch.$shock.index === 10, ch.$shock.index, 10);
+
+    // Simulate the click-to-place flow: set shockAge directly (the raw canvas
+    // click itself is visually verified separately — jsdom-less harness can't
+    // dispatch real pixel-accurate canvas clicks) and confirm the chart reacts.
+    s.shockAge = s.currentAge + 25;
+    win.recalc();
+    assert('shock-age-val readout updates after moving the crash', text('shock-age-val') === String(s.currentAge + 25), text('shock-age-val'), String(s.currentAge + 25));
+    assert('chart.$shock.index updates after moving the crash', ch.$shock.index === 25, ch.$shock.index, 25);
+    const dataAt25 = ch.data.datasets[0].data[25];
+    const steadyProj = win.runProjection(s);
+    assert('portfolio data at the crash year diverges from a steady projection', dataAt25 !== Math.round(steadyProj.data[25].portfolio), dataAt25, '!= ' + Math.round(steadyProj.data[25].portfolio));
+
+    clickEl('btn-proj-steady');
+    assert('shock-age-readout hidden back in steady mode', style('shock-age-readout').display === 'none', style('shock-age-readout').display, 'none');
+    s.shockAge = null;
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Interactive History click-to-place: ${e.message}\n`; }
 
   /* ── TER fund fee (fee drag) ─────────────────────────────── */
   try {
@@ -771,6 +766,20 @@
     assert('group-income loses .model-dimmed', !doc.getElementById('group-income').classList.contains('model-dimmed'), true, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] growth model toggle: ${e.message}\n`; }
 
+  /* ── updateAllocDim: Asset Allocation dims in CAGR only when Box 3 is off (v2.5) ── */
+  try {
+    group('Integration — Asset Allocation dimming follows Box 3 coupling');
+    resetBaseline();
+    clickEl('btn-tax-none');
+    clickEl('btn-model-cagr');
+    assert('group-alloc dims in CAGR mode with tax off', doc.getElementById('group-alloc').classList.contains('model-dimmed'), true, true);
+    clickEl('btn-tax-box3');
+    assert('group-alloc stays live in CAGR mode once Box 3 is on', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    clickEl('btn-model-income');
+    assert('group-alloc never dims in income model', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    clickEl('btn-tax-none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] alloc dimming: ${e.message}\n`; }
+
   /* ── CAGR mode drives Years-to-FIRE + FIRE-year pill ─────── */
   try {
     group('Integration — CAGR rate drives Years to FIRE');
@@ -836,6 +845,41 @@
     assert('MC button re-enabled back in income model', !doc.getElementById('btn-proj-mc').disabled, false, false);
     assert('History button re-enabled back in income model', !doc.getElementById('btn-proj-history').disabled, false, false);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] MC/History disablement: ${e.message}\n`; }
+
+  /* ── Perpetual growth model (v2.5) ────────────────────────── */
+  try {
+    group('Integration — Perpetual growth model toggle + block');
+    resetBaseline();
+    assert('perpetual-block hidden in income model', style('perpetual-block').display === 'none', style('perpetual-block').display, 'none');
+    clickEl('btn-model-perp');
+    assert('growthModel = perpetual after click', s.growthModel === 'perpetual', s.growthModel, 'perpetual');
+    assert('btn-model-perp gets .active-model', doc.getElementById('btn-model-perp').classList.contains('active-model'), true, true);
+    assert('perpetual-block visible in Perpetual model', style('perpetual-block').display === 'block', style('perpetual-block').display, 'block');
+    assert('cagr-block stays hidden in Perpetual model', style('cagr-block').display === 'none', style('cagr-block').display, 'none');
+    assert('group-income stays live (not dimmed) in Perpetual model', !doc.getElementById('group-income').classList.contains('model-dimmed'), false, false);
+    assert('group-return stays live (not dimmed) in Perpetual model', !doc.getElementById('group-return').classList.contains('model-dimmed'), false, false);
+    assert('group-alloc stays live (not dimmed) in Perpetual model', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    assert('MC button disabled in Perpetual model', doc.getElementById('btn-proj-mc').disabled, true, true);
+    assert('History button disabled in Perpetual model', doc.getElementById('btn-proj-history').disabled, true, true);
+    assert('implied-CAGR bridge is hidden in Perpetual model', text('cagr-implied') === '', text('cagr-implied'), '');
+
+    // FI Number KPI should equal the perpetual capital, and the build-up chain should render
+    assert('perp-g renders a % value', /%$/.test(text('perp-g')), text('perp-g'), '~N.N%');
+    assert('perp-r renders a % value', /%$/.test(text('perp-r')), text('perp-r'), '~N.N%');
+    assert('perp-capital matches FI Number KPI', text('perp-capital') === text('kpi-fi-number'), text('perp-capital'), text('kpi-fi-number'));
+    assert('sensitivity table renders 5 rows', doc.querySelectorAll('#perp-sensitivity tbody tr').length === 5, doc.querySelectorAll('#perp-sensitivity tbody tr').length, 5);
+    assert('perp-warning hidden for a normal reachable plan', style('perp-warning').display === 'none', style('perp-warning').display, 'none');
+
+    // Force r ≤ 0 (return well below inflation) → unreachable warning + ∞ capital
+    setVal('val-return', '1');  fireBlur('val-return');
+    setVal('val-savings', '1'); fireBlur('val-savings');
+    setVal('val-inflation', '8'); fireBlur('val-inflation');
+    assert('perp-warning shows when r ≤ 0', style('perp-warning').display === 'block', style('perp-warning').display, 'block');
+    assert('FI Number shows ∞ when unreachable', text('kpi-fi-number') === '∞', text('kpi-fi-number'), '∞');
+
+    clickEl('btn-model-income');
+    assert('MC/History re-enabled back in income model', !doc.getElementById('btn-proj-mc').disabled && !doc.getElementById('btn-proj-history').disabled, true, true);
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] Perpetual growth model: ${e.message}\n`; }
 
   /* ── localStorage round-trip for CAGR fields ─────────────── */
   try {

@@ -6,7 +6,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository. Vanilla-JS
 
 - **`docs/INVARIANTS.md`** — the `recalc()` data flow + every key invariant (chart, rate inputs, macro buttons, asset allocation, gauge, € inputs, nominal/real, tax, lifecycle, risk engine, pension pot, cockpit, CAGR mode, tooltips, milestones, localStorage, reset confirm, export/import guards). **Read before editing `js/` or `css/`.**
 - **`docs/TESTING.md`** — suite layout, counts, coverage, headless Node run, harness guarantees, dev caching gotcha. **Read before changing or running tests.**
-- **`docs/HISTORY.md`** — tag history + v1.7→v2.2 branch lineage + v2.2.1→v2.4.0 issue-backlog tags.
+- **`docs/HISTORY.md`** — tag history + v1.7→v2.2 branch lineage + v2.2.1→v2.4.0 issue-backlog tags + v2.5.0 (Perpetual model, interactive History, Box 3/Allocation re-coupling).
 
 ## Shell preference
 
@@ -23,7 +23,7 @@ Guidance for Claude Code (claude.ai/code) working in this repository. Vanilla-JS
 
 ## Tests
 
-**339 tests** = 122 engine (synchronous, run on `file://` too) + 217 integration. Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`.
+**391 tests** = 151 engine (synchronous, run on `file://` too) + 240 integration. Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`.
 
 ## Architecture
 
@@ -47,4 +47,4 @@ Single `state` object → **`recalc()` is the only heartbeat**. Every input even
 
 ## Git
 
-Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.4.0 — see `docs/HISTORY.md`.
+Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.5.0 — see `docs/HISTORY.md`.

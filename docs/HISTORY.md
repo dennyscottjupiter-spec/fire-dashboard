@@ -4,7 +4,17 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0`
+
+## v2.5.0 — Perpetual model, interactive History, Box 3/Allocation re-coupling
+
+Branch `feat/round5-perpetual-history-tax`, four atomic commits merged to `master`:
+
+- `.gitignore` added — exported user financial data (`fire-config*.json`, `*.pdf`) can no longer land in the repo by accident.
+- Box 3 simplified: the three manual Savings/Investments/Debts € inputs are gone; the savings/invest split is now derived from the existing Asset Allocation slider (re-coupling a v2.3 decoupling), and the deductible-debt bucket is removed entirely. `updateAllocDim()` keeps the allocation slider live in CAGR mode whenever Box 3 needs it.
+- **Perpetual** growth model added — a third Growth Model option (alongside Income & Return and Net Worth CAGR) that computes the capital needed to draw an inflation-protected income forever: gross → after-tax → real (Fisher equation) → capital, reusing the existing Tax toggle, with an inflation-sensitivity table and an `r ≤ 0` "unreachable" warning.
+- **History** mode reworked from a full-timeline replay into a click-to-place crash: click the chart to choose the age a crash hits; before/after that window the plan runs on steady assumptions, and only a per-vintage window replays the real historical sequence.
+- Test suite grew from 339 → 391 tests (151 engine + 240 integration).
 
 ## v2.2.1–v2.4.0 — GitHub issue backlog clear-out
 
@@ -30,4 +40,4 @@ The v2.0 "Reality Engine" roadmap was built as four stacked feature branches, ea
 - `feature/v2.1-structure` (v2.1.0, "structure": pure structural refactor — repo restructure into `js/` + `css/` folders, test suite split into `tests/`, `app.js` splits into `store.js` + `app.js`, `styles.css` into `base.css` + `components.css`; zero behavior change)
 - `feature/v2.2-cagr` (v2.2.0, "Net-Worth CAGR": second growth model — type a CAGR instead of income/spending/return — with a reverse FIRE-by-age solver + implied-CAGR bridge; the cumulative build to test)
 
-**All of it now lives on `master` @ v2.4.0** — those feature branches are gone; the old "stacked branches awaiting user review, none merged to master" convention no longer applies.
+**All of it now lives on `master` @ v2.5.0** — those feature branches are gone; the old "stacked branches awaiting user review, none merged to master" convention no longer applies.

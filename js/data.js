@@ -118,10 +118,13 @@ const HIST = [
 ];
 
 // Infamous retirement start years for the historical replay dropdown.
+// `span` (v2.5) — the crash window length in years, replayed verbatim from
+// `year` once the user clicks the chart to place it. Sized to the actual
+// down-years in HIST for that vintage (e.g. 2008: -37% then +27% rebound).
 const VINTAGES = [
-  { year: 1929, label: '1929 💀 Great Crash' },
-  { year: 1966, label: '1966 🪫 Stagflation era' },
-  { year: 1973, label: '1973 🛢️ Oil shock' },
-  { year: 2000, label: '2000 💻 Dot-com bust' },
-  { year: 2008, label: '2008 🏚️ Global Financial Crisis' },
+  { year: 1929, label: '1929 💀 Great Crash',       span: 4 },
+  { year: 1966, label: '1966 🪫 Stagflation era',    span: 8 },
+  { year: 1973, label: '1973 🛢️ Oil shock',          span: 2 },
+  { year: 2000, label: '2000 💻 Dot-com bust',       span: 3 },
+  { year: 2008, label: '2008 🏚️ Global Financial Crisis', span: 2 },
 ];

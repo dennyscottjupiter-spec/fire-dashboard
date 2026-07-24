@@ -95,6 +95,51 @@ const eventMarkerPlugin = {
   }
 };
 
+// Inline plugin (v2.5): draws the click-to-place historical crash window —
+// a shaded band + boundary line + label, reading ch.$shock = {index, span, label}
+// (index = the data-array position the window starts at, i.e. shockAge − currentAge).
+const shockMarkerPlugin = {
+  id: 'shockMarker',
+  afterDatasetsDraw(ch) {
+    const shock = ch.$shock;
+    if (!shock || shock.index == null || shock.index < 0) return;
+    const meta = ch.getDatasetMeta(0);
+    if (!meta) return;
+    const p0 = meta.data[shock.index];
+    const p1 = meta.data[Math.min(shock.index + shock.span, meta.data.length - 1)];
+    if (!p0 || !p1) return;
+
+    const ctx2 = ch.ctx;
+    const top  = ch.chartArea.top;
+    const bot  = ch.chartArea.bottom;
+    ctx2.save();
+
+    // Shaded crash-window band
+    ctx2.fillStyle = 'rgba(244,63,94,0.10)';
+    ctx2.fillRect(p0.x, top, Math.max(1, p1.x - p0.x), bot - top);
+
+    // Boundary line at the window's start
+    ctx2.setLineDash([4, 3]);
+    ctx2.strokeStyle = 'rgba(244,63,94,0.55)';
+    ctx2.lineWidth   = 1.5;
+    ctx2.beginPath();
+    ctx2.moveTo(p0.x, top);
+    ctx2.lineTo(p0.x, bot);
+    ctx2.stroke();
+
+    // Label
+    ctx2.setLineDash([]);
+    ctx2.font        = 'bold 11px Inter, "Segoe UI", sans-serif';
+    ctx2.fillStyle   = '#f43f5e';
+    ctx2.textAlign   = p0.x > ch.chartArea.right - 90 ? 'right' : 'left';
+    ctx2.textBaseline = 'top';
+    const labelX = ctx2.textAlign === 'right' ? p0.x - 8 : p0.x + 8;
+    ctx2.fillText(shock.label || 'Crash', labelX, top + 8);
+
+    ctx2.restore();
+  }
+};
+
 function initChart() {
   const ctx = document.getElementById('fi-chart').getContext('2d');
   chart = new Chart(ctx, {
@@ -169,12 +214,21 @@ function initChart() {
         }
       ]
     },
-    plugins: [crossoverPlugin, eventMarkerPlugin],
+    plugins: [crossoverPlugin, eventMarkerPlugin, shockMarkerPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: true,
       animation: { duration: 200 },
       interaction: { mode: 'index', intersect: false },
+      // v2.5: click the chart in History mode to place the crash window at that age.
+      onClick: (evt, _elements, ch) => {
+        if (state.projMode !== 'history') return;
+        const idx = ch.scales.x.getValueForPixel(evt.x);
+        if (idx == null) return;
+        const horizon = ch.data.labels.length - 1;
+        state.shockAge = state.currentAge + Math.max(1, Math.min(horizon, Math.round(idx)));
+        recalc();
+      },
       plugins: {
         legend: {
           labels: {
