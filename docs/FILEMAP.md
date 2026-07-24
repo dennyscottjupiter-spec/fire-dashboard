@@ -28,14 +28,14 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | File | Lines | Purpose |
 |---|---|---|
 | `data.js` | 130 | Vendored historical S&P 500 + CPI dataset (`HIST`, `VINTAGES`). No DOM. |
-| `engine.js` | 391 | Pure math: `parseNum`, tax functions (`box3Tax`/`box1Tax`/`customTax`), `runProjection` (two-phase lifecycle sim), CAGR solver, Perpetual model (`perpetualCapital`/`runPerpetual`), `coastFiTarget`. No DOM, no Chart. |
+| `engine.js` | 393 | Pure math: `parseNum`, tax functions (`box3Tax`/`box1Tax`/`customTax`), `runProjection` (two-phase lifecycle sim — sequences honor the Real/Nominal toggle, v2.6.1), CAGR solver, Perpetual model (`perpetualCapital`/`runPerpetual`), `coastFiTarget`. No DOM, no Chart. |
 | `engine.risk.js` | 96 | Risk engine: `mulberry32` (seedable PRNG), `runMonteCarlo`, `runHistorical`, `runHistoricalShock`. Depends on `HIST` + `runProjection`. |
 | `ui.chart.js` | 279 | Chart.js setup (`initChart`) + drawing plugins (`crossoverPlugin`/`eventMarkerPlugin`/`shockMarkerPlugin`). |
 | `ui.gauge.js` | 142 | Retirement Readiness gauge (`buildGauge`/`updateGauge`) + `MILESTONES`/`updateMilestones`. |
 | `store.js` | 256 | `state` object, `DEFAULTS`, `applyConfig` (shared restore), `saveState`/`loadState`/`resetSavedData`. |
 | `store.io.js` | 108 | `exportConfig`/`importConfig`/`showImportError`, PDF snapshot (`buildPrintSnapshot`/`printSnapshot`). |
-| `app.core.js` | 402 | Formatters (`eur`/`numFmt`), DOM refs (`els`), `recalc()` — **the one heartbeat** — `bindRange`, rate stepper. |
-| `app.chart.js` | 177 | `renderChart` (Steady/Monte Carlo/History), `populateVintages`, Growth Model UI (`applyGrowthModelUI`/`renderPerpetual`/`updateAllocDim`). |
+| `app.core.js` | 403 | Formatters (`eur`/`numFmt`), DOM refs (`els`, incl. `eventSim`), `recalc()` — **the one heartbeat** — `bindRange`, rate stepper. |
+| `app.chart.js` | 177 | `renderChart` (Steady/Monte Carlo/History — toggles `#event-sim` as one unit), `populateVintages`, Growth Model UI (`applyGrowthModelUI`/`renderPerpetual`/`updateAllocDim`). |
 | `app.scenarios.js` | 115 | A/B scenario compare (`snapshotState`/`toggleCompare`/`updateCompareReadout`) + life events manager (`renderEvents`/`addEvent`). |
 | `app.modals.js` | 217 | Onboarding wizard (`WIZARD_STEPS`/`renderWizardStep`/`finishWizard`) + Help modal (`HELP_TABS`/`renderHelpTabs`/`openHelp`). |
 | `app.io.js` | 30 | `closeExportMenu()` helper + two-step reset-confirm state (`_resetArmed`/`_disarmReset`). |
@@ -50,20 +50,20 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `components.inputs.css` | 236 | Tooltips, control groups, collapsible sections, euro inputs, rate display, steppers, sliders. |
 | `components.toggles.css` | 209 | Macro buttons, tax toggle, costs/income timeline, life events, lifecycle note. |
 | `components.models.css` | 140 | "Learn more" links, persons/strategy/growth-model toggles, Perpetual growth model. |
-| `components.chart.css` | 262 | Projection mode bar, Monte Carlo badge, A/B compare readout, onboarding wizard, Help modal. |
+| `components.chart.css` | 284 | Projection mode bar, `.event-sim` titled wrapper (v2.6.1), Monte Carlo badge, A/B compare readout, onboarding wizard, Help modal. |
 | `components.kpi.css` | 169 | Dashboard column, KPI row/cards, notice banner, chart panel, milestones panel. |
 | `components.gauge.css` | 158 | Retirement Readiness gauge, Asset Allocation controls, localStorage note. |
 | `explainer.css` | 263 | Styling for `explainer.html`'s scene player (extracted from its old inline `<style>`). Not linked by `index.html`. |
 
-## tests/ (400 tests = 157 engine + 243 integration)
+## tests/ (405 tests = 162 engine + 243 integration)
 
 | File | Lines | Purpose |
 |---|---|---|
 | `harness.js` | 57 | Shared `assert`/`group`/`near`/`renderSummary`/watchdog infrastructure. |
 | `engine.core.test.js` | 424 | Pure-math tests: `parseNum`, tax functions, `runProjection` scenarios, `coastFiTarget`, Box-1 pension pot, CAGR mode, Perpetual model (130 asserts, 37 groups). |
-| `engine.risk.test.js` | 69 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock`, withdrawal strategies (27 asserts, 7 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
+| `engine.risk.test.js` | 86 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock`, sequence real/nominal-toggle regression (v2.6.1), withdrawal strategies (32 asserts, 8 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
 | `integration.inputs.test.js` | 296 | Raw input-widget wiring: euro inputs, sliders/boxes, mode/tax buttons, macros, steppers, gauge, KPIs (67 asserts, 17 groups). Defines `window.runIntegrationInputs(ctx)` — doesn't self-execute. |
-| `integration.projection.test.js` | 271 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage, Interactive History, TER fee, pension bridge, life events, A/B compare, wizard (74 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
+| `integration.projection.test.js` | 276 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage (checks `#event-sim`, v2.6.1), Interactive History, TER fee, pension bridge, life events, A/B compare, wizard (74 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
 | `integration.features.test.js` | 345 | Import guards, localStorage round-trips, Reset button, Growth Model/CAGR/Perpetual toggles, Help modal, Export dropdown (102 asserts, 18 groups). Defines `window.runIntegrationFeatures(ctx)`. |
 | `integration.setup.js` | 159 | Builds the shared hidden iframe + DOM-driving helpers (`setVal`/`clickEl`/`text`/etc.) + `resetBaseline()`, packs them into `ctx`, then `await`s the three `integration.*.test.js` functions in order. Only file that calls `clearTimeout(_watchdog)`/`renderSummary()`. |
 | `tests.html` | — | Thin shell; script tags define the load order above. |
@@ -72,7 +72,7 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | ~630 | Markup only, all IDs wired to `els` in `app.core.js`. Already fully externalized (no inline script/style) — see its own `@map` header comment for section line-numbers. |
+| `index.html` | ~680 | Markup only, all IDs wired to `els` in `app.core.js`. Already fully externalized (no inline script/style) — see its own `@map` header comment for section line-numbers. |
 | `explainer.html` | 202 | Self-contained animated feature tour. Links `css/explainer.css` + `js/explainer.js`; does **not** link the main app's css/js. |
 
 ## Docs
