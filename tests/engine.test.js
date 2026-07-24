@@ -456,3 +456,25 @@ assert('already above target → yearsToFI = 0', perpAlreadyFI.yearsToFI === 0, 
 const perpUnreachableProj = runPerpetual({ ...perpBase, taxMode: 'none', returnRate: 2, inflation: 5 });
 assert('unreachable perpetual sets unattainable = true', perpUnreachableProj.unattainable === true, perpUnreachableProj.unattainable, true);
 assert('unreachable perpetual never marks yearsToFI', perpUnreachableProj.yearsToFI === null, perpUnreachableProj.yearsToFI, null);
+
+/* ── box3Persons (Single/Couple allowance) — fixes runPerpetual ignoring the allowance ── */
+group('box3Tax + runPerpetual — Single vs Couple allowance');
+assert('box3Tax: persons defaults to 1 (back-compat) — tax-free right at €59,357',
+  box3Tax(59357, 1, 0.02, false, null, 1) === 0, box3Tax(59357, 1, 0.02, false, null, 1), 0);
+assert('box3Tax: persons=2 doubles the allowance — tax-free at 2×€59,357',
+  box3Tax(118714, 1, 0.02, false, null, 2) === 0, box3Tax(118714, 1, 0.02, false, null, 2), 0);
+assert('box3Tax: persons=2 still taxes wealth above the doubled allowance',
+  box3Tax(128714, 1, 0.02, false, null, 2) > 0, box3Tax(128714, 1, 0.02, false, null, 2), '> 0');
+
+const pcCouple = perpetualCapital({ ...perpBase, taxMode: 'box3', box3Persons: 2 });
+assert('perpetualCapital: box3Persons=2 doubles allowanceBenefit vs default (persons=1)',
+  near(pcCouple.allowanceBenefit, pcBox3.allowanceBenefit * 2, 0.01), pcCouple.allowanceBenefit, pcBox3.allowanceBenefit * 2);
+
+const perpBelowAllowance = runPerpetual({ ...perpBase, taxMode: 'box3', box3Persons: 2, portfolio: 100000 });
+assert('runPerpetual: firstYearTax is 0 when portfolio sits below the couple allowance (€118,714) — the reported bug',
+  perpBelowAllowance.firstYearTax === 0, perpBelowAllowance.firstYearTax, 0);
+
+const perpAboveAllowance = runPerpetual({ ...perpBase, taxMode: 'box3', box3Persons: 2, portfolio: 300000 });
+assert('runPerpetual: firstYearTax matches drag × (portfolio − doubled allowance) above it',
+  near(perpAboveAllowance.firstYearTax, pcCouple.drag * (300000 - 59357 * 2), 0.01),
+  perpAboveAllowance.firstYearTax, pcCouple.drag * (300000 - 59357 * 2));

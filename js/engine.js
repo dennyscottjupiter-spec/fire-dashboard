@@ -32,10 +32,10 @@ const BOX3 = {
 //     deemed = 240k×6.0% + 60k×1.28% − 0 = 15,168
 //     taxable share = (300k − 59,357) / 300k = 0.8021
 //     tax = 0.36 × 15,168 × 0.8021 ≈ €4,380
-function box3Tax(P, t, infl, isReal, ratios) {
-  const allowance = isReal
+function box3Tax(P, t, infl, isReal, ratios, persons = 1) {
+  const allowance = (isReal
     ? BOX3.allowance / Math.pow(1 + infl, t)
-    : BOX3.allowance;
+    : BOX3.allowance) * persons;
   const r = ratios || { savingsRatio: 0, investRatio: 1, debtRatio: 0 }; // back-compat: 100% invested, no debt
   const savings     = P * r.savingsRatio;
   const investments = P * r.investRatio;
@@ -119,6 +119,7 @@ function runProjection(s) {
   // deemed yield), the rest is "savings" (1.28% deemed yield).
   const alloc = s.allocInvest != null ? s.allocInvest : 100; // back-compat: 100% invested
   const box3Ratios = { savingsRatio: (100 - alloc) / 100, investRatio: alloc / 100, debtRatio: 0 };
+  const box3Persons = s.box3Persons || 1;
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;
@@ -216,7 +217,7 @@ function runProjection(s) {
       const netDraw = Math.max(0, gross - aow - annuityNet);
       taxBase = grown;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios)
+        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios, box3Persons)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = grown - netDraw - tax;
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
@@ -227,7 +228,7 @@ function runProjection(s) {
       const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings / cumInfl : savings);
       taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios)
+        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios, box3Persons)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = Math.max(0, grown + contrib - tax);
     }
@@ -301,6 +302,7 @@ function perpetualCapital(s) {
   const g     = s.returnRate / 100;
   const f     = s.inflation  / 100;
   const alloc = (s.allocInvest != null ? s.allocInvest : 100) / 100;
+  const persons = s.box3Persons || 1;
 
   let n, drag = 0, allowanceBenefit = 0, taxType = 'none';
   if (s.taxMode === 'box3') {
@@ -308,7 +310,7 @@ function perpetualCapital(s) {
     const blendedDeemed = alloc * BOX3.deemedInvest + (1 - alloc) * BOX3.deemedSavings;
     drag = blendedDeemed * BOX3.taxRate;
     n = g - drag;
-    allowanceBenefit = BOX3.allowance * drag;
+    allowanceBenefit = BOX3.allowance * persons * drag;
   } else if (s.taxMode === 'custom') {
     taxType = 'custom';
     n = g * (1 - (s.taxCustomPct || 0) / 100);
@@ -369,7 +371,7 @@ function runPerpetual(s) {
   }
 
   let firstYearTax = 0;
-  if (pc.taxType === 'box3')   firstYearTax = pc.drag * s.portfolio;
+  if (pc.taxType === 'box3')   firstYearTax = Math.max(0, pc.drag * s.portfolio - pc.allowanceBenefit);
   else if (pc.taxType === 'custom') firstYearTax = customTax(s.portfolio * pc.g, s.taxCustomPct || 0);
 
   return { savings, savingsRate, fiTarget, yearsToFI, unattainable: pc.unreachable, data, firstYearTax, depleteAge: null };

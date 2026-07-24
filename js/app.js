@@ -65,6 +65,8 @@ const els = {
   btnTaxBox3:   $('btn-tax-box3'),
   btnTaxCustom: $('btn-tax-custom'),
   taxBox3Info:  $('tax-box3-info'),
+  btnBox3Single:$('btn-box3-single'),
+  btnBox3Couple:$('btn-box3-couple'),
   taxCustomRow: $('tax-custom-row'),
   valTaxCustom: $('val-tax-custom'),
   taxAnnualVal: $('tax-annual-val'),
@@ -496,6 +498,7 @@ function snapshotState() {
     investReturn: state.investReturn, savingsReturn: state.savingsReturn, allocInvest: state.allocInvest,
     returnRate: state.returnRate, inflation: state.inflation, withdrawal: state.withdrawal,
     mode: state.mode, taxMode: state.taxMode, taxCustomPct: state.taxCustomPct,
+    box3Persons: state.box3Persons,
     currentAge: state.currentAge,
     terPct: state.terPct, pensionAge: state.pensionAge, pensionAmount: state.pensionAmount,
     pensionPot: state.pensionPot, pensionContrib: state.pensionContrib, events: state.events,
@@ -994,6 +997,18 @@ function wireInputs() {
   [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(btn =>
     btn.addEventListener('click', () => applyTaxMode(btn.dataset.tax))
   );
+
+  // Box 3 Single/Couple allowance toggle
+  function applyBox3Persons(n) {
+    state.box3Persons = n;
+    els.btnBox3Single.classList.toggle('active-persons', n === 1);
+    els.btnBox3Couple.classList.toggle('active-persons', n === 2);
+    recalc();
+  }
+  [els.btnBox3Single, els.btnBox3Couple].forEach(btn =>
+    btn.addEventListener('click', () => applyBox3Persons(Number(btn.dataset.persons)))
+  );
+
   els.valTaxCustom.addEventListener('input', recalc);
   els.valTaxCustom.addEventListener('blur', () => {
     const v = parseFloat(els.valTaxCustom.value);

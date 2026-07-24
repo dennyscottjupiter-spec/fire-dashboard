@@ -22,18 +22,6 @@
         <span id="pin-kpi-years">—</span>
         <span id="pin-kpi-fire-year" class="pin-fire-year"></span>
       </div>
-      <!-- Real / Nominal toggle -->
-      <div class="mode-toggle" role="group" aria-label="Calculation mode">
-        <button id="btn-real" data-mode="real"
-                class="has-tip tip-right" tabindex="0"
-                data-tip="Real Terms: strips out inflation so all values are in today's purchasing power. Contributions are also deflated. The curve is lower but more honest.">
-          Real Terms
-        </button>
-        <button id="btn-nominal" data-mode="nominal" class="active has-tip tip-right" tabindex="0"
-                data-tip="Nominal: shows raw future euro amounts including inflation. Bigger numbers, but a 2026 euro is worth less than a 2046 euro.">
-          Nominal
-        </button>
-      </div>
       <button class="io-btn has-tip tip-right" id="btn-wizard" tabindex="0"
               data-tip="Guided setup: answer a few plain-language questions and we'll fill in the sliders for you.">
         🧩 Wizard
@@ -138,9 +126,12 @@
             </span>
           </div>
           <div class="tax-toggle model-toggle" role="group" aria-label="Growth model">
-            <button class="tax-btn active-model" id="btn-model-income" data-model="income">💵 Income &amp; Return</button>
-            <button class="tax-btn"              id="btn-model-cagr"   data-model="cagr">📊 Net Worth CAGR</button>
-            <button class="tax-btn"              id="btn-model-perp"   data-model="perpetual">♾️ Perpetual</button>
+            <button class="tax-btn active-model has-tip" id="btn-model-income" data-model="income" tabindex="0"
+                    data-tip="Builds your pot from what you save each year (income minus spending) plus market growth. The most detailed model — every input on this page feeds it.">💵 Income &amp; Return</button>
+            <button class="tax-btn has-tip" id="btn-model-cagr" data-model="cagr" tabindex="0"
+                    data-tip="Skips income/spending entirely — you just tell it how fast your total net worth grows per year (a gross CAGR), and tax/fees still apply on top. Good for a quick 'what if my net worth grows at X%' check.">📊 Net Worth CAGR</button>
+            <button class="tax-btn has-tip tip-right" id="btn-model-perp" data-model="perpetual" tabindex="0"
+                    data-tip="A different question: how much capital funds your spending forever, without ever drawing it down? Answers with the principal needed for an inflation-protected income in perpetuity.">♾️ Perpetual</button>
           </div>
 
           <!-- Shown only in CAGR mode -->
@@ -338,7 +329,7 @@
         <div class="control-group">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
-                  data-tip="Tax slows your portfolio's growth each year. Box 3 (NL) is a wealth tax on assets above €57k — about 2.17%/yr. Custom lets you type your own effective rate.">
+                  data-tip="Tax slows your portfolio's growth each year. Box 3 (NL) is a wealth tax on assets above €59,357 per person — about 2.17%/yr on the taxable share. Custom lets you type your own effective rate.">
               💸 Investment Tax
             </span>
           </div>
@@ -351,7 +342,13 @@
             ≈ <span id="tax-annual-val">€0</span> est. tax this year
           </div>
           <div id="tax-box3-info" class="tax-info" style="display:none">
-            NL 2026: 36% on a deemed return of 6.0% (invested) + 1.28% (savings), on net assets above €59,357 — split taken from your Asset Allocation above.
+            NL 2026: 36% on a deemed return of 6.0% (invested) + 1.28% (savings), on net assets above the allowance below — split taken from your Asset Allocation above.
+            <div class="tax-toggle persons-toggle">
+              <button class="tax-btn has-tip" id="btn-box3-single" data-persons="1" tabindex="0"
+                      data-tip="Allowance applies once: €59,357 tax-free.">👤 Single</button>
+              <button class="tax-btn active-persons has-tip" id="btn-box3-couple" data-persons="2" tabindex="0"
+                      data-tip="Allowance applies twice for fiscal partners: €118,714 tax-free.">👫 Couple</button>
+            </div>
           </div>
           <div id="tax-custom-row" class="tax-custom-row" style="display:none">
             <span class="tax-custom-label">Effective rate on annual gains:</span>
@@ -365,13 +362,13 @@
         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 20px" />
 
         <!-- ── Costs & Income Timeline (v1.7 lifecycle) ────────── -->
-        <div class="control-group">
-          <div class="control-label">
+        <details class="control-group other-section">
+          <summary class="control-label">
             <span class="has-tip" tabindex="0"
                   data-tip="The messy realities a flat projection ignores: the fees your funds skim off every year, income that switches on at pension age, and one-off life events. All feed the age-by-age simulation.">
               🧾 Costs &amp; Income Timeline
             </span>
-          </div>
+          </summary>
 
           <!-- Fund fee / TER -->
           <div class="control-label" style="margin-top:2px">
@@ -436,7 +433,7 @@
             <button class="event-add-btn" id="btn-add-event" type="button">+ Add</button>
           </div>
           <div id="events-list" class="events-list"></div>
-        </div>
+        </details>
 
       </div><!-- /panel -->
 
@@ -504,6 +501,18 @@
                     data-tip="Monte Carlo: replays 1,000 random shuffles of a century of real market years to show the RANGE of outcomes and how often your plan survives — the honest way to see Sequence-of-Returns Risk.">🎲 Monte Carlo</button>
             <button class="proj-btn has-tip" id="btn-proj-history" data-proj="history" tabindex="0"
                     data-tip="History: pick a crash, then click the chart to choose the age it hits. Before and after that window you keep your own steady assumptions — during it, the exact real market sequence plays out (e.g. the 1929 crash or the 2000 dot-com bust).">🕰️ History</button>
+          </div>
+          <!-- Real / Nominal toggle -->
+          <div class="mode-toggle" role="group" aria-label="Calculation mode">
+            <button id="btn-real" data-mode="real"
+                    class="has-tip" tabindex="0"
+                    data-tip="Real Terms: strips out inflation so all values are in today's purchasing power. Contributions are also deflated. The curve is lower but more honest.">
+              Real Terms
+            </button>
+            <button id="btn-nominal" data-mode="nominal" class="active has-tip" tabindex="0"
+                    data-tip="Nominal: shows raw future euro amounts including inflation. Bigger numbers, but a 2026 euro is worth less than a 2046 euro.">
+              Nominal
+            </button>
           </div>
           <select id="vintage-select" class="vintage-select" style="display:none" aria-label="Historical start year"></select>
           <div id="shock-age-readout" class="shock-age-readout" style="display:none">
