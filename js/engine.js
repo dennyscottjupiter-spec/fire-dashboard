@@ -114,15 +114,11 @@ function runProjection(s) {
   const ANNUITY_YEARS  = 20;                       // pot pays out over 20 yrs from AOW
   const growthModel    = s.growthModel || 'income'; // 'income' | 'cagr' (v2.2)
 
-  // Box-3 three-bucket split (v2.3) — fixed ratios of P, derived once from today's
-  // €-denominated Savings/Investments/Debts inputs, decoupled from allocInvest.
-  const box3SavingsAmt = s.box3Savings     || 0;
-  const box3InvestAmt  = s.box3Investments != null ? s.box3Investments : s.portfolio;
-  const box3DebtAmt    = s.box3Debts       || 0;
-  const box3AssetTotal = box3SavingsAmt + box3InvestAmt;
-  const box3Ratios = box3AssetTotal > 0
-    ? { savingsRatio: box3SavingsAmt / box3AssetTotal, investRatio: box3InvestAmt / box3AssetTotal, debtRatio: box3DebtAmt / box3AssetTotal }
-    : { savingsRatio: 0, investRatio: 1, debtRatio: 0 };
+  // Box-3 split (v2.5) — re-coupled to Asset Allocation: no debt bucket, no
+  // manual € inputs. allocInvest% of the portfolio is "investments" (6.0%
+  // deemed yield), the rest is "savings" (1.28% deemed yield).
+  const alloc = s.allocInvest != null ? s.allocInvest : 100; // back-compat: 100% invested
+  const box3Ratios = { savingsRatio: (100 - alloc) / 100, investRatio: alloc / 100, debtRatio: 0 };
 
   const savings     = s.income - s.spending;
   const savingsRate = s.income > 0 ? Math.max(0, savings / s.income) * 100 : 0;

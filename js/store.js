@@ -24,10 +24,7 @@ const state = {
   mode:         'nominal',
   taxMode:      'none',   // 'none' | 'box3' | 'custom'
   taxCustomPct: 0,        // % for custom tax mode
-  // ── v2.3 Box 3 three-bucket split (decoupled from allocInvest) ──
-  box3Savings:      10000, // € — bank/savings balances (deemed yield 1.28%)
-  box3Investments:  40000, // € — investments & other assets (deemed yield 6.00%)
-  box3Debts:        0,     // € — deductible debts (reduce the base at 2.70%)
+  // Box 3 savings/invest split is derived from allocInvest (v2.5) — no separate fields.
   currentAge:   30,       // for FIRE-year + Coast FI
   // ── v1.7 lifecycle ──
   terPct:        0.2,     // % fund fee (TER) shaved off the invested return
@@ -55,7 +52,6 @@ const DEFAULTS = {
   investReturn: 7, savingsReturn: 2, allocInvest: 80,
   inflation: 2, withdrawal: 4, mode: 'nominal',
   taxMode: 'none', taxCustomPct: 0, currentAge: 30,
-  box3Savings: 10000, box3Investments: 40000, box3Debts: 0,
   terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
   pensionPot: 0, pensionContrib: 0,
   wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008,
@@ -125,24 +121,12 @@ function applyConfig(cfg) {
       b.classList.toggle('active-tax', b.dataset.tax === cfg.taxMode)
     );
     els.taxBox3Info.style.display   = cfg.taxMode === 'box3'   ? 'block' : 'none';
-    els.taxBox3Inputs.style.display = cfg.taxMode === 'box3'   ? 'flex'  : 'none';
     els.taxCustomRow.style.display  = cfg.taxMode === 'custom' ? 'flex'  : 'none';
+    updateAllocDim();
   }
   if (cfg.taxCustomPct != null) {
     state.taxCustomPct     = cfg.taxCustomPct;
     els.valTaxCustom.value = cfg.taxCustomPct;
-  }
-  if (cfg.box3Savings != null) {
-    state.box3Savings          = cfg.box3Savings;
-    els.inputBox3Savings.value = numFmt.format(cfg.box3Savings);
-  }
-  if (cfg.box3Investments != null) {
-    state.box3Investments          = cfg.box3Investments;
-    els.inputBox3Investments.value = numFmt.format(cfg.box3Investments);
-  }
-  if (cfg.box3Debts != null) {
-    state.box3Debts          = cfg.box3Debts;
-    els.inputBox3Debts.value = numFmt.format(cfg.box3Debts);
   }
   if (cfg.currentAge != null) {
     state.currentAge   = cfg.currentAge;
@@ -272,9 +256,6 @@ function exportConfig() {
     mode:          state.mode,
     taxMode:       state.taxMode,
     taxCustomPct:  state.taxCustomPct,
-    box3Savings:      state.box3Savings,
-    box3Investments:  state.box3Investments,
-    box3Debts:        state.box3Debts,
     currentAge:    state.currentAge,
     terPct:        state.terPct,
     pensionAge:    state.pensionAge,

@@ -52,19 +52,19 @@ assert('adding deductible debt lowers the tax vs no debt', debtTax < expectedMix
 const heavyDebt = { savingsRatio: 0.2, investRatio: 0.8, debtRatio: 0.9 };
 assert('heavy debt can push net worth below the allowance (no tax)', box3Tax(300000, 0, 0.02, false, heavyDebt) === 0, box3Tax(300000, 0, 0.02, false, heavyDebt), 0);
 
-/* ── runProjection — Box 3 wiring to box3Savings/Investments/Debts (v2.3) ── */
-group('runProjection — Box 3 three-bucket wiring');
+/* ── runProjection — Box 3 split derived from Asset Allocation (v2.5) ──── */
+group('runProjection — Box 3 / Asset Allocation coupling');
 const box3Base = { portfolio: 300000, income: 60000, spending: 30000, investReturn: 0, savingsReturn: 0,
   allocInvest: 100, returnRate: 0, inflation: 2, withdrawal: 4, mode: 'nominal', currentAge: 30, taxMode: 'box3' };
-const projDefaultInvest = runProjection({ ...box3Base }); // no box3* fields → back-compat 100% invest
-const projAllSavings    = runProjection({ ...box3Base, box3Savings: 300000, box3Investments: 0, box3Debts: 0 });
-assert('all-savings Box3 split pays less first-year tax than default all-invest', projAllSavings.firstYearTax < projDefaultInvest.firstYearTax, projAllSavings.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
-const projWithDebt = runProjection({ ...box3Base, box3Savings: 60000, box3Investments: 240000, box3Debts: 100000 });
-assert('declared debt lowers first-year Box3 tax vs no debt', projWithDebt.firstYearTax < projDefaultInvest.firstYearTax, projWithDebt.firstYearTax, '< ' + projDefaultInvest.firstYearTax);
-assert('Box 3 no longer keys off allocInvest', near(
-  runProjection({ ...box3Base, allocInvest: 0,   box3Savings: 0, box3Investments: 300000 }).firstYearTax,
-  runProjection({ ...box3Base, allocInvest: 100, box3Savings: 0, box3Investments: 300000 }).firstYearTax, 0.01
-), true, true);
+const projAllInvest  = runProjection({ ...box3Base, allocInvest: 100 });
+const projAllSavings = runProjection({ ...box3Base, allocInvest: 0 });
+assert('all-savings allocation pays less first-year Box3 tax than all-invest', projAllSavings.firstYearTax < projAllInvest.firstYearTax, projAllSavings.firstYearTax, '< ' + projAllInvest.firstYearTax);
+const projNoAlloc = runProjection({ ...box3Base, allocInvest: undefined });
+assert('omitting allocInvest defaults to 100% invest (back-compat)', near(projNoAlloc.firstYearTax, projAllInvest.firstYearTax, 0.01), projNoAlloc.firstYearTax, projAllInvest.firstYearTax);
+const projMix = runProjection({ ...box3Base, allocInvest: 80 });
+assert('Box 3 now keys off allocInvest (80% invest sits between the extremes)',
+  projMix.firstYearTax > projAllSavings.firstYearTax && projMix.firstYearTax < projAllInvest.firstYearTax,
+  projMix.firstYearTax, `between ${projAllSavings.firstYearTax} and ${projAllInvest.firstYearTax}`);
 
 /* ── customTax ─────────────────────────────────────────────── */
 group('customTax');

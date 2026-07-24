@@ -272,59 +272,26 @@
       text('tax-annual-val') !== '€0', text('tax-annual-val'), '!= €0');
     assert('tax-annual-val contains € symbol under Box 3',
       text('tax-annual-val').startsWith('€'), text('tax-annual-val'), 'starts with €');
+    assert('no manual Box 3 € inputs exist in the DOM (v2.5 — derived from Asset Allocation)',
+      doc.getElementById('input-box3-savings') === null, doc.getElementById('input-box3-savings'), null);
 
-    /* savings-heavy (all box3Savings) pays less than invest-heavy (all box3Investments) —
-       driven by the dedicated Box 3 € inputs, NOT the return-blend allocation slider (v2.3) */
-    setVal('input-box3-savings', '50000'); fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '0'); fireBlur('input-box3-investments');
-    const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    setVal('input-box3-savings', '0');     fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '50000'); fireBlur('input-box3-investments');
-    const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('Box 3: invest-heavy pays more tax than savings-heavy (higher deemed return)',
-      taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
-
-    /* Asset Allocation slider no longer affects Box 3 tax at all (decoupled in v2.3).
-       Freeze investReturn = savingsReturn first so moving the slider can't change the
-       blended returnRate itself — isolates whether allocInvest still leaks into Box 3. */
+    /* Box 3 split is now derived from the Asset Allocation slider (v2.5): savings-heavy
+       (allocInvest=0) pays less than invest-heavy (allocInvest=100). Freeze
+       investReturn = savingsReturn first so moving the slider can't change the blended
+       returnRate itself — isolates whether allocInvest drives Box 3 as intended. */
     setVal('val-return', '5'); fireBlur('val-return');
     setVal('val-savings', '5'); fireBlur('val-savings');
-    const taxBeforeAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    doc.getElementById('slider-alloc').value = '0';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-    const taxAfterAllocMove = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('moving the allocation slider does not change Box 3 tax', near(taxAfterAllocMove, taxBeforeAllocMove, 0.5), taxAfterAllocMove, taxBeforeAllocMove);
-
-    /* deductible debt lowers the tax */
-    setVal('input-box3-debts', '40000'); fireBlur('input-box3-debts');
-    const taxWithDebt = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
-    assert('deductible debt lowers Box 3 tax vs no debt', taxWithDebt < taxAllInvest, taxWithDebt.toFixed(0), '< ' + taxAllInvest.toFixed(0));
+    setVal('slider-alloc', '0');
+    const taxAllSavings = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    setVal('slider-alloc', '100');
+    const taxAllInvest = parseFloat(text('tax-annual-val').replace(/[€,]/g, ''));
+    assert('Box 3: invest-heavy allocation pays more tax than savings-heavy (higher deemed return)',
+      taxAllInvest > taxAllSavings, taxAllInvest.toFixed(0), '> ' + taxAllSavings.toFixed(0));
 
     /* restore */
     clickEl('btn-tax-none');
-    doc.getElementById('slider-alloc').value = '80';
-    doc.getElementById('slider-alloc').dispatchEvent(new win.Event('input', { bubbles: true }));
-    setVal('input-box3-savings', '10000'); fireBlur('input-box3-savings');
-    setVal('input-box3-investments', '40000'); fireBlur('input-box3-investments');
-    setVal('input-box3-debts', '0'); fireBlur('input-box3-debts');
+    setVal('slider-alloc', '80');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] tax readout: ${e.message}\n`; }
-
-  /* ── Box 3 three-bucket inputs (v2.3) ────────────────────── */
-  try {
-    group('Integration — Box 3 three-bucket € inputs');
-    resetBaseline();
-    clickEl('btn-tax-box3');
-    assert('tax-box3-inputs visible under Box 3', style('tax-box3-inputs').display !== 'none', style('tax-box3-inputs').display, 'flex');
-    setVal('input-box3-savings', '25000'); fireBlur('input-box3-savings');
-    assert('box3Savings = 25000', s.box3Savings === 25000, s.box3Savings, 25000);
-    assert('box3-savings formats with comma on blur', val('input-box3-savings') === '25,000', val('input-box3-savings'), '25,000');
-    setVal('input-box3-investments', '75000'); fireBlur('input-box3-investments');
-    assert('box3Investments = 75000', s.box3Investments === 75000, s.box3Investments, 75000);
-    setVal('input-box3-debts', '15000'); fireBlur('input-box3-debts');
-    assert('box3Debts = 15000', s.box3Debts === 15000, s.box3Debts, 15000);
-    clickEl('btn-tax-none');
-    assert('tax-box3-inputs hidden again', style('tax-box3-inputs').display === 'none', style('tax-box3-inputs').display, 'none');
-  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] box3 inputs: ${e.message}\n`; }
 
   /* ── macro buttons ───────────────────────────────────────── */
   try {
@@ -770,6 +737,20 @@
     assert('growthModel back to income', s.growthModel === 'income', s.growthModel, 'income');
     assert('group-income loses .model-dimmed', !doc.getElementById('group-income').classList.contains('model-dimmed'), true, true);
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] growth model toggle: ${e.message}\n`; }
+
+  /* ── updateAllocDim: Asset Allocation dims in CAGR only when Box 3 is off (v2.5) ── */
+  try {
+    group('Integration — Asset Allocation dimming follows Box 3 coupling');
+    resetBaseline();
+    clickEl('btn-tax-none');
+    clickEl('btn-model-cagr');
+    assert('group-alloc dims in CAGR mode with tax off', doc.getElementById('group-alloc').classList.contains('model-dimmed'), true, true);
+    clickEl('btn-tax-box3');
+    assert('group-alloc stays live in CAGR mode once Box 3 is on', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    clickEl('btn-model-income');
+    assert('group-alloc never dims in income model', !doc.getElementById('group-alloc').classList.contains('model-dimmed'), false, false);
+    clickEl('btn-tax-none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] alloc dimming: ${e.message}\n`; }
 
   /* ── CAGR mode drives Years-to-FIRE + FIRE-year pill ─────── */
   try {

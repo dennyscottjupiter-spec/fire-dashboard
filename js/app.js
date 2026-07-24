@@ -65,10 +65,6 @@ const els = {
   btnTaxBox3:   $('btn-tax-box3'),
   btnTaxCustom: $('btn-tax-custom'),
   taxBox3Info:  $('tax-box3-info'),
-  taxBox3Inputs:$('tax-box3-inputs'),
-  inputBox3Savings:     $('input-box3-savings'),
-  inputBox3Investments: $('input-box3-investments'),
-  inputBox3Debts:       $('input-box3-debts'),
   taxCustomRow: $('tax-custom-row'),
   valTaxCustom: $('val-tax-custom'),
   taxAnnualVal: $('tax-annual-val'),
@@ -170,9 +166,9 @@ function recalc() {
   const a = state.allocInvest / 100;
   // Fund fee (TER) is skimmed off the invested slice before blending; the engine
   // sees this net return. The fee-free blend is kept for the fee-impact readout.
-  // In CAGR mode the typed rate replaces the blend entirely — Asset Allocation has
-  // no effect there since v2.3 (Box 3 uses its own dedicated Savings/Investments/
-  // Debts split instead), which is why applyGrowthModelUI() dims it in CAGR mode.
+  // In CAGR mode the typed rate replaces the blend entirely — but Box 3 (v2.5)
+  // reads allocInvest directly, so updateAllocDim() keeps it live whenever Box 3
+  // is the active tax mode, even in CAGR mode.
   let grossReturn;
   if (state.growthModel === 'cagr') {
     grossReturn      = state.cagrPct;
@@ -190,9 +186,6 @@ function recalc() {
   state.inflation    = parseFloat(els.valInfl.value)      || 0;
   state.withdrawal   = parseFloat(els.valWR.value)        || 0;
   state.taxCustomPct = parseFloat(els.valTaxCustom.value) || 0;
-  state.box3Savings     = Math.max(0, parseNum(els.inputBox3Savings.value));
-  state.box3Investments = Math.max(0, parseNum(els.inputBox3Investments.value));
-  state.box3Debts       = Math.max(0, parseNum(els.inputBox3Debts.value));
   state.pensionAge     = Math.max(1, Math.min(100, parseNum(els.inputPensionAge.value) || 67));
   state.pensionAmount  = Math.max(0, parseNum(els.inputPensionAmount.value));
   state.pensionPot     = Math.max(0, parseNum(els.inputPensionPot.value));
@@ -394,14 +387,15 @@ function populateVintages() {
 
 /* ── 6b2. Growth Model UI (v2.2) ──────────────────────────── */
 // Shows/hides the CAGR block, dims the Income + Investment Return groups
-// (Asset Allocation stays live — it still drives the Box 3 split), and
-// disables Monte Carlo / History (they inject a sequence that would
-// silently override the typed CAGR).
+// (Asset Allocation is handled separately by updateAllocDim(), since v2.5
+// re-couples it to the Box 3 split), and disables Monte Carlo / History
+// (they inject a sequence that would silently override the typed CAGR).
 function applyGrowthModelUI() {
   const isCagr = state.growthModel === 'cagr';
   els.cagrBlock.style.display = isCagr ? 'block' : 'none';
-  [els.groupIncome, els.groupReturn, els.groupSavingsLabel, els.groupAlloc].forEach(g =>
+  [els.groupIncome, els.groupReturn, els.groupSavingsLabel].forEach(g =>
     g.classList.toggle('model-dimmed', isCagr));
+  updateAllocDim();
 
   [els.btnProjMc, els.btnProjHistory].forEach(b => { b.disabled = isCagr; });
   els.btnProjMc.title      = isCagr ? 'Disabled in Net Worth CAGR mode — it would override your typed rate' : '';
@@ -413,6 +407,13 @@ function applyGrowthModelUI() {
   }
 }
 
+// Asset Allocation dims only when it's truly inert: CAGR mode dropped it from
+// the return blend AND Box 3 isn't reading it for the savings/invest split.
+function updateAllocDim() {
+  const dim = state.growthModel === 'cagr' && state.taxMode !== 'box3';
+  els.groupAlloc.classList.toggle('model-dimmed', dim);
+}
+
 /* ── 6c. A/B scenario compare ────────────────────────────── */
 // Deterministic snapshot of the plan (returnRate is already fee-adjusted).
 function snapshotState() {
@@ -421,7 +422,6 @@ function snapshotState() {
     investReturn: state.investReturn, savingsReturn: state.savingsReturn, allocInvest: state.allocInvest,
     returnRate: state.returnRate, inflation: state.inflation, withdrawal: state.withdrawal,
     mode: state.mode, taxMode: state.taxMode, taxCustomPct: state.taxCustomPct,
-    box3Savings: state.box3Savings, box3Investments: state.box3Investments, box3Debts: state.box3Debts,
     currentAge: state.currentAge,
     terPct: state.terPct, pensionAge: state.pensionAge, pensionAmount: state.pensionAmount,
     pensionPot: state.pensionPot, pensionContrib: state.pensionContrib, events: state.events,
@@ -912,8 +912,8 @@ function wireInputs() {
       b.classList.toggle('active-tax', b.dataset.tax === mode)
     );
     els.taxBox3Info.style.display   = mode === 'box3'   ? 'block' : 'none';
-    els.taxBox3Inputs.style.display = mode === 'box3'   ? 'flex'  : 'none';
     els.taxCustomRow.style.display  = mode === 'custom' ? 'flex'  : 'none';
+    updateAllocDim();
     recalc();
   }
   [els.btnTaxNone, els.btnTaxBox3, els.btnTaxCustom].forEach(btn =>
@@ -924,11 +924,6 @@ function wireInputs() {
     const v = parseFloat(els.valTaxCustom.value);
     els.valTaxCustom.value = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
     recalc();
-  });
-  // Box 3 three-bucket € inputs
-  [els.inputBox3Savings, els.inputBox3Investments, els.inputBox3Debts].forEach(el => {
-    el.addEventListener('input', recalc);
-    el.addEventListener('blur', () => { el.value = numFmt.format(Math.max(0, parseNum(el.value))); recalc(); });
   });
 
   // Withdrawal strategy toggle
@@ -1087,8 +1082,7 @@ try {
 
 // Format seed € values that weren't overridden by loadState
 [els.portfolio, els.income, els.spending, els.inputPensionAmount,
- els.inputPensionPot, els.inputPensionContrib,
- els.inputBox3Savings, els.inputBox3Investments, els.inputBox3Debts].forEach(el => {
+ els.inputPensionPot, els.inputPensionContrib].forEach(el => {
   if (!el.value.includes(',')) el.value = numFmt.format(parseNum(el.value));
 });
 
