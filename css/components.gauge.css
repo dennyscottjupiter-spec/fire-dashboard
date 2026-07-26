@@ -1,11 +1,11 @@
 /* ============================================================
    FIRE Dashboard — components.gauge.css (6/6)
    Widget layer, part 6: Retirement Readiness gauge (speedometer),
-   Asset Allocation controls, localStorage transparency note.
+   Asset Allocation controls, localStorage transparency note, app byline.
    Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
    -> .chart.css -> .kpi.css -> HERE (last).
    @map: Gauge speedometer L9 · Asset Allocation controls L119 ·
-   localStorage note L146
+   localStorage note L146 · app byline L162
    ============================================================ */
 
 /* ── Retirement Readiness Gauge — Speedometer ────────────── */
@@ -158,3 +158,11 @@
   position: relative;
 }
 .ls-note:hover { color: rgba(255,255,255,0.5); border-color: var(--border-hi); }
+
+.app-byline {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.55;
+  text-align: right;
+  margin: 6px 2px 0;
+}

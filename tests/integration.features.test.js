@@ -8,13 +8,13 @@
    Reset button, Growth Model toggle + dimming, CAGR reverse solver +
    implied-CAGR bridge, MC/History disablement in CAGR, Perpetual
    growth model, CAGR localStorage/export-import round-trips, old
-   config backward-compat, Help modal, Export dropdown.
+   config backward-compat, Help modal, About modal, Export dropdown.
    @map: import guards L18 · backward-compat import L41 · split-return
    fields L52 · localStorage round-trip L63 · Reset button L80 · Growth
    Model dimming L115-146 · CAGR drives KPIs L148 · CAGR solver L165 ·
    implied-CAGR L188 · MC/History disabled L197 · Perpetual model L214 ·
    CAGR localStorage/export-import L249-281 · old config L284 · Reset to
-   default L297 · Help modal L313 · Export dropdown L331
+   default L297 · Help modal L313 · About modal L335 · Export dropdown L351
    ══════════════════════════════════════════════════════════ */
 window.runIntegrationFeatures = async function runIntegrationFeatures(ctx) {
   const { win, doc, s, setVal, fireBlur, clickEl, keyDown, text, val, style, resetBaseline } = ctx;
@@ -331,6 +331,21 @@ window.runIntegrationFeatures = async function runIntegrationFeatures(ctx) {
     clickEl('help-close');
     assert('Close button closes the Help modal', style('help-overlay').display === 'none', style('help-overlay').display, 'none');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] help modal: ${e.message}\n`; }
+
+  /* ── About modal (v2.8) ──────────────────────────────────── */
+  try {
+    group('Integration — About modal');
+    clickEl('btn-about');
+    assert('About opens on btn-about click', style('about-overlay').display === 'flex', style('about-overlay').display, 'flex');
+    assert('About shows the version string', text('about-version').startsWith('v'), text('about-version'), '~v*');
+    assert('About lists at most 3 features', doc.querySelectorAll('#about-features li').length <= 3, doc.querySelectorAll('#about-features li').length, '<=3');
+    assert('About credits thiago ab', text('about-overlay').includes('thiago ab'), text('about-overlay'), '~thiago ab');
+    keyDown('about-overlay', 'Escape');
+    assert('Escape closes the About modal', style('about-overlay').display === 'none', style('about-overlay').display, 'none');
+    clickEl('btn-about');
+    clickEl('about-close');
+    assert('Close button closes the About modal', style('about-overlay').display === 'none', style('about-overlay').display, 'none');
+  } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] about modal: ${e.message}\n`; }
 
   /* ── Export dropdown: JSON / PDF (v2.3) ──────────────────── */
   try {

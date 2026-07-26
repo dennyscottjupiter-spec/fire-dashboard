@@ -2,11 +2,11 @@
    FIRE Dashboard — components.chart.css (4/6)
    Widget layer, part 4: projection mode bar (Steady/MC/History),
    Monte Carlo success badge, A/B compare readout, onboarding
-   wizard, Help modal.
+   wizard, Help modal, About modal.
    Load order: base.css -> .inputs.css -> .toggles.css -> .models.css
    -> HERE -> .kpi.css -> .gauge.css.
    @map: Projection mode bar + MC badge L10 · A/B compare readout L89 ·
-   Onboarding wizard L105 · Help modal L191
+   Onboarding wizard L105 · Help modal L212 · About modal L284
    ============================================================ */
 
 /* ── Projection mode bar (v1.8 risk engine) ──────────────── */
@@ -280,4 +280,42 @@
   .help-tabs { flex-direction: row; flex-wrap: wrap; flex: 0 0 auto; }
   .help-tab-btn { flex: 1 1 auto; text-align: center; }
 }
+
+/* ── About modal (v2.8) ──────────────────────────────────── */
+.about-modal { max-width: 440px; }
+.about-version {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: 6px;
+  padding: 2px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.about-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.about-features { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.about-features li {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  padding-left: 18px;
+  position: relative;
+}
+.about-features li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+.about-credit { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; }
+.about-credit strong { color: var(--text); }
 

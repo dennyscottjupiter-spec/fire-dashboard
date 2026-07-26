@@ -4,7 +4,16 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0 → v2.8.0`
+
+## v2.8.0 — About modal (header entry point, version + features + owner credit)
+
+Branch `feature/about-modal`, merged to `master`:
+
+- New `#btn-about` in the header, between Help and Reset, opens `#about-overlay` — reuses the Help modal's overlay/dismiss pattern (backdrop click, close button, Escape) but is tab-free and short: app name + version badge, up to 3 "What's new" one-liners, and an owner credit (**thiago ab**).
+- Version is a single named constant (`APP_VERSION` in `js/app.modals.js`) — bumping a release touches exactly that one line. Shows `v2.7.0` (the version this feature shipped against); bump it alongside the next tag.
+- A quiet `thiago ab` byline now sits directly under the left panel's `.ls-note` localStorage-transparency paragraph.
+- Test suite grew from 411 → 417 tests (168 engine + 249 integration): new `Integration — About modal` group covers open/close via button, backdrop, Escape, version string, ≤3 feature cap, and the credit line.
 
 ## v2.7.0 — Event Simulator: full 11-year historical replay (fixes portfolio-to-zero bug)
 

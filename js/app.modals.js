@@ -1,13 +1,14 @@
 /* ============================================================
    FIRE Dashboard — app.modals.js
-   Controller, part 4/6: onboarding wizard + Help modal.
+   Controller, part 4/6: onboarding wizard + Help modal + About modal.
    Pure definitions only — no top-level side effects. Depends on
    app.core.js (els, state, recalc, parseNum, numFmt) + store.js
    (applyConfig) — loaded earlier, called only after app.boot.js runs.
    @map: WIZARD_STEPS L13 · openWizard/closeWizard L27 ·
          renderWizardStep L30 · wizardCapture L63 · wizardNext/wizardBack L74 ·
          finishWizard L81 · HELP_TABS L97 · renderHelpTabs L188 ·
-         renderHelpPanel L197 · openHelp/closeHelp L205
+         renderHelpPanel L197 · openHelp/closeHelp L205 ·
+         APP_VERSION/ABOUT_FEATURES L221 · openAbout/closeAbout L228
    ============================================================ */
 
 'use strict';
@@ -215,3 +216,18 @@ function openHelp(tabKey) {
   els.helpOverlay.style.display = 'flex';
 }
 function closeHelp() { els.helpOverlay.style.display = 'none'; }
+
+/* ── 6f. About modal (v2.8) ──────────────────────────────── */
+const APP_VERSION = 'v2.7.0';
+const ABOUT_FEATURES = [
+  'Event Simulator now replays the full 11-year historical dip and recovery for all five crash vintages',
+  'Perpetual growth model — the capital needed to draw an inflation-protected income forever',
+  'One-page PDF snapshot + JSON export of your whole plan',
+];
+
+function openAbout() {
+  els.aboutVersion.textContent = APP_VERSION;
+  els.aboutFeatures.innerHTML = ABOUT_FEATURES.map(f => `<li>${f}</li>`).join('');
+  els.aboutOverlay.style.display = 'flex';
+}
+function closeAbout() { els.aboutOverlay.style.display = 'none'; }

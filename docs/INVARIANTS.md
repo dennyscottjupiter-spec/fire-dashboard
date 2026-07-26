@@ -178,6 +178,12 @@ The `MILESTONES` array (in `ui.gauge.js`) drives `updateMilestones(portfolio, fi
 - Tab content lives in the `HELP_TABS` array in `app.modals.js` — each section's `tip` is a **verbatim copy** of the matching `data-tip` string in `index.html`, plus a short `extra` explanation. Keep the two in sync by hand when editing either; there's no automated link between them.
 - A few cross-referenced readouts (`#lifecycle-note`, `#cagr-implied`, the chart `panel-title`) carry a `.help-learn-more` button that deep-links to the matching tab. These sit as **siblings**, not children, of the has-tip element — `.has-tip::after` is CSS-generated content (`content: attr(data-tip)`) and can't host a real clickable child. Not every tooltip in the app has one of these links (would require rebuilding the whole tooltip system as real DOM); the Help button itself is always one click away instead (and pinned in the header — see below).
 
+## About modal (v2.8)
+
+- `#btn-about` (between Help and Reset) opens `#about-overlay`, reusing the `.help-overlay`/`.help-modal` classes (backdrop-click + Escape + close-button dismiss, same as Help) via `openAbout()`/`closeAbout()` in `app.modals.js`. No tabs — a single flat `.about-body` block.
+- Version string is the `APP_VERSION` const in `app.modals.js` — the **only** place the version is hard-coded; bumping a release means editing that one line. `openAbout()` writes it into `#about-version` and renders `ABOUT_FEATURES` (max 3 one-liners) into `#about-features` on every open, so both always reflect the current constants even if the DOM was stale.
+- The `thiago ab` byline in the left `<aside>` (`.app-byline`, directly under `.ls-note`) is static markup in `index.html` — not wired through JS, since it never changes at runtime.
+
 ## Pinned Years-to-FIRE KPI (v2.3)
 
 - `#years-fire-pin` lives inside the already-`position: sticky` header (not a separately-positioned fixed element — avoids tracking header height across the `flex-wrap` breakpoints). An `IntersectionObserver` on `#kpi-years-card` (boot section of `app.boot.js`) toggles its `.visible` class; `recalc()` unconditionally mirrors `#kpi-years`/`#kpi-fire-year` text into it every pass, so content is always fresh even while hidden.

@@ -34,12 +34,12 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `ui.gauge.js` | 142 | Retirement Readiness gauge (`buildGauge`/`updateGauge`) + `MILESTONES`/`updateMilestones`. |
 | `store.js` | 256 | `state` object, `DEFAULTS`, `applyConfig` (shared restore), `saveState`/`loadState`/`resetSavedData`. |
 | `store.io.js` | 108 | `exportConfig`/`importConfig`/`showImportError`, PDF snapshot (`buildPrintSnapshot`/`printSnapshot`). |
-| `app.core.js` | 403 | Formatters (`eur`/`numFmt`), DOM refs (`els`, incl. `eventSim`), `recalc()` — **the one heartbeat** — `bindRange`, rate stepper. |
+| `app.core.js` | 409 | Formatters (`eur`/`numFmt`), DOM refs (`els`, incl. `eventSim`, v2.8 about-modal refs), `recalc()` — **the one heartbeat** — `bindRange`, rate stepper. |
 | `app.chart.js` | 177 | `renderChart` (Steady/Monte Carlo/History — toggles `#event-sim` as one unit), `populateVintages`, Growth Model UI (`applyGrowthModelUI`/`renderPerpetual`/`updateAllocDim`). |
 | `app.scenarios.js` | 115 | A/B scenario compare (`snapshotState`/`toggleCompare`/`updateCompareReadout`) + life events manager (`renderEvents`/`addEvent`). |
-| `app.modals.js` | 217 | Onboarding wizard (`WIZARD_STEPS`/`renderWizardStep`/`finishWizard`) + Help modal (`HELP_TABS`/`renderHelpTabs`/`openHelp`). |
+| `app.modals.js` | 233 | Onboarding wizard (`WIZARD_STEPS`/`renderWizardStep`/`finishWizard`) + Help modal (`HELP_TABS`/`renderHelpTabs`/`openHelp`) + About modal (`APP_VERSION`/`ABOUT_FEATURES`/`openAbout`, v2.8). |
 | `app.io.js` | 30 | `closeExportMenu()` helper + two-step reset-confirm state (`_resetArmed`/`_disarmReset`). |
-| `app.boot.js` | 333 | `wireInputs()` (all DOM event wiring) + every top-level listener + the boot sequence. **Loaded last.** Only file with side effects. |
+| `app.boot.js` | 339 | `wireInputs()` (all DOM event wiring) + every top-level listener + the boot sequence. **Loaded last.** Only file with side effects. |
 | `explainer.js` | 166 | Standalone scene-player for `explainer.html` (progress bars, autoplay, speech narration, keyboard controls). No dependency on the main app. |
 
 ## css/ (loaded in this exact order — cascade is byte-identical to the pre-split single stylesheet)
@@ -50,12 +50,12 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `components.inputs.css` | 236 | Tooltips, control groups, collapsible sections, euro inputs, rate display, steppers, sliders. |
 | `components.toggles.css` | 209 | Macro buttons, tax toggle, costs/income timeline, life events, lifecycle note. |
 | `components.models.css` | 140 | "Learn more" links, persons/strategy/growth-model toggles, Perpetual growth model. |
-| `components.chart.css` | 284 | Projection mode bar, `.event-sim` titled wrapper (v2.6.1), Monte Carlo badge, A/B compare readout, onboarding wizard, Help modal. |
+| `components.chart.css` | 321 | Projection mode bar, `.event-sim` titled wrapper (v2.6.1), Monte Carlo badge, A/B compare readout, onboarding wizard, Help modal, About modal (v2.8). |
 | `components.kpi.css` | 169 | Dashboard column, KPI row/cards, notice banner, chart panel, milestones panel. |
-| `components.gauge.css` | 158 | Retirement Readiness gauge, Asset Allocation controls, localStorage note. |
+| `components.gauge.css` | 168 | Retirement Readiness gauge, Asset Allocation controls, localStorage note, app byline (v2.8). |
 | `explainer.css` | 263 | Styling for `explainer.html`'s scene player (extracted from its old inline `<style>`). Not linked by `index.html`. |
 
-## tests/ (411 tests = 168 engine + 243 integration)
+## tests/ (417 tests = 168 engine + 249 integration)
 
 | File | Lines | Purpose |
 |---|---|---|
@@ -64,7 +64,7 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `engine.risk.test.js` | 105 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock` (11-year hard-coded returns replay, v2.7), sequence real/nominal-toggle regression (v2.6.1), withdrawal strategies (38 asserts, 9 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
 | `integration.inputs.test.js` | 296 | Raw input-widget wiring: euro inputs, sliders/boxes, mode/tax buttons, macros, steppers, gauge, KPIs (67 asserts, 17 groups). Defines `window.runIntegrationInputs(ctx)` — doesn't self-execute. |
 | `integration.projection.test.js` | 276 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage (checks `#event-sim`, v2.6.1), Interactive History, TER fee, pension bridge, life events, A/B compare, wizard (74 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
-| `integration.features.test.js` | 345 | Import guards, localStorage round-trips, Reset button, Growth Model/CAGR/Perpetual toggles, Help modal, Export dropdown (102 asserts, 18 groups). Defines `window.runIntegrationFeatures(ctx)`. |
+| `integration.features.test.js` | 366 | Import guards, localStorage round-trips, Reset button, Growth Model/CAGR/Perpetual toggles, Help modal, About modal (v2.8), Export dropdown (108 asserts, 19 groups). Defines `window.runIntegrationFeatures(ctx)`. |
 | `integration.setup.js` | 159 | Builds the shared hidden iframe + DOM-driving helpers (`setVal`/`clickEl`/`text`/etc.) + `resetBaseline()`, packs them into `ctx`, then `await`s the three `integration.*.test.js` functions in order. Only file that calls `clearTimeout(_watchdog)`/`renderSummary()`. |
 | `tests.html` | — | Thin shell; script tags define the load order above. |
 
@@ -72,7 +72,7 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | ~680 | Markup only, all IDs wired to `els` in `app.core.js`. Already fully externalized (no inline script/style) — see its own `@map` header comment for section line-numbers. |
+| `index.html` | 701 | Markup only, all IDs wired to `els` in `app.core.js`. Already fully externalized (no inline script/style) — see its own `@map` header comment for section line-numbers. |
 | `explainer.html` | 202 | Self-contained animated feature tour. Links `css/explainer.css` + `js/explainer.js`; does **not** link the main app's css/js. |
 
 ## Docs
