@@ -56,3 +56,5 @@ Single `state` object → **`recalc()` is the only heartbeat**. Every input even
 ## Git
 
 Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.8.0 — see `docs/HISTORY.md`.
+
+**GH issue lifecycle:** after working a GitHub issue through test → push → merge to master/main, you MUST close the issue (`gh issue close <n>`, or let a `closes #n` commit message auto-close it on push) and do branch housekeeping — delete any fully-merged, fully-pushed feature branch, local **and** remote (`git branch -d` + `git push origin --delete`). Don't leave a merged issue open or a merged branch lying around.

@@ -22,3 +22,8 @@ Read before changing or running the suite. Behaviour rules under test live in `d
 ## ⚠️ Dev caching gotcha
 
 Chrome heuristic-caches `file://`-style local resources and plain `python -m http.server` sends no `Cache-Control`, so edited `js/engine.js`/`js/app.js` can be served stale (undefined fields, old test counts). Fix once with a hard reload (Ctrl+Shift+R evicts poisoned entries), or serve with `Cache-Control: no-store` during a build session.
+
+## ⚠️ Chrome MCP quirks (browser verification)
+
+- **Mobile-viewport (≤480px) checks:** the Chrome extension's `resize_window` tool doesn't reliably change `window.innerWidth` — use Playwright MCP (`browser_resize` + `browser_navigate`) instead when verifying responsive layout.
+- **`[watchdog] 45s timeout` on one integration group:** a known environmental flake tied to Chrome timer-throttling on this machine, not a code regression — it reproduces on unmodified `master` too, at a different `setTimeout`-based group each run. Re-run in a fresh tab; only treat it as a real bug if an actual assertion fails, not just the watchdog line itself.
