@@ -1,9 +1,10 @@
 <!-- @map index.html — markup only, all IDs wired to `els` in js/app.core.js.
      Already fully externalized (css/js linked, no inline <script>) — see
      docs/FILEMAP.md for the full per-file index and load order.
-     section..line: Header L20 · Main Grid L64 (Control Center panel L69 ·
-     KPI row L460 · gauge card L469 · Chart panel L495 · Milestones L549) ·
-     Onboarding wizard L616 · Help modal L634 · Print-only PDF snapshot L648 -->
+     section..line: Header L20 · Main Grid L74 (Control Center panel L77 ·
+     KPI row L470 · gauge card L479 · Chart panel L506 · Milestones L554) ·
+     Onboarding wizard L621 · Help modal L639 · About modal L653 ·
+     Print-only PDF snapshot L668 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,6 +59,10 @@
       <button class="io-btn has-tip tip-right" id="btn-help" tabindex="0"
               data-tip="Open the full explainer: every section of the dashboard, in plain language.">
         ❓ Help
+      </button>
+      <button class="io-btn has-tip tip-right" id="btn-about" tabindex="0"
+              data-tip="App version, recent features, and who built this.">
+        ℹ️ About
       </button>
       <button class="io-btn io-btn-reset has-tip tip-right" id="btn-reset" tabindex="0"
               data-tip="Clears your saved inputs from this browser's local storage and resets all values to the defaults. Your data is stored only in this browser — never uploaded anywhere.">
@@ -452,6 +457,7 @@
          data-tip="Your inputs auto-save in this browser's localStorage — a local database that never leaves your device. No server, no account, no upload. Use the 🗑 Reset button (top-right) to wipe everything and restore defaults.">
         💾 Inputs auto-saved locally only &mdash; never uploaded. Wipe anytime with the <strong>🗑 Reset</strong> button (top-right).
       </p>
+      <p class="app-byline">thiago ab</p>
     </aside>
 
     <!-- RIGHT: Dashboard Viewport -->
@@ -641,6 +647,21 @@
       <div class="help-layout">
         <div id="help-tabs" class="help-tabs" role="tablist"></div>
         <div id="help-panel" class="help-panel" role="tabpanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── About modal (v2.8) ───────────────────────────────── -->
+  <div id="about-overlay" class="help-overlay" style="display:none">
+    <div class="help-modal about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <div class="help-head">
+        <h2 id="about-title">🔥 FIRE Dashboard <span class="about-version" id="about-version"></span></h2>
+        <button id="about-close" class="wizard-skip" aria-label="Close about">Close ✕</button>
+      </div>
+      <div class="about-body">
+        <p class="about-subhead">What's new</p>
+        <ul id="about-features" class="about-features"></ul>
+        <p class="about-credit">Built by <strong>thiago ab</strong></p>
       </div>
     </div>
   </div>

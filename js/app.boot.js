@@ -5,7 +5,7 @@
    js/*.js file — this is the only file allowed to execute
    side effects (attach listeners, call recalc()/initChart()/
    buildGauge(), read/restore localStorage) at top level.
-   @map: wireInputs L14 · export/import + reset wiring L238 · boot L268
+   @map: wireInputs L14 · export/import + reset wiring L244 · boot L277
    ============================================================ */
 
 'use strict';
@@ -224,6 +224,7 @@ function wireInputs() {
     if (e.key !== 'Escape') return;
     if (els.wizardOverlay.style.display !== 'none') closeWizard();
     if (els.helpOverlay.style.display   !== 'none') closeHelp();
+    if (els.aboutOverlay.style.display  !== 'none') closeAbout();
   });
 
   // Help modal
@@ -233,6 +234,11 @@ function wireInputs() {
   document.querySelectorAll('.help-learn-more').forEach(btn =>
     btn.addEventListener('click', () => openHelp(btn.dataset.helpTab))
   );
+
+  // About modal (v2.8)
+  els.btnAbout.addEventListener('click', openAbout);
+  els.aboutClose.addEventListener('click', closeAbout);
+  els.aboutOverlay.addEventListener('click', e => { if (e.target === els.aboutOverlay) closeAbout(); });
 }
 
 /* ── 11. Export/Import + Reset — button wiring (logic lives in

@@ -28,7 +28,7 @@ Every source file carries an `@map` (large files: section name + line number) or
 
 ## Tests
 
-**411 tests** = 168 engine (split across `engine.core.test.js` + `engine.risk.test.js`, synchronous, run on `file://` too) + 243 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
+**417 tests** = 168 engine (split across `engine.core.test.js` + `engine.risk.test.js`, synchronous, run on `file://` too) + 249 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
 
 **Every UI or projection-behavior change must be verified in the real browser via Chrome MCP (or Playwright) before it's called done** — click through the actual feature, read `chart`/`state`/DOM values live, don't just reason about the code or trust the test suite alone.
 
@@ -55,4 +55,4 @@ Single `state` object → **`recalc()` is the only heartbeat**. Every input even
 
 ## Git
 
-Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.6.0 — see `docs/HISTORY.md`.
+Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.8.0 — see `docs/HISTORY.md`.
