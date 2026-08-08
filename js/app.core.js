@@ -34,6 +34,12 @@ const els = {
   portfolio:    $('input-portfolio'),
   income:       $('input-income'),
   spending:     $('input-spending'),
+  sliderSpending:      $('slider-spending'),
+  chartPanel:   $('chart-panel'),
+  btnChartFull: $('btn-chart-full'),
+  spendingImpactTarget:$('spending-impact-target'),
+  spendingImpactMult:  $('spending-impact-mult'),
+  spendingImpactDelta: $('spending-impact-delta'),
   sliderReturn: $('slider-return'),
   sliderInfl:   $('slider-inflation'),
   sliderWR:     $('slider-withdrawal'),
@@ -229,6 +235,17 @@ function recalc() {
     ? `Capital for ${eur.format(state.spending)}/yr, inflation-protected — forever`
     : `Covers ${eur.format(state.spending)}/yr · ${eur.format(state.spending / 12)}/mo`;
 
+  // ── Spending impact readout: the withdrawal-rate leverage on the FI target
+  const wr = state.withdrawal / 100;
+  if (wr > 0 && isFinite(fiTarget)) {
+    const mult  = 1 / wr;
+    const delta = 1200 / wr;
+    els.spendingImpactTarget.textContent = eur.format(fiTarget);
+    els.spendingImpactMult.textContent   = mult.toFixed(0) + '×';
+    els.spendingImpactDelta.textContent  = eur.format(delta);
+  }
+  els.sliderSpending.value = Math.min(state.spending, els.sliderSpending.max);
+
   // ── KPI: Years to FIRE
   if (yearsToFI === 0) {
     els.kpiYears.textContent = "You're FI! 🎉";
@@ -401,7 +418,9 @@ function stepRate(boxId, delta) {
   const box    = $(boxId);
   const slider = cfg.slider ? $(cfg.slider) : null;
   const curr   = parseFloat(box.value) || cfg.capMin;
-  const next   = Math.min(cfg.capMax, Math.max(cfg.capMin, parseFloat((curr + delta).toFixed(1))));
+  const step   = cfg.step || 0.5;
+  const dec    = step < 0.1 ? 2 : 1;
+  const next   = Math.min(cfg.capMax, Math.max(cfg.capMin, parseFloat((curr + delta).toFixed(dec))));
   box.value      = next;
   box._lastValid = next;
   if (slider) slider.value = Math.min(next, cfg.sliderMax);

@@ -128,7 +128,7 @@ const HELP_TABS = [
         extra: 'A higher invested share raises expected growth but also raises volatility — see the Monte Carlo / History views under Chart.' },
       { tip: 'The annual rate your cash savings or money-market account earns. Typically 1–4%, much lower than equities.',
         extra: 'Blended with the investment return, weighted by your allocation split, to get your overall expected portfolio return.' },
-      { tip: 'How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.',
+      { tip: 'Growth per year BEFORE inflation (nominal). Long-run global stocks run ≈10% nominal / ≈7% after inflation — the app subtracts your Expected Inflation separately, so don\'t pre-deduct it here.',
         extra: 'This is the pre-fee, pre-tax return — the fund fee (TER) and your tax mode both reduce what you actually keep.' },
   ] },
   { key: 'tax', icon: '🧾', label: 'Tax', sections: [
@@ -218,11 +218,11 @@ function openHelp(tabKey) {
 function closeHelp() { els.helpOverlay.style.display = 'none'; }
 
 /* ── 6f. About modal (v2.8) ──────────────────────────────── */
-const APP_VERSION = 'v2.7.0';
+const APP_VERSION = 'v2.9.0';
 const ABOUT_FEATURES = [
-  'Event Simulator now replays the full 11-year historical dip and recovery for all five crash vintages',
-  'Perpetual growth model — the capital needed to draw an inflation-protected income forever',
-  'One-page PDF snapshot + JSON export of your whole plan',
+  'Real Terms is now the default view, and contributions track inflation in both Real and Nominal modes',
+  'Fullscreen button on the Portfolio Growth Projection chart, plus a live spending-impact readout and slider',
+  'TER fund-fee stepper fixed (0.05 steps), 0.25% ETF default, and a new engine validation/backtest test suite',
 ];
 
 function openAbout() {

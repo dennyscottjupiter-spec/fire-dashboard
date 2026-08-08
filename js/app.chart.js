@@ -174,3 +174,14 @@ function updateAllocDim() {
   const dim = state.growthModel === 'cagr' && state.taxMode !== 'box3';
   els.groupAlloc.classList.toggle('model-dimmed', dim);
 }
+
+// Fullscreen toggle for the chart panel — native Fullscreen API, no custom
+// overlay/z-index/scroll-lock. Escape exits natively; fullscreenchange
+// (wired in app.boot.js) flips maintainAspectRatio + resizes the chart.
+function toggleChartFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    els.chartPanel.requestFullscreen().catch(() => {});
+  }
+}

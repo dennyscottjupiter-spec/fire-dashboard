@@ -105,6 +105,26 @@
   box-shadow: var(--shadow-card);
 }
 .chart-panel canvas { max-height: 300px; }
+.chart-expand {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  line-height: 1;
+  vertical-align: middle;
+  transition: color 0.12s;
+}
+.chart-expand:hover, .chart-expand:focus { color: var(--accent); }
+.chart-panel:fullscreen {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+}
+.chart-panel:fullscreen canvas { max-height: none; flex: 1; }
 
 /* ── Milestones ──────────────────────────────────────────── */
 .milestones-panel {

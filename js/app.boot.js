@@ -26,6 +26,12 @@ function wireInputs() {
     });
   });
 
+  // Spending slider — mirrors the euro input box, feels the FI-target leverage live
+  els.sliderSpending.addEventListener('input', () => {
+    els.spending.value = numFmt.format(parseFloat(els.sliderSpending.value));
+    recalc();
+  });
+
   // Age input
   els.inputAge.addEventListener('input', recalc);
   els.inputAge.addEventListener('blur', () => {
@@ -116,6 +122,17 @@ function wireInputs() {
       }
       recalc();
     });
+  });
+
+  // Fullscreen chart toggle
+  els.btnChartFull.addEventListener('click', toggleChartFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    const isFull = document.fullscreenElement === els.chartPanel;
+    els.btnChartFull.textContent = isFull ? '✕' : '⛶';
+    if (chartReady) {
+      chart.options.maintainAspectRatio = !isFull;
+      chart.resize();
+    }
   });
 
   // Mode toggle

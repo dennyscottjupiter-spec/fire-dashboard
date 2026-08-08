@@ -117,6 +117,10 @@
           </div>
           <input type="text" inputmode="numeric" id="input-spending"
                  class="euro-input" value="30000" placeholder="e.g. 30,000" autocomplete="off" />
+          <input type="range" id="slider-spending" min="0" max="120000" step="500" value="30000" />
+          <div class="fee-impact-readout" id="spending-impact">
+            FI number = <span id="spending-impact-target">€750,000</span> (<span id="spending-impact-mult">25×</span> spending) · +€100/mo adds <span id="spending-impact-delta">€30,000</span> to your target
+          </div>
         </div>
 
         <!-- Current Age -->
@@ -258,8 +262,8 @@
         <div class="control-group" id="group-return">
           <div class="control-label">
             <span class="has-tip" tabindex="0"
-                  data-tip="How much your invested portfolio grows per year on average. ~7% is a common global stock-market assumption. Higher risk assets can go well above 15%.">
-              📈 Investment Return
+                  data-tip="Growth per year BEFORE inflation. Long-run global stocks run ≈10% nominal / ≈7% after inflation — the app subtracts your Expected Inflation separately below, so don't pre-deduct it here.">
+              📈 Investment Return (nominal)
             </span>
             <span class="rate-display">
               <div class="steppers">
@@ -397,7 +401,7 @@
                 <button class="stepper-btn" data-box="val-ter" data-dir="1"  aria-label="Increase fund fee">▲</button>
                 <button class="stepper-btn" data-box="val-ter" data-dir="-1" aria-label="Decrease fund fee">▼</button>
               </div>
-              <input type="text" inputmode="decimal" class="value-box" id="val-ter" value="0.2" />
+              <input type="text" inputmode="decimal" class="value-box" id="val-ter" value="0.25" />
               <span class="pct-sign">%</span>
             </span>
           </div>
@@ -406,7 +410,7 @@
           </div>
           <div class="macro-btns">
             <button class="macro-btn" data-slider="slider-ter" data-val="0.05">Index 0.05%</button>
-            <button class="macro-btn" data-slider="slider-ter" data-val="0.2">ETF 0.2%</button>
+            <button class="macro-btn" data-slider="slider-ter" data-val="0.25">ETF 0.25%</button>
             <button class="macro-btn" data-slider="slider-ter" data-val="1">Active 1%</button>
           </div>
 
@@ -504,11 +508,12 @@
       </div>
 
       <!-- Chart -->
-      <div class="chart-panel">
+      <div class="chart-panel" id="chart-panel">
         <p class="panel-title has-tip" tabindex="0"
            data-tip="Blue line = your portfolio growing over time. Green dashed line = the FI target you need to hit. When blue crosses green, you're financially independent. The line turns amber once you retire and start drawing the pot down — if it flattens at €0, your money ran out under this plan (see the note above the chart). In Monte Carlo mode, the shaded band shows the 10th-90th percentile range of outcomes and the blue line inside it is the median.">
           📊 Portfolio Growth Projection
           <button class="help-learn-more" data-help-tab="chart">Learn more →</button>
+          <button class="chart-expand" id="btn-chart-full" type="button" aria-label="Expand chart to full screen" title="Full screen (Esc to exit)">⛶</button>
         </p>
         <div class="proj-mode-bar">
           <div class="proj-toggle" role="group" aria-label="Projection mode">
@@ -522,12 +527,12 @@
           <!-- Real / Nominal toggle -->
           <div class="mode-toggle" role="group" aria-label="Calculation mode">
             <button id="btn-real" data-mode="real"
-                    class="has-tip" tabindex="0"
-                    data-tip="Real Terms: strips out inflation so all values are in today's purchasing power. Contributions are also deflated. The curve is lower but more honest.">
+                    class="active has-tip" tabindex="0"
+                    data-tip="Real Terms: strips out inflation so all values are in today's purchasing power — lower numbers, but directly comparable to prices today. Recommended default.">
               Real Terms
             </button>
-            <button id="btn-nominal" data-mode="nominal" class="active has-tip" tabindex="0"
-                    data-tip="Nominal: shows raw future euro amounts including inflation. Bigger numbers, but a 2026 euro is worth less than a 2046 euro.">
+            <button id="btn-nominal" data-mode="nominal" class="has-tip" tabindex="0"
+                    data-tip="Nominal: shows raw future euro amounts including inflation. Bigger numbers, but a 2026 euro is worth less than a 2046 euro — don't compare this directly to today's prices.">
               Nominal
             </button>
           </div>
