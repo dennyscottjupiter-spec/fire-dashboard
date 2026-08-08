@@ -69,10 +69,13 @@ span.has-tip {
   z-index: 201;
 }
 
+/* :focus-visible, NOT :focus — a mouse click focuses the button and used to
+   pin the tooltip open until focus moved elsewhere. focus-visible only fires
+   for keyboard focus, so Tab users keep their tooltips. */
 .has-tip:hover::after,
-.has-tip:focus::after { opacity: 1; }
+.has-tip:focus-visible::after { opacity: 1; }
 .has-tip:hover::before,
-.has-tip:focus::before { opacity: 1; }
+.has-tip:focus-visible::before { opacity: 1; }
 
 /* For tooltips near the right edge, flip to right-aligned */
 .has-tip.tip-right::after { left: auto; right: 0; }
