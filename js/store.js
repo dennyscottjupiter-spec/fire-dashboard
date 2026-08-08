@@ -24,14 +24,14 @@ const state = {
   returnRate:   7,        // % derived blend — set every recalc(), read by runProjection
   inflation:    2,        // %
   withdrawal:   4,        // %
-  mode:         'nominal',
+  mode:         'real',
   taxMode:      'none',   // 'none' | 'box3' | 'custom'
   taxCustomPct: 0,        // % for custom tax mode
   box3Persons:  2,        // 1 (single) | 2 (couple) — multiplies the Box 3 allowance
   // Box 3 savings/invest split is derived from allocInvest (v2.5) — no separate fields.
   currentAge:   30,       // for FIRE-year + Coast FI
   // ── v1.7 lifecycle ──
-  terPct:        0.2,     // % fund fee (TER) shaved off the invested return
+  terPct:        0.25,    // % fund fee (TER) shaved off the invested return
   pensionAge:    67,      // AOW age — income streams switch on here
   pensionAmount: 0,       // AOW / state income €/yr in today's money (0 = off)
   pensionPot:    0,       // Box-1 workplace pension pot today (grows tax-free, locked)
@@ -55,9 +55,9 @@ const LS_KEY = 'fire-dashboard-state';
 const DEFAULTS = {
   portfolio: 50000, income: 60000, spending: 30000,
   investReturn: 7, savingsReturn: 2, allocInvest: 80,
-  inflation: 2, withdrawal: 4, mode: 'nominal',
+  inflation: 2, withdrawal: 4, mode: 'real',
   taxMode: 'none', taxCustomPct: 0, box3Persons: 2, currentAge: 30,
-  terPct: 0.2, pensionAge: 67, pensionAmount: 0, events: [],
+  terPct: 0.25, pensionAge: 67, pensionAmount: 0, events: [],
   pensionPot: 0, pensionContrib: 0,
   wdStrategy: 'fixed', projMode: 'steady', vintageYear: 2008, shockAge: null,
   growthModel: 'income', cagrPct: 10, targetFireAge: 45,
