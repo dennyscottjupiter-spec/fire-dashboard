@@ -37,9 +37,9 @@ const els = {
   sliderSpending:      $('slider-spending'),
   chartPanel:   $('chart-panel'),
   btnChartFull: $('btn-chart-full'),
-  spendingImpactTarget:$('spending-impact-target'),
-  spendingImpactMult:  $('spending-impact-mult'),
-  spendingImpactDelta: $('spending-impact-delta'),
+  tipSpending:  $('tip-spending'),
+  tipTax:       $('tip-tax'),
+  // spendingImpactTarget / -Mult / -Delta removed — readout now lives in the tooltip
   sliderReturn: $('slider-return'),
   sliderInfl:   $('slider-inflation'),
   sliderWR:     $('slider-withdrawal'),
@@ -164,6 +164,12 @@ const els = {
   perpSensitivity: $('perp-sensitivity'),
 };
 
+// Static tooltip copy, captured ONCE at load. recalc() re-appends the live
+// suffix to this base every pass — reading dataset.tip back each time would
+// compound the suffix on itself.
+const TIP_SPENDING_BASE = els.tipSpending.dataset.tip;
+const TIP_TAX_BASE      = els.tipTax.dataset.tip;
+
 /* ── A/B scenario compare state (module-level, not in saved config) ── */
 const LS_SCENARIO_A = 'fire-dashboard-scenario-a';
 let compareOn = false;
@@ -235,15 +241,14 @@ function recalc() {
     ? `Capital for ${eur.format(state.spending)}/yr, inflation-protected — forever`
     : `Covers ${eur.format(state.spending)}/yr · ${eur.format(state.spending / 12)}/mo`;
 
-  // ── Spending impact readout: the withdrawal-rate leverage on the FI target
+  // ── Spending impact: the withdrawal-rate leverage on the FI target.
+  // Lives in the label's tooltip (v2.10) instead of a visible readout line.
   const wr = state.withdrawal / 100;
-  if (wr > 0 && isFinite(fiTarget)) {
-    const mult  = 1 / wr;
-    const delta = 1200 / wr;
-    els.spendingImpactTarget.textContent = eur.format(fiTarget);
-    els.spendingImpactMult.textContent   = mult.toFixed(0) + '×';
-    els.spendingImpactDelta.textContent  = eur.format(delta);
-  }
+  els.tipSpending.dataset.tip = (wr > 0 && isFinite(fiTarget))
+    ? `${TIP_SPENDING_BASE} · FI number = ${eur.format(fiTarget)} `
+      + `(${(1 / wr).toFixed(0)}× spending) · +€100/mo adds `
+      + `${eur.format(1200 / wr)} to your target`
+    : TIP_SPENDING_BASE;
   els.sliderSpending.value = Math.min(state.spending, els.sliderSpending.max);
 
   // ── KPI: Years to FIRE
@@ -286,8 +291,18 @@ function recalc() {
     els.kpiYearsSub.textContent = `SR: ${srLabel} · ${savingsLabel}`;
   }
 
-  // ── Tax readout
+  // ── Tax readout — the € stays bare; the audit trail lives in the tooltip,
+  // so the number can be checked line-by-line against the Belastingdienst method.
   els.taxAnnualVal.textContent = eur.format(firstYearTax);
+  if (state.taxMode === 'box3') {
+    const b = box3Breakdown(state.portfolio, state.box3Persons || 1, state.allocInvest);
+    els.tipTax.dataset.tip = `${TIP_TAX_BASE} · This year: ${eur.format(state.portfolio)}`
+      + ` − ${eur.format(b.allowance)} allowance = ${eur.format(b.taxableBase)}`
+      + ` × ${(b.avgDeemed * 100).toFixed(2)}% avg deemed return × 36%`
+      + ` = ${eur.format(b.tax)}`;
+  } else {
+    els.tipTax.dataset.tip = TIP_TAX_BASE;
+  }
 
   // ── Fee-drag impact: rerun fee-free, compare LIFETIME wealth at the horizon.
   // Comparing at retirement is unreliable — the fee-free run reaches FI earlier and

@@ -110,7 +110,7 @@
         <!-- Spending -->
         <div class="control-group">
           <div class="control-label">
-            <span class="has-tip" tabindex="0"
+            <span class="has-tip" id="tip-spending" tabindex="0"
                   data-tip="Everything you spend in a year: rent, food, travel, fun. The gap between income and spending is what you invest.">
               🛒 Yearly Spending (€)
             </span>
@@ -118,9 +118,6 @@
           <input type="text" inputmode="numeric" id="input-spending"
                  class="euro-input" value="30000" placeholder="e.g. 30,000" autocomplete="off" />
           <input type="range" id="slider-spending" min="0" max="120000" step="500" value="30000" />
-          <div class="fee-impact-readout" id="spending-impact">
-            FI number = <span id="spending-impact-target">€750,000</span> (<span id="spending-impact-mult">25×</span> spending) · +€100/mo adds <span id="spending-impact-delta">€30,000</span> to your target
-          </div>
         </div>
 
         <!-- Current Age -->
@@ -348,7 +345,7 @@
         <!-- Tax -->
         <div class="control-group">
           <div class="control-label">
-            <span class="has-tip" tabindex="0"
+            <span class="has-tip" id="tip-tax" tabindex="0"
                   data-tip="Tax slows your portfolio's growth each year. Box 3 (NL) is a wealth tax on assets above €59,357 per person — about 2.17%/yr on the taxable share. Custom lets you type your own effective rate.">
               💸 Investment Tax
             </span>
