@@ -153,6 +153,24 @@ window.runIntegrationProjection = async function runIntegrationProjection(ctx) {
     assert('TER clamps to cap 5 on blur', s.terPct === 5, s.terPct, 5);
     setVal('val-ter', '0'); fireBlur('val-ter');
     assert('fee-impact = €0 when TER = 0', text('fee-impact-val') === '€0', text('fee-impact-val'), '€0');
+
+    // TER stepper regression (0.05 step must not get rounded away by stepRate)
+    setVal('val-ter', '0.25'); fireBlur('val-ter');
+    const terUp = doc.querySelector('.stepper-btn[data-box="val-ter"][data-dir="1"]');
+    const terDn = doc.querySelector('.stepper-btn[data-box="val-ter"][data-dir="-1"]');
+    if (terUp) terUp.click();
+    assert('TER stepper ▲ from 0.25 → exactly 0.30', s.terPct === 0.3, s.terPct, 0.3);
+    if (terDn) terDn.click();
+    assert('TER stepper ▼ from 0.30 → exactly 0.25', s.terPct === 0.25, s.terPct, 0.25);
+    if (terDn) { terDn.click(); terDn.click(); terDn.click(); terDn.click(); terDn.click(); }
+    assert('TER stepper ▼×5 from 0.25 clamps at 0.00', s.terPct === 0, s.terPct, 0);
+
+    // ETF 0.25% macro preset
+    resetBaseline();
+    const etfBtn = doc.querySelector('.macro-btn[data-slider="slider-ter"][data-val="0.25"]');
+    if (etfBtn) etfBtn.click();
+    assert('ETF 0.25% macro sets terPct = 0.25', s.terPct === 0.25, s.terPct, 0.25);
+    assert('ETF 0.25% macro button is active', etfBtn && etfBtn.classList.contains('active-macro'), etfBtn && etfBtn.className, 'active-macro');
   } catch(e) { fail++; out.innerHTML += `<span class="fail">❌</span>  [section threw] TER fee: ${e.message}\n`; }
 
   /* ── pension bridge inputs ───────────────────────────────── */
