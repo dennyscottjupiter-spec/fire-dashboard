@@ -229,10 +229,10 @@ function runProjection(s) {
       P = grown - netDraw - tax;
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
     } else {
-      // ── Accumulation: add contributions (deflated in real mode) ──
+      // ── Accumulation: add contributions (track inflation, same as a real salary) ──
       // CAGR mode already bundles savings into the growth rate, so contributions
       // are switched off to avoid double-counting them.
-      const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings / cumInfl : savings);
+      const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings : savings * cumInfl);
       taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
         ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios, box3Persons)
@@ -331,11 +331,11 @@ function perpetualCapital(s) {
 }
 
 // Inflation-sensitivity table: holds g and the tax layer fixed, re-derives r
-// and the required capital at a spread of inflation rates (0–4%). `capital`
+// and the required capital at a spread of inflation rates (1–5%). `capital`
 // is null wherever that inflation rate alone would already push r ≤ 0.
 function perpetualSensitivity(s) {
   const pc = perpetualCapital(s);
-  return [0, 0.01, 0.02, 0.03, 0.04].map(infl => {
+  return [0.01, 0.02, 0.03, 0.04, 0.05].map(infl => {
     const r = (1 + pc.n) / (1 + infl) - 1;
     return { infl, capital: r > 0 ? (pc.I - pc.allowanceBenefit) / r : null };
   });

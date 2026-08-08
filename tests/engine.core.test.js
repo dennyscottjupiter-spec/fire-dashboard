@@ -380,9 +380,9 @@ const pcUnreachable = perpetualCapital({ ...perpBase, taxMode: 'none', returnRat
 assert('r ≤ 0 → unreachable + infinite capital', pcUnreachable.unreachable === true && pcUnreachable.capital === Infinity, pcUnreachable, '{unreachable:true, capital:Infinity}');
 
 /* ── perpetualSensitivity — inflation sweep ──────────────────── */
-group('perpetualSensitivity — inflation 0–4%');
+group('perpetualSensitivity — inflation 1–5%');
 const sens = perpetualSensitivity(perpBase);
-assert('sensitivity returns 5 rows (0–4% inflation)', sens.length === 5, sens.length, 5);
+assert('sensitivity returns 5 rows (1–5% inflation)', sens.length === 5, sens.length, 5);
 assert('sensitivity is monotonically increasing capital as inflation rises', sens.every((row, i) => i === 0 || row.capital === null || sens[i - 1].capital === null || row.capital > sens[i - 1].capital), true, true);
 const sensHighInfl = perpetualSensitivity({ ...perpBase, returnRate: 3 });
 assert('sensitivity nulls out capital once r ≤ 0 at high inflation', sensHighInfl.some(row => row.capital === null), true, true);

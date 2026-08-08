@@ -1,3 +1,10 @@
+---
+title: Key invariants
+description: The recalc() data-flow and every behavioral rule (chart, rates, tax, lifecycle, mode toggle, TER, spending, fullscreen). Read before editing js/ or css/, skip for pure doc/test work.
+status: current
+updated: 2026-08-08
+---
+
 # Key invariants
 
 Detailed rules for `js/` and `css/`. Read this before editing either.
@@ -26,6 +33,7 @@ input event
 - Chart writes skipped if CDN failed (`chartReady === false`).
 - `crossoverPlugin` (`ui.chart.js`): inline Chart.js plugin drawing the FI-crossover marker; reads `chart.$fireYear`, set in `recalc()`.
 - All Chart.js font options use `Inter, "Segoe UI", sans-serif`.
+- **Fullscreen (v2.9)** — `#btn-chart-full` calls `toggleChartFullscreen()` (`app.chart.js`), which uses the native Fullscreen API on `#chart-panel` (`requestFullscreen()`/`exitFullscreen()`, `.catch(() => {})` guards a blocked request). A `fullscreenchange` listener (`app.boot.js`) flips `chart.options.maintainAspectRatio` (`false` while fullscreen so the canvas fills the viewport, `true` on exit), calls `chart.resize()`, and swaps the button glyph `⛶`/`✕`. Escape exits natively — no custom key handler, overlay, or scroll-lock. CSS: `.chart-panel:fullscreen` (in `components.kpi.css`) drops the canvas's `max-height: 300px` cap and switches to a flex column filling the screen.
 
 ## Rate inputs
 
@@ -33,7 +41,7 @@ input event
 - **Box is the source of truth**: `recalc()` reads `parseFloat(els.valReturn.value)`, not the slider.
 - Hard caps: Return 50%, Inflation 50%, WR 20%, Savings 10%. Slider track maxes lower (15/10/10, no slider for savings) and pin visually when the typed value exceeds them.
 - `box._lastValid` (on the DOM node, not a closure) stores the last valid value, so macro clicks, stepper nudges, and imports share one consistent revert value.
-- `stepRate(boxId, delta)` nudges by 0.5, guards `if (slider)` before setting slider value so it works for slider-less boxes (`val-savings`). Wired to `ArrowUp`/`ArrowDown` on all rate boxes including `val-savings`.
+- `stepRate(boxId, delta)` derives rounding precision from `cfg.step` (default `0.5`, 1 decimal) — a box with `step < 0.1` (only `val-ter`, step `0.05`) rounds to 2 decimals instead, so a 0.05 nudge isn't rounded back to itself (v2.9 fix: hard-coding `.toFixed(1)` made the TER ▲/▼ steppers a no-op). Guards `if (slider)` before setting slider value so it works for slider-less boxes (`val-savings`, `val-ter`). Wired to `ArrowUp`/`ArrowDown` on all rate boxes.
 - **Macro buttons** — each has `data-slider` and `data-val` attributes. On click, set both the slider, the box, and `box._lastValid`. `refreshMacroActive()` compares against the box value (not the slider).
 
 ## Asset allocation
@@ -57,10 +65,11 @@ Speedometer dial built entirely in SVG/CSS, no extra libraries (`ui.gauge.js`).
 
 ## Nominal vs Real mode
 
-Controlled by `state.mode`.
+Controlled by `state.mode`, default **`'real'`** (v2.9 — was `'nominal'`; Real is lower but directly comparable to today's prices, so it's the honest default).
 
-- Nominal: both portfolio and FI target inflate each year.
-- Real: FI target fixed; portfolio uses `realReturn = (1+r)/(1+infl)-1`; contributions deflated to today's purchasing power (`savings / (1+infl)^t`) so they don't overstate growth.
+- Nominal: both portfolio and FI target inflate each year; contributions scale by `cumInfl` too.
+- Real: FI target fixed; portfolio uses `realReturn = (1+r)/(1+infl)-1`; contributions stay in today's-€ terms (`savings`, no deflation).
+- **Contributions track inflation in both modes** (v2.9 — previously only Real deflated them, so the two modes silently described different worlds: Real assumed a salary that never gets a raise, Nominal assumed a growing one). The accumulation-phase `contrib` in `runProjection` is `useReal ? savings : savings * cumInfl` — this preserves the exact identity `real[t] === nominal[t] / (1+i)^t` at every `t`, which `tests/engine.validation.test.js` guards.
 
 ## Tax
 
@@ -77,7 +86,7 @@ Controlled by `state.mode`.
 ## Lifecycle (v1.7)
 
 - `runProjection` runs to `longevityAge` (95), retires at the FI crossing (accumulate → `phase:'draw'`), returns `depleteAge` (age the pot first hits €0 in retirement, else null). Each `data` point carries `{year, age, portfolio, fi, phase}`.
-- New default-guarded state: `currentAge`, `pensionAge`/`pensionAmount` (age-triggered income net off the withdrawal), `events[{age,amount,label}]` (one-off cash flows applied before growth), `terPct` (fund fee).
+- New default-guarded state: `currentAge`, `pensionAge`/`pensionAmount` (age-triggered income net off the withdrawal), `events[{age,amount,label}]` (one-off cash flows applied before growth), `terPct` (fund fee, default **0.25%** since v2.9 — was 0.2%, matches the "ETF 0.25%" macro preset being lit on first load).
 - **Fee drag** applied in `recalc()` — `returnRate = a·(investReturn − terPct) + (1−a)·savingsReturn` — so `engine.js` stays fee-agnostic. The "lost to fees over your lifetime" readout reruns fee-free and compares **terminal** wealth (comparing at retirement inverts, because the fee-free run retires earlier and is already drawing down).
 - Life events: `renderEvents()` rebuilds `#events-list` on add/remove/restore (never per keystroke); `parseSignedNum` allows negative outlays.
 - Chart: x-axis is age; draw phase colours amber via `dataset.segment.borderColor` reading `chart.$drawStart`; `eventMarkerPlugin` draws ▲/▼ markers from `chart.$events`; `#lifecycle-note` shows survive/deplete.
@@ -140,7 +149,7 @@ History mode no longer replays the *entire* timeline from a vintage year (that m
   - `custom` — income tax: `n = g × (1 − taxCustomPct/100)`; `allowanceBenefit = 0`.
   - `none` — `n = g`; `allowanceBenefit = 0`.
 - **If `r ≤ 0`** (after-tax growth can't outrun inflation), `perpetualCapital` returns `{ unreachable: true, capital: Infinity }` — no finite principal works. Surfaced as a warning (`#perp-warning`) in the UI.
-- `perpetualSensitivity(s)` holds `g` and the tax layer fixed and re-derives `r`/`capital` across a 0–4% inflation sweep (`capital: null` wherever that inflation alone would push `r ≤ 0`) — rendered as `#perp-sensitivity`.
+- `perpetualSensitivity(s)` holds `g` and the tax layer fixed and re-derives `r`/`capital` across a 1–5% inflation sweep (v2.9 — was 0–4%; `capital: null` wherever that inflation alone would push `r ≤ 0`) — rendered as `#perp-sensitivity`.
 - `runPerpetual(s)` returns the **same shape as `runProjection`** (`{ savings, savingsRate, fiTarget, yearsToFI, unattainable, data, firstYearTax, depleteAge }`) so the chart/KPI/gauge/milestone plumbing is reused unchanged. `fiTarget = perpetualCapital(s).capital`.
   - **Accumulation** (before reaching the target): simple real-terms compounding, `P = P·(1+r) + (income − spending)`, mirroring the income model's contribution but at the after-tax real rate `r`.
   - **Crossing**: `fiTarget` is an exact fixed point of the draw recursion (`r·capital + allowanceBenefit = I`) — on the year `P` first reaches it, `runPerpetual` **snaps `P` to exactly `fiTarget`** rather than carrying that year's overshoot forward, because the draw recursion amplifies any starting delta by `(1+r)` every subsequent year (unstable fixed point in the forward direction). Without the snap, "flat forever" would silently drift.
@@ -183,6 +192,10 @@ The `MILESTONES` array (in `ui.gauge.js`) drives `updateMilestones(portfolio, fi
 - `#btn-about` (between Help and Reset) opens `#about-overlay`, reusing the `.help-overlay`/`.help-modal` classes (backdrop-click + Escape + close-button dismiss, same as Help) via `openAbout()`/`closeAbout()` in `app.modals.js`. No tabs — a single flat `.about-body` block.
 - Version string is the `APP_VERSION` const in `app.modals.js` — the **only** place the version is hard-coded; bumping a release means editing that one line. `openAbout()` writes it into `#about-version` and renders `ABOUT_FEATURES` (max 3 one-liners) into `#about-features` on every open, so both always reflect the current constants even if the DOM was stale.
 - The `thiago ab` byline in the left `<aside>` (`.app-byline`, directly under `.ls-note`) is static markup in `index.html` — not wired through JS, since it never changes at runtime.
+
+## Spending impact readout (v2.9)
+
+Surfaces the withdrawal-rate leverage on the FI target (a €1,000/yr spending change moves the FI number by 25× that at a 4% WR) so it isn't invisible in the UI. In `recalc()`, once `fiTarget` is known: `mult = 1/wr`, `delta = 1200/wr` (the €/yr impact of an extra €100/mo), written into `#spending-impact-target`/`-mult`/`-delta`. `#slider-spending` mirrors `#input-spending` (writes `numFmt.format()` into the box then calls `recalc()`, same pattern as the euro-input boxes — `bindRange()` doesn't fit since it's percent/`parseFloat`-shaped); `recalc()` syncs the slider back from `state.spending` every pass so the two stay consistent regardless of which one was edited.
 
 ## Pinned Years-to-FIRE KPI (v2.3)
 
