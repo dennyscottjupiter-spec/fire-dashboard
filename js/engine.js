@@ -1,10 +1,10 @@
 /* ============================================================
    FIRE Dashboard — engine.js
    Pure math. No DOM, no Chart. Safe to unit-test.
-   @map: parseNum L15 · box3Tax L40 · customTax L56 · box1Tax L71 ·
-         runProjection L108 · solveCagrForAge L263 · impliedCagr L281 ·
-         perpetualCapital L307 · perpetualSensitivity L336 · runPerpetual L349 ·
-         coastFiTarget L389
+   @map: parseNum L15 · box3Tax L40 · box3Breakdown L60 · customTax L75 · box1Tax L90 ·
+         runProjection L127 · solveCagrForAge L282 · impliedCagr L300 ·
+         perpetualCapital L326 · perpetualSensitivity L355 · runPerpetual L368 ·
+         coastFiTarget L408
    Risk engine (mulberry32/runMonteCarlo/runHistorical*) lives in engine.risk.js.
    ============================================================ */
 
@@ -50,6 +50,25 @@ function box3Tax(P, t, infl, isReal, ratios, persons = 1) {
   const deemed = savings * BOX3.deemedSavings + investments * BOX3.deemedInvest - debts * BOX3.deemedDebt;
   const taxableShare = (netWorth - allowance) / netWorth;
   return BOX3.taxRate * Math.max(0, deemed) * taxableShare;
+}
+
+// UI companion to box3Tax: the same bill, broken into the four Belastingdienst
+// steps so the Investment Tax tooltip can show HOW it was reached. Delegates the
+// actual number back to box3Tax — never re-implements the rates.
+//   returns { allowance, avgDeemed, taxableBase, tax }
+//   identity: taxableBase × avgDeemed × BOX3.taxRate === tax
+function box3Breakdown(P, persons = 1, allocInvest = 100) {
+  const alloc     = (allocInvest != null ? allocInvest : 100) / 100;
+  const ratios    = { savingsRatio: 1 - alloc, investRatio: alloc, debtRatio: 0 };
+  const allowance = BOX3.allowance * (persons || 1);
+  const deemed    = P * ratios.savingsRatio * BOX3.deemedSavings
+                  + P * ratios.investRatio  * BOX3.deemedInvest;
+  return {
+    allowance,
+    avgDeemed:   P > 0 ? deemed / P : 0,        // weighted average deemed return
+    taxableBase: Math.max(0, P - allowance),
+    tax:         box3Tax(P, 0, 0, false, ratios, persons || 1),
+  };
 }
 
 // Capital-gains tax: pct% of that year's investment gain only.
@@ -175,6 +194,7 @@ function runProjection(s) {
     const { r: yr, infl: yinfl } = yearRates(t);
     cumInfl *= (1 + yinfl);
 
+    const peilP      = P;                      // 1-Jan balance = the Box-3 peildatum
     const prevP      = P + eventAt(age);       // life events land before growth
     const growthRate = useReal ? (1 + yr) / (1 + yinfl) - 1 : yr;
     const investGain = prevP * growthRate;
@@ -196,8 +216,10 @@ function runProjection(s) {
       annuityLeft--;
     }
 
-    // Custom tax is always on the year's gain; Box 3 is on year-end wealth.
-    let taxBase, tax;
+    // Box 3 taxes wealth held on 1 January (peildatum) — NOT year-end wealth,
+    // and not this year's contributions, which weren't there on 1 Jan.
+    // Custom tax is unchanged: it bites the year's gain.
+    let tax;
     if (retired) {
       // ── Decumulation: gross spend by strategy, net of any pension income ──
       let gross;
@@ -222,9 +244,8 @@ function runProjection(s) {
       // taxable Box-3 pool funds only the remainder (and shrinks, lowering Box 3).
       const aow     = age >= pensionAge ? (useReal ? pensionAmt : pensionAmt * cumInfl) : 0;
       const netDraw = Math.max(0, gross - aow - annuityNet);
-      taxBase = grown;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios, box3Persons)
+        ? box3Tax(peilP, t - 1, inflConst, useReal, box3Ratios, box3Persons)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = grown - netDraw - tax;
       if (P <= 0) { P = 0; if (depleteAge === null) depleteAge = age; }
@@ -233,9 +254,8 @@ function runProjection(s) {
       // CAGR mode already bundles savings into the growth rate, so contributions
       // are switched off to avoid double-counting them.
       const contrib = growthModel === 'cagr' ? 0 : (useReal ? savings : savings * cumInfl);
-      taxBase = grown + contrib;
       tax = s.taxMode === 'box3'
-        ? box3Tax(taxBase, t, inflConst, useReal, box3Ratios, box3Persons)
+        ? box3Tax(peilP, t - 1, inflConst, useReal, box3Ratios, box3Persons)
         : s.taxMode === 'custom' ? customTax(investGain, s.taxCustomPct || 0) : 0;
       P = Math.max(0, grown + contrib - tax);
     }
