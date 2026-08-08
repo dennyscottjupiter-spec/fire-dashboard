@@ -1,3 +1,10 @@
+---
+title: File map
+description: Per-file index of every js/css/tests file with line counts and the exact script load order — read this to find WHICH file to open, never to read code.
+status: current
+updated: 2026-08-08
+---
+
 # File map
 
 Read this **first** — before opening any individual `js/`, `css/`, or `tests/` file. Every file below carries its own `@map`/`@file` header with section line-numbers; this page is the index of *which file* has what, so you only open the one you need instead of reading whole files by default. See `docs/INVARIANTS.md` for behavior rules, `docs/TESTING.md` for suite details, `docs/HISTORY.md` for release lineage.
@@ -15,7 +22,7 @@ app.modals.js → app.io.js → app.boot.js
 `tests/tests.html`:
 ```
 data.js → engine.js → engine.risk.js → harness.js →
-engine.core.test.js → engine.risk.test.js →
+engine.core.test.js → engine.risk.test.js → engine.validation.test.js →
 integration.inputs.test.js → integration.projection.test.js →
 integration.features.test.js → integration.setup.js
 ```
@@ -53,15 +60,16 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `components.kpi.css` | 169 | Dashboard column, KPI row/cards, notice banner, chart panel, milestones panel. |
 | `components.gauge.css` | 168 | Retirement Readiness gauge, Asset Allocation controls, localStorage note, app byline (v2.8). |
 
-## tests/ (417 tests = 168 engine + 249 integration)
+## tests/ (445 tests = 191 engine + 254 integration)
 
 | File | Lines | Purpose |
 |---|---|---|
 | `harness.js` | 57 | Shared `assert`/`group`/`near`/`renderSummary`/watchdog infrastructure. |
 | `engine.core.test.js` | 424 | Pure-math tests: `parseNum`, tax functions, `runProjection` scenarios, `coastFiTarget`, Box-1 pension pot, CAGR mode, Perpetual model (130 asserts, 37 groups). |
 | `engine.risk.test.js` | 105 | `mulberry32`, `runMonteCarlo`, `runHistorical`, `runHistoricalShock` (11-year hard-coded returns replay, v2.7), sequence real/nominal-toggle regression (v2.6.1), withdrawal strategies (38 asserts, 9 groups). Depends on `s1` etc. declared in `engine.core.test.js` (loaded first). |
+| `engine.validation.test.js` | ~110 | v2.9 smoke/model-validation/data-integrity/backtest layer: closed-form parity, real≡deflated-nominal identity, degenerate zero-rate case, fee integrity, spending-leverage law, HIST data integrity, backtest CAGR + Trinity survival, realism gate on app defaults (23 asserts, 9 groups). Pure math — runs headless in Node too. |
 | `integration.inputs.test.js` | 296 | Raw input-widget wiring: euro inputs, sliders/boxes, mode/tax buttons, macros, steppers, gauge, KPIs (67 asserts, 17 groups). Defines `window.runIntegrationInputs(ctx)` — doesn't self-execute. |
-| `integration.projection.test.js` | 276 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage (checks `#event-sim`, v2.6.1), Interactive History, TER fee, pension bridge, life events, A/B compare, wizard (74 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
+| `integration.projection.test.js` | ~295 | Notice banner, milestones, withdrawal strategy, Monte Carlo, History vintage (checks `#event-sim`, v2.6.1), Interactive History, TER fee + stepper regression + ETF macro (v2.9), pension bridge, life events, A/B compare, wizard (79 asserts, 13 groups). Defines `window.runIntegrationProjection(ctx)`. |
 | `integration.features.test.js` | 366 | Import guards, localStorage round-trips, Reset button, Growth Model/CAGR/Perpetual toggles, Help modal, About modal (v2.8), Export dropdown (108 asserts, 19 groups). Defines `window.runIntegrationFeatures(ctx)`. |
 | `integration.setup.js` | 159 | Builds the shared hidden iframe + DOM-driving helpers (`setVal`/`clickEl`/`text`/etc.) + `resetBaseline()`, packs them into `ctx`, then `await`s the three `integration.*.test.js` functions in order. Only file that calls `clearTimeout(_watchdog)`/`renderSummary()`. |
 | `tests.html` | — | Thin shell; script tags define the load order above. |

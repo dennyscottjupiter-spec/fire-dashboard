@@ -1,10 +1,30 @@
+---
+title: Release history
+description: Tag-by-tag version lineage and branch history. Read only when tracing when a specific behavior or feature landed — not needed for day-to-day edits.
+status: current
+updated: 2026-08-08
+---
+
 # Release history
 
 Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0 → v2.8.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0 → v2.8.0 → v2.9.0`
+
+## v2.9.0 — TER stepper fix, projection realism, fullscreen chart, doc frontmatter
+
+Branch `feature/v2.9-accuracy-and-chart`, merged to `master`:
+
+- **Bugfix:** the Fund Fee (TER) ▲/▼ steppers were a no-op — `stepRate()` hard-coded `.toFixed(1)`, which rounded TER's 0.05 steps back to their starting value. Fixed by deriving rounding precision from the box's own `step` config (2 decimals when `step < 0.1`). TER's app-wide default is now **0.25%** (was 0.2%), matching the "ETF 0.25%" macro preset so it's lit on first load.
+- **Projection realism:** contributions now track inflation in **both** Real and Nominal modes (previously only Real deflated them, so the two modes described different worlds — Real implicitly assumed a salary that never got a raise). This preserves the exact `real[t] === nominal[t] / (1+i)^t` identity at every year, now guarded by the new validation suite. **Real Terms is the new default mode** (was Nominal) — lower numbers, but directly comparable to today's prices; the Investment Return input is relabelled "(nominal)" with guidance that long-run global stocks run ≈10% nominal / ≈7% after inflation.
+- **Spending impact readout:** a new slider + live readout under Yearly Spending surfaces the withdrawal-rate leverage (`FI number = spending / wr`, i.e. a €1,000/yr change moves the FI target by 25× that at a 4% WR) that was previously invisible in the UI.
+- **Fullscreen chart:** a new ⛶ button on the Portfolio Growth Projection panel uses the native Fullscreen API (`requestFullscreen`/`exitFullscreen`) — no custom overlay, scroll-lock, or z-index handling. Chart.js `maintainAspectRatio` flips off while fullscreen so the canvas fills the viewport.
+- **New validation/backtest test layer** (`tests/engine.validation.test.js`, 23 asserts): closed-form parity, the real≡deflated-nominal identity, a degenerate zero-rate case, TER fee-integrity, the spending-leverage law, HIST data-integrity checks, backtested realized CAGR (7.14%, matches published ≈7%) and Trinity-style 30-yr 4%-rule survival (≈98.6%, matches published ≈95-96%), and a realism gate on app defaults. Test suite grew 417 → **445 tests** (191 engine + 254 integration).
+- **Markdown frontmatter:** every doc (`CLAUDE.md`, `docs/FILEMAP.md`/`INVARIANTS.md`/`TESTING.md`/`HISTORY.md`) now opens with a `title`/`description`/`status`/`updated` YAML block, so an agent can decide whether to read the full file from the description alone.
+- Perpetual growth model's inflation-sensitivity table now runs **1–5%** (was 0–4%).
+- Retired the unused `explainer.html` standalone feature tour and its orphaned `css/explainer.css`/`js/explainer.js`.
 
 ## v2.8.0 — About modal (header entry point, version + features + owner credit)
 

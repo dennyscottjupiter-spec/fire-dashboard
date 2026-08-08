@@ -1,3 +1,10 @@
+---
+title: CLAUDE.md
+description: Repo-wide working rules for AI agents — doc routing, architecture summary, testing + git conventions. Read this FIRST in any session touching this repo.
+status: current
+updated: 2026-08-08
+---
+
 # CLAUDE.md
 
 Guidance for Claude Code (claude.ai/code) working in this repository. Vanilla-JS FIRE dashboard.
@@ -28,7 +35,7 @@ Every source file carries an `@map` (large files: section name + line number) or
 
 ## Tests
 
-**417 tests** = 168 engine (split across `engine.core.test.js` + `engine.risk.test.js`, synchronous, run on `file://` too) + 249 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
+**445 tests** = 191 engine (split across `engine.core.test.js` + `engine.risk.test.js` + `engine.validation.test.js`, synchronous, run on `file://` too) + 254 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
 
 **Every UI or projection-behavior change must be verified in the real browser via Chrome MCP (or Playwright) before it's called done** — click through the actual feature, read `chart`/`state`/DOM values live, don't just reason about the code or trust the test suite alone.
 
@@ -55,6 +62,6 @@ Single `state` object → **`recalc()` is the only heartbeat**. Every input even
 
 ## Git
 
-Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.8.0 — see `docs/HISTORY.md`.
+Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`. Commit after every meaningful change; use named tags as version waypoints. Currently `master` @ v2.9.0 — see `docs/HISTORY.md`.
 
 **GH issue lifecycle:** after working a GitHub issue through test → push → merge to master/main, you MUST close the issue (`gh issue close <n>`, or let a `closes #n` commit message auto-close it on push) and do branch housekeeping — delete any fully-merged, fully-pushed feature branch, local **and** remote (`git branch -d` + `git push origin --delete`). Don't leave a merged issue open or a merged branch lying around.
