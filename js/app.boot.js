@@ -129,10 +129,14 @@ function wireInputs() {
   document.addEventListener('fullscreenchange', () => {
     const isFull = document.fullscreenElement === els.chartPanel;
     els.btnChartFull.textContent = isFull ? '✕' : '⛶';
-    if (chartReady) {
-      chart.options.maintainAspectRatio = !isFull;
-      chart.resize();
-    }
+    if (!chartReady) return;
+    chart.options.maintainAspectRatio = !isFull;
+    // Chart.js wrote fullscreen pixels straight onto the canvas; drop them,
+    // then let TWO frames pass so the browser has finished un-fullscreening
+    // before Chart.js re-measures. A same-frame resize() reads the old box.
+    chart.canvas.style.width  = '';
+    chart.canvas.style.height = '';
+    requestAnimationFrame(() => requestAnimationFrame(() => chart.resize()));
   });
 
   // Mode toggle

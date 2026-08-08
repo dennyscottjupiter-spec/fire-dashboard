@@ -104,6 +104,10 @@
   padding: 20px;
   box-shadow: var(--shadow-card);
 }
+/* Canvas lives in its own box so Chart.js measures ONLY the plot area,
+   never the panel title + mode bar (that overflow is what clipped the
+   X axis in fullscreen). Auto-height in normal mode → layout unchanged. */
+.chart-canvas-wrap { position: relative; }
 .chart-panel canvas { max-height: 300px; }
 .chart-expand {
   background: transparent;
@@ -124,7 +128,10 @@
   flex-direction: column;
   padding: 32px;
 }
-.chart-panel:fullscreen canvas { max-height: none; flex: 1; }
+/* min-height:0 is load-bearing: without it the flex item refuses to shrink
+   below its content and the canvas overflows the viewport again. */
+.chart-panel:fullscreen .chart-canvas-wrap { flex: 1 1 0%; min-height: 0; }
+.chart-panel:fullscreen canvas { max-height: none; }
 
 /* ── Milestones ──────────────────────────────────────────── */
 .milestones-panel {
