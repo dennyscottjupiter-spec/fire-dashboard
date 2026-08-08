@@ -159,7 +159,8 @@ window.runIntegrationInputs = async function runIntegrationInputs(ctx) {
       text('tax-annual-val') === '€0', text('tax-annual-val'), '€0');
 
     /* Box 3 → non-zero € amount. App defaults to Couple (2-person allowance = €118,714),
-       so bump the portfolio well above that: 200k + 14k gain + 30k savings = 244k > 118,714. */
+       so bump the portfolio well above that: peildatum base is the flat 200k
+       1-Jan balance (not year-end + contributions) — still > 118,714. */
     setVal('input-portfolio', '200000'); fireBlur('input-portfolio');
     clickEl('btn-tax-box3');
     assert('tax-annual-val is non-zero under Box 3',
@@ -191,6 +192,29 @@ window.runIntegrationInputs = async function runIntegrationInputs(ctx) {
       taxSingle > taxCouple, taxSingle.toFixed(0), '> ' + taxCouple.toFixed(0));
     clickEl('btn-box3-couple');
     assert('box3Persons = 2 after clicking Couple', s.box3Persons === 2, s.box3Persons, 2);
+
+    /* v2.10 — tax breakdown moved into the tooltip */
+    clickEl('btn-tax-box3');
+    const tipTax = doc.getElementById('tip-tax').dataset.tip;
+    assert('tax tooltip carries the allowance line under Box 3',
+      tipTax.includes('allowance') && tipTax.includes('avg deemed'), tipTax.slice(-70), 'breakdown appended');
+    clickEl('btn-tax-none');
+    assert('tax tooltip drops the breakdown when tax is off',
+      !doc.getElementById('tip-tax').dataset.tip.includes('avg deemed'),
+      doc.getElementById('tip-tax').dataset.tip.slice(-40), 'base copy only');
+
+    /* v2.10 — spending impact moved into the tooltip */
+    assert('spending impact now lives in the label tooltip',
+      doc.getElementById('tip-spending').dataset.tip.includes('FI number ='),
+      doc.getElementById('tip-spending').dataset.tip.slice(-60), 'contains "FI number ="');
+    assert('old visible spending-impact readout is gone',
+      doc.getElementById('spending-impact') === null, doc.getElementById('spending-impact'), null);
+    /* Base tooltip copy must not compound across repeated recalc() passes */
+    setVal('input-portfolio', '51000'); fireBlur('input-portfolio');
+    setVal('input-portfolio', '50000'); fireBlur('input-portfolio');
+    const spendTipOccurrences = (doc.getElementById('tip-spending').dataset.tip.match(/FI number =/g) || []).length;
+    assert('spending tooltip suffix does not compound across recalcs',
+      spendTipOccurrences === 1, spendTipOccurrences, 1);
 
     /* restore */
     clickEl('btn-tax-none');

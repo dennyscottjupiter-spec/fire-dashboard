@@ -74,6 +74,48 @@ assert('Box 3 now keys off allocInvest (80% invest sits between the extremes)',
   projMix.firstYearTax > projAllSavings.firstYearTax && projMix.firstYearTax < projAllInvest.firstYearTax,
   projMix.firstYearTax, `between ${projAllSavings.firstYearTax} and ${projAllInvest.firstYearTax}`);
 
+/* ── Box 3 peildatum (v2.10) — the reported "est. tax this year" bug ───────── */
+group('Box 3 — 1-Jan peildatum base');
+// Belastingdienst worked example: €70k savings + €80k investments, single filer.
+// allocInvest = 80/150 = 53.333…% → deemed 5,696 → avg 3.797% → tax €1,239.13
+const peilBase = { portfolio: 150000, income: 60000, spending: 30000,
+  allocInvest: (80000 / 150000) * 100, returnRate: 7, inflation: 2, withdrawal: 4,
+  mode: 'nominal', currentAge: 30, taxMode: 'box3', box3Persons: 1 };
+const peilProj = runProjection(peilBase);
+assert('firstYearTax matches the Belastingdienst worked example (€1,239.13)',
+  near(peilProj.firstYearTax, 1239.13, 0.05), peilProj.firstYearTax.toFixed(2), '1239.13');
+
+// Peildatum ⇒ year-1 tax cannot depend on this year's growth or contributions.
+const peilFastGrowth = runProjection({ ...peilBase, returnRate: 25 });
+assert('year-1 tax is independent of the return rate (base is the 1-Jan balance)',
+  near(peilFastGrowth.firstYearTax, peilProj.firstYearTax, 0.01),
+  peilFastGrowth.firstYearTax, peilProj.firstYearTax);
+const peilNoSavings = runProjection({ ...peilBase, income: 30000 });   // savings = 0
+assert('year-1 tax is independent of this year\'s contributions',
+  near(peilNoSavings.firstYearTax, peilProj.firstYearTax, 0.01),
+  peilNoSavings.firstYearTax, peilProj.firstYearTax);
+// Real mode must not deflate the allowance at the very first peildatum (t-1 = 0).
+assert('real mode at t=1 equals nominal (allowance undeflated on day one)',
+  near(runProjection({ ...peilBase, mode: 'real' }).firstYearTax, peilProj.firstYearTax, 0.01),
+  true, true);
+// Both growth models now agree on the year-1 bill.
+assert('runProjection and runPerpetual agree on year-1 Box 3 tax',
+  near(runPerpetual({ ...peilBase }).firstYearTax, peilProj.firstYearTax, 1),
+  runPerpetual({ ...peilBase }).firstYearTax, peilProj.firstYearTax);
+
+group('box3Breakdown');
+const bd = box3Breakdown(150000, 1, (80000 / 150000) * 100);
+assert('allowance is the single-filer €59,357', bd.allowance === 59357, bd.allowance, 59357);
+assert('taxableBase = total capital − allowance (NOT per-category)',
+  bd.taxableBase === 150000 - 59357, bd.taxableBase, 90643);
+assert('avgDeemed is the weighted average return (3.797%)',
+  near(bd.avgDeemed, 5696 / 150000, 1e-6), bd.avgDeemed, 5696 / 150000);
+assert('breakdown identity: taxableBase × avgDeemed × 36% === tax',
+  near(bd.taxableBase * bd.avgDeemed * 0.36, bd.tax, 0.01),
+  bd.taxableBase * bd.avgDeemed * 0.36, bd.tax);
+assert('persons=2 doubles the allowance',
+  box3Breakdown(150000, 2, 100).allowance === 59357 * 2, box3Breakdown(150000, 2, 100).allowance, 118714);
+
 /* ── customTax ─────────────────────────────────────────────── */
 group('customTax');
 assert('customTax(1000, 20) = 200',       near(customTax(1000, 20), 200),   customTax(1000, 20),   200);
