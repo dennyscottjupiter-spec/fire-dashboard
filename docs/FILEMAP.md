@@ -40,7 +40,6 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `app.modals.js` | 233 | Onboarding wizard (`WIZARD_STEPS`/`renderWizardStep`/`finishWizard`) + Help modal (`HELP_TABS`/`renderHelpTabs`/`openHelp`) + About modal (`APP_VERSION`/`ABOUT_FEATURES`/`openAbout`, v2.8). |
 | `app.io.js` | 30 | `closeExportMenu()` helper + two-step reset-confirm state (`_resetArmed`/`_disarmReset`). |
 | `app.boot.js` | 339 | `wireInputs()` (all DOM event wiring) + every top-level listener + the boot sequence. **Loaded last.** Only file with side effects. |
-| `explainer.js` | 166 | Standalone scene-player for `explainer.html` (progress bars, autoplay, speech narration, keyboard controls). No dependency on the main app. |
 
 ## css/ (loaded in this exact order — cascade is byte-identical to the pre-split single stylesheet)
 
@@ -53,7 +52,6 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | `components.chart.css` | 321 | Projection mode bar, `.event-sim` titled wrapper (v2.6.1), Monte Carlo badge, A/B compare readout, onboarding wizard, Help modal, About modal (v2.8). |
 | `components.kpi.css` | 169 | Dashboard column, KPI row/cards, notice banner, chart panel, milestones panel. |
 | `components.gauge.css` | 168 | Retirement Readiness gauge, Asset Allocation controls, localStorage note, app byline (v2.8). |
-| `explainer.css` | 263 | Styling for `explainer.html`'s scene player (extracted from its old inline `<style>`). Not linked by `index.html`. |
 
 ## tests/ (417 tests = 168 engine + 249 integration)
 
@@ -73,7 +71,6 @@ The three `integration.*.test.js` files only *define* `window.runIntegration<Nam
 | File | Lines | Purpose |
 |---|---|---|
 | `index.html` | 701 | Markup only, all IDs wired to `els` in `app.core.js`. Already fully externalized (no inline script/style) — see its own `@map` header comment for section line-numbers. |
-| `explainer.html` | 202 | Self-contained animated feature tour. Links `css/explainer.css` + `js/explainer.js`; does **not** link the main app's css/js. |
 
 ## Docs
 
