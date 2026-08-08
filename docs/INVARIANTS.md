@@ -194,9 +194,9 @@ The `MILESTONES` array (in `ui.gauge.js`) drives `updateMilestones(portfolio, fi
 - Version string is the `APP_VERSION` const in `app.modals.js` — the **only** place the version is hard-coded; bumping a release means editing that one line. `openAbout()` writes it into `#about-version` and renders `ABOUT_FEATURES` (max 3 one-liners) into `#about-features` on every open, so both always reflect the current constants even if the DOM was stale.
 - The `thiago ab` byline in the left `<aside>` (`.app-byline`, directly under `.ls-note`) is static markup in `index.html` — not wired through JS, since it never changes at runtime.
 
-## Spending impact readout (v2.9)
+## Spending impact readout (v2.9, moved into tooltip v2.10)
 
-Surfaces the withdrawal-rate leverage on the FI target (a €1,000/yr spending change moves the FI number by 25× that at a 4% WR) so it isn't invisible in the UI. In `recalc()`, once `fiTarget` is known: `mult = 1/wr`, `delta = 1200/wr` (the €/yr impact of an extra €100/mo), written into `#spending-impact-target`/`-mult`/`-delta`. `#slider-spending` mirrors `#input-spending` (writes `numFmt.format()` into the box then calls `recalc()`, same pattern as the euro-input boxes — `bindRange()` doesn't fit since it's percent/`parseFloat`-shaped); `recalc()` syncs the slider back from `state.spending` every pass so the two stay consistent regardless of which one was edited.
+Surfaces the withdrawal-rate leverage on the FI target (a €1,000/yr spending change moves the FI number by 25× that at a 4% WR) so it isn't invisible in the UI. In `recalc()`, once `fiTarget` is known: `mult = 1/wr`, `delta = 1200/wr` (the €/yr impact of an extra €100/mo). **v2.10:** no longer a visible `#spending-impact` DOM line — appended to `els.tipSpending.dataset.tip`, rebuilt from the module-level `TIP_SPENDING_BASE` (captured once at load) every `recalc()` pass so the suffix never compounds on itself. `#slider-spending` mirrors `#input-spending` (writes `numFmt.format()` into the box then calls `recalc()`, same pattern as the euro-input boxes — `bindRange()` doesn't fit since it's percent/`parseFloat`-shaped); `recalc()` syncs the slider back from `state.spending` every pass so the two stay consistent regardless of which one was edited.
 
 ## Pinned Years-to-FIRE KPI (v2.3)
 

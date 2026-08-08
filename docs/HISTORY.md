@@ -11,7 +11,15 @@ Private repo `github.com/dennyscottjupiter-spec/fire-dashboard`.
 
 ## Tag history
 
-`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0 → v2.8.0 → v2.9.0`
+`css-foundation → html-structure → js-engine → v1.0.0 → finance-restyle → ux-tooltips-emojis → grouped-inputs-editable-rates → v1.1.0 → tax-box3 → fire-milestones → chart-crossover → v1.2.0 → security-csp-sri → readiness-gauge → return-split → integration-tests → v1.3.0 → pre-v1.4-baseline → speedometer-gauge → localstorage-reset → v1.4.0 → test-harness-fix → inter-font → ui-polish → reset-confirm → app-split → v1.5.0 → bugfix-gauge-reset → box3-2026-tax → typography-polish → v1.6.0 → v1.7.0 → v1.8.0 → v1.9.0 → v2.0.0 → v2.1.0 → v2.2.0 → v2.2.1 → v2.2.2 → v2.2.3 → v2.2.4 → v2.2.5 → v2.2.6 → v2.3.0 → v2.3.1 → v2.4.0 → v2.5.0 → v2.5.1 → v2.6.0 → v2.7.0 → v2.8.0 → v2.9.0 → v2.10.0`
+
+## v2.10.0 — peildatum Box 3, fullscreen chart, tooltip fixes
+
+- **Bugfix — Box 3 tax base:** Box 3 was taxing the pot *after* that year's growth and contributions, ~55% too high on a €150k/7%/€30k-contribution worked example. Dutch Box 3 is levied on the **1-January balance (peildatum)** — `runProjection` now captures the pre-growth, pre-event balance and taxes that (`t-1` exponent for the Real-mode allowance deflation, since the peildatum is the *start* of year `t`). `runPerpetual` already taxed `s.portfolio`, so the two growth models now agree on year-1 tax.
+- **New `box3Breakdown()`** in `js/engine.js` — the four-step Belastingdienst audit trail (allowance → taxable base → avg deemed return → tax), delegating the actual number back to `box3Tax` so it can't drift from the engine.
+- **Tooltip readouts:** the tax breakdown and the spending-impact readout (v2.9) both moved from visible DOM lines into their label's hover tooltip, appended to a captured base copy each `recalc()` pass.
+- **Bugfix — fullscreen chart:** the canvas now lives in its own `.chart-canvas-wrap` container so Chart.js measures only the plot area, not the whole panel; exit-resize clears stale inline sizing and waits two animation frames before `chart.resize()`.
+- **Bugfix — sticky tooltips:** `.has-tip` tooltips used `:focus`, which a mouse click also triggers, pinning them open. Switched to `:focus-visible` (keyboard-only).
 
 ## v2.9.0 — TER stepper fix, projection realism, fullscreen chart, doc frontmatter
 

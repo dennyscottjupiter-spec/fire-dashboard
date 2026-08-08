@@ -35,7 +35,7 @@ Every source file carries an `@map` (large files: section name + line number) or
 
 ## Tests
 
-**445 tests** = 191 engine (split across `engine.core.test.js` + `engine.risk.test.js` + `engine.validation.test.js`, synchronous, run on `file://` too) + 254 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
+**455 tests** = 195 engine (split across `engine.core.test.js` + `engine.risk.test.js` + `engine.validation.test.js`, synchronous, run on `file://` too) + 260 integration (split across `integration.inputs/.projection/.features.test.js`, orchestrated by `integration.setup.js`). Integration needs a same-origin iframe, so serve them: `python -m http.server 8000` → `http://localhost:8000/tests/tests.html`. Details in `docs/TESTING.md`; exact file-by-file layout in `docs/FILEMAP.md`.
 
 **Every UI or projection-behavior change must be verified in the real browser via Chrome MCP (or Playwright) before it's called done** — click through the actual feature, read `chart`/`state`/DOM values live, don't just reason about the code or trust the test suite alone.
 

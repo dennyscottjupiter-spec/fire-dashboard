@@ -218,11 +218,11 @@ function openHelp(tabKey) {
 function closeHelp() { els.helpOverlay.style.display = 'none'; }
 
 /* ── 6f. About modal (v2.8) ──────────────────────────────── */
-const APP_VERSION = 'v2.9.0';
+const APP_VERSION = 'v2.10.0';
 const ABOUT_FEATURES = [
-  'Real Terms is now the default view, and contributions track inflation in both Real and Nominal modes',
-  'Fullscreen button on the Portfolio Growth Projection chart, plus a live spending-impact readout and slider',
-  'TER fund-fee stepper fixed (0.05 steps), 0.25% ETF default, and a new engine validation/backtest test suite',
+  'Box 3 now taxes the 1-January balance (peildatum), matching the Belastingdienst method exactly',
+  'Full-screen chart keeps its X axis, and returns to the normal layout cleanly',
+  'Tooltips no longer stick after a click — and now carry the tax + spending breakdowns',
 ];
 
 function openAbout() {
